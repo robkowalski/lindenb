@@ -18,7 +18,7 @@ import java.util.zip.GZIPInputStream;
 
 public class Join
 {
-    
+
 /**
 * ColumnModel
 * a vector of indexes of the table columns
@@ -103,7 +103,7 @@ implements Comparable<ScalarList>
 	
 	public String at(int i)
 	    {
-	    return getTable().elementAt(this.row).elementAt(i);
+	    return getTable().elementAt(this.row).elementAt(getColumnModel().at(i));
 	    }
 	
 	public int getSize()
