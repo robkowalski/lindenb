@@ -19,6 +19,8 @@ import java.util.Vector;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 
+import org.lindenb.util.Compilation;
+
 
 
 
@@ -872,7 +874,9 @@ public static void main(String[] args)
                 {
                 System.out.println("Pivot [options] (<File>|<file.gz>|<url>|stdin)");
                 System.out.println("Author: Pierre Lindenbaum PhD. 2007");
+                System.out.println("Compiled on "+ Compilation.getDate()+" by "+Compilation.getUser());
                 System.out.println("$LastChangedRevision$");
+                System.out.println(" -h help (this screen)");
                 System.out.println(" -L \'column1,column2,column3,...\' columns for left. (required)");
                 System.out.println(" -T \'column1,column2,column3,...\' columns for top. (optional)");
                 System.out.println(" -D \'column1,column3,column3,...\' columns for data.(required)");

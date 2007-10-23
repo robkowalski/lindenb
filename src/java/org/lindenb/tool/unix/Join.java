@@ -2,18 +2,15 @@ package org.lindenb.tool.unix;
 
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.URL;
 import java.util.Iterator;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.Vector;
 import java.util.regex.Pattern;
-import java.util.zip.GZIPInputStream;
+
+import org.lindenb.io.IOUtils;
 
 
 public class Join
@@ -249,37 +246,6 @@ private void echo(Vector<String> row)
 	}
 
 
-private static BufferedReader open(String uri) throws IOException
-	{
-	if(	uri.startsWith("http://") ||
-			uri.startsWith("https://") ||
-			uri.startsWith("file://") ||
-			uri.startsWith("ftp://")
-    		)
-    		{
-    		URL url= new URL(uri);
-    		if(uri.endsWith(".gz"))
-        		{
-        		return new BufferedReader(new InputStreamReader(new GZIPInputStream(url.openStream())));
-        		}
-        	else
-        		{
-        		return new BufferedReader(new InputStreamReader(url.openStream()));
-        		}
-    		}
-    	else
-        	{
-        	File fin= new File(uri);
-        	if(fin.getName().endsWith(".gz"))
-        		{
-        		return new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(fin))));
-        		}
-        	else
-        		{
-        		return new BufferedReader(new FileReader(fin));
-        		}
-        	}
-	}
 
 public void exec(String[] args) throws IOException
 	{
@@ -385,17 +351,17 @@ public void exec(String[] args) throws IOException
         }
     else if(optind+1==args.length)
         {
-    	BufferedReader in=open(args[optind]);
+    	BufferedReader in=IOUtils.openReader(args[optind]);
     	input1.read(in);
     	input2.read(new BufferedReader(new InputStreamReader(System.in)));
     	in.close();
         }
     else if(optind+2==args.length)
     	{
-    	BufferedReader in=open(args[optind]);
+    	BufferedReader in=IOUtils.openReader(args[optind]);
     	input1.read(in);
     	in.close();
-    	in=open(args[optind+1]);
+    	in=IOUtils.openReader(args[optind+1]);
     	input2.read(in);
     	in.close();
     	}
