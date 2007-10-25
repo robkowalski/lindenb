@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="lindenb" default="all">
+
+ <target name="build-ant-tasks">
+	<mkdir dir="build"/>
+	<javac destdir="build">
+	  <src path="src/java"/>
+	  <include name="org/lindenb/ant/*.java"/>
+	</javac>
+ </target>
+
+ <target name="declare-ant-tasks" depends="build-ant-tasks">
+    <taskdef name="compileInfoTask"
+        classname="org.lindenb.ant.CompileInfoTask"
+        classpath="build"/>
+ </target>
+
+ <target name="all" depends="declare-ant-tasks">
+	<compileInfoTask package="jeter1.jeter2" dir="build"/>
+ </target>
+
+</project>

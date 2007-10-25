@@ -61,7 +61,9 @@ public static File getPreferredDirectory(String key)
 	
 	if(s==null || choice==null)
 		{
-		choice= new File("user.home","");
+		choice= new File(
+			System.getProperty("user.dir",
+				System.getProperty("user.home","")));
 		}
 
 

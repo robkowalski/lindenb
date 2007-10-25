@@ -20,7 +20,7 @@ public class Join
 * ColumnModel
 * a vector of indexes of the table columns
 */
-private class ColumnModel implements Iterable<Integer>
+private static class ColumnModel implements Iterable<Integer>
     {
     private Vector<Integer> indexes= new Vector<Integer>(2,1);
     private int maxCol=-1;
