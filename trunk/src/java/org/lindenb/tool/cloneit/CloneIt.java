@@ -903,10 +903,7 @@ class SiteUsage
 			}
 		}
 
-	
-	
-	
-	
+
 	
 	/*
 	if overhang are filled by polymerase.
@@ -1090,10 +1087,32 @@ class Strategy implements Comparable<Strategy>
 		Plasmid sequence=site_5.getSequence();
 		Assert.assertTrue(site_5.getSequence()==site_3.getSequence());
 		
-		out.println("Digest "+sequence.getName()+" with "+
-				site_5.getEnzyme()+" at " +site_5.getPosition()+" and "+
-				site_3.getEnzyme()+" at " +site_3.getPosition()
-				);
+		
+		out.print("  Digest "+sequence+" with ");
+		out.print(site_5.getEnzyme()+" ("+ site_5.getPosition());
+				
+		
+		/* if site SIDE_3 isn't the same enzyme at SIDE5 (take care of asymetric enz)*/
+		if(site_5.getEnzyme()!=site_3.getEnzyme())
+			{
+			out.print(") and ");
+			out.print(site_3.getEnzyme()+" ("+ site_3.getPosition()+")");
+			}
+		else	/* if sites are the same enzyme */
+			{
+			if(site_5.getSite()==site_3.getSite())
+				{
+				out.print(")");
+				}
+			/* if this isn't the same Loc*/
+			/* if this is the same Loc*/
+			else
+				{
+				out.print(").\n");
+				}
+			}
+		
+		
 		/*****************************************************************************/
 		//N_Seq = site_5.NumSeq; /* number of the sequence VECTOR or INSERT */
 		/* if the two sites are too FAR from each other, write the sequence in two times */
@@ -1101,9 +1120,9 @@ class Strategy implements Comparable<Strategy>
 		/* write first part */
 		lines[0].append("  5'  --");
 		lines[1].append("  3'  --");
-		lines[2].append("  NH2    ");
+		lines[2].append("  NH2   ");
 
-				
+
 		for(int i= site_5.getPosition() - 4;
 				i<= site_3.getPosition()+site_3.getEnzyme().size()+4;
 				++i)
@@ -1115,6 +1134,7 @@ class Strategy implements Comparable<Strategy>
 			   i= site_3.getPosition()-10;
 			   lines[0].append("--  --");
 			   lines[1].append("--  --");
+			   lines[2].append("--  --");
 			   continue;
 			   }
 			
@@ -1124,7 +1144,7 @@ class Strategy implements Comparable<Strategy>
 				{
 				lines[0].append(".");
 				lines[1].append(".");
-				lines[2].append(GeneticCode.getStandard().translate(sequence.at(i), sequence.at(i+1), sequence.at(i+2)));
+				lines[2].append(" "+GeneticCode.getStandard().translate(sequence.at(i), sequence.at(i+1), sequence.at(i+2)));
 				}
 			else
 				{
@@ -1184,6 +1204,7 @@ class Strategy implements Comparable<Strategy>
 		out.println(lines[0]);
 		out.println(lines[1]);
 		out.println(lines[2]);
+		out.println();
 		}
 	
 	
@@ -1717,6 +1738,7 @@ abstract class CloneItProgram
 	Insert insert=new Insert();
 	EnzymeList rebase=new EnzymeList();
 	
+	
 	public void setEnzymeList(EnzymeList enzymes)
 		{
 		this.rebase= new EnzymeList(enzymes);
@@ -1742,6 +1764,10 @@ abstract class CloneItProgram
 	boolean useCIAP=false;
 	Vecteur vector=new Vecteur();
 	Plasmid plasmids[]=new Plasmid[]{super.insert,vector};
+	boolean inFrameNH2=false;
+	boolean inFrameCOOH=false;
+	int max_num_stgies=100;
+	
 	
 	void digest()
 		{
@@ -1814,6 +1840,9 @@ abstract class CloneItProgram
 			for(Polymerase usePolI5: Polymerase.values())
 				{
 				if(!usePolymerase && usePolI5==Polymerase.POLYMERASE) continue;
+				if(usePolI5==Polymerase.POLYMERASE && siteI5.getEnzyme().getType()==CutType.BLUNT) continue;
+					
+				
 				/** loop over 5' in vector */
 				for(int indexV5=0; indexV5< this.vector.getSiteCount();++indexV5)
 					{
@@ -1826,11 +1855,12 @@ abstract class CloneItProgram
 					for(Polymerase usePolV5: Polymerase.values())
 						{
 						if(!usePolymerase && usePolV5==Polymerase.POLYMERASE) continue;
+						if(usePolV5==Polymerase.POLYMERASE && siteV5.getEnzyme().getType()==CutType.BLUNT) continue;
 						
 						HemiStrategy leftStgy= new HemiStrategy(
 								new SiteUsage(siteV5,usePolV5),
 								new SiteUsage(siteI5,usePolI5),
-								false
+								this.inFrameNH2
 								);
 						
 						if(!leftStgy.isValid()) continue;
@@ -1845,12 +1875,14 @@ abstract class CloneItProgram
 							for(Polymerase usePolV3: Polymerase.values())
 								{
 								if(!usePolymerase && usePolV3==Polymerase.POLYMERASE) continue;
+								if(usePolV3==Polymerase.POLYMERASE && siteV3.getEnzyme().getType()==CutType.BLUNT) continue;
+								
 								if(!useCIAP)
 									{
 									HemiStrategy stgy= new HemiStrategy(
 										new SiteUsage(siteV5,usePolV5),
 										new SiteUsage(siteV3,usePolV3),
-										false
+										this.inFrameCOOH
 										);
 									if(stgy.isValid())  continue;
 									}
@@ -1866,6 +1898,8 @@ abstract class CloneItProgram
 									for(Polymerase usePolI3:Polymerase.values())
 										{
 										if(!usePolymerase && usePolI3==Polymerase.POLYMERASE) continue;
+										if(usePolI3==Polymerase.POLYMERASE && siteI3.getEnzyme().getType()==CutType.BLUNT) continue;
+										
 										HemiStrategy rightStgy= new HemiStrategy(
 												new SiteUsage(siteI3,usePolI3),
 												new SiteUsage(siteV3,usePolV3),
@@ -1880,11 +1914,11 @@ abstract class CloneItProgram
 											);
 										strategies.add(strategy);
 										Collections.sort(strategies);
-										if(strategies.size()> 100)
+										if(strategies.size()> this.max_num_stgies)
 											{
-											strategies.setSize(100);
+											strategies.setSize(this.max_num_stgies);
 											}
-										System.err.println("COUCOU !!\n"+strategy);
+										
 										}
 									}		
 								}
@@ -1893,9 +1927,16 @@ abstract class CloneItProgram
 					}
 				}
 			}
+		echo(strategies);
 		}
 	
-
+	public void echo(Vector<Strategy> strategies)
+		{
+		for(Strategy stgy: strategies)
+			{
+			System.out.println(stgy);
+			}
+		}
 	}
 
 abstract class CloneItBase
@@ -1907,6 +1948,13 @@ abstract class CloneItBase
 	protected Insert insert=null;
 	protected int vbox[]=new int[]{-1,-1};
 	protected int ibox[]=new int[]{-1,-1,-1,-1};
+	protected boolean inFrameNH2=false;
+	protected boolean inFrameCOOH=false;
+	protected int iATG=-1;
+	protected int vATG=-1;
+	protected int max_stgies=100;
+	protected boolean use_polymerase=false;
+	protected boolean use_ciap=false;
 	
 	abstract void message(Object o);
 	
@@ -2022,6 +2070,9 @@ abstract class CloneItBase
 				throw new IllegalArgumentException("In Vector "+this.vector.getName()+" bad Polylinker");
 				}
 			
+			
+			
+			
 			SubCloning app= new SubCloning();
 			app.rebase= this.rebase;
 			app.vector= this.vector;
@@ -2032,6 +2083,33 @@ abstract class CloneItBase
 			app.insert.polylinker[Insert.BOX5_INT]=ibox[Insert.BOX5_INT];
 			app.insert.polylinker[Insert.BOX3_INT]=ibox[Insert.BOX3_INT];
 			app.insert.polylinker[Insert.BOX3]=ibox[Insert.BOX3];
+			app.inFrameNH2=this.inFrameNH2;
+			app.inFrameCOOH=this.inFrameCOOH;
+			app.useCIAP= this.use_ciap;
+			app.usePolymerase= this.use_polymerase;
+			app.max_num_stgies= this.max_stgies;
+			
+			if(this.iATG!=-1)
+				{
+				app.insert.atgPosition=this.iATG;
+				}
+			
+			if(this.vATG!=-1)
+				{
+				app.vector.atgPosition=this.vATG;
+				}
+			
+			if(this.inFrameCOOH|| this.inFrameNH2)
+				{
+				if(app.insert.atgPosition==-1)
+					{
+					app.insert.atgPosition=app.insert.findATG();
+					}
+				if(app.vector.atgPosition==-1)
+					{
+					app.vector.atgPosition=app.vector.findATG();
+					}
+				}
 			
 			app.plasmids=new Plasmid[]{app.insert,app.vector};
 			app.run();
@@ -2094,6 +2172,26 @@ class Standalone extends CloneItBase
 	         else if(args[optind].equals("-program"))
 	         	{
 	        	super.program = args[++optind];
+	         	}
+	         else if(args[optind].equals("-nh2"))
+	         	{
+	        	super.inFrameNH2=true;
+	         	}
+	         else if(args[optind].equals("-cooh"))
+	         	{
+	        	super.inFrameCOOH=true;
+	         	}
+	         else if(args[optind].equals("-ciap"))
+	         	{
+	        	super.use_ciap=true;
+	         	}
+	         else if(args[optind].equals("-pol"))
+	         	{
+	        	super.use_polymerase=true;
+	         	}
+	         else if(args[optind].equals("-max"))
+	         	{
+	        	super.max_stgies=Integer.parseInt(args[++optind].trim());;
 	         	}
 	         else if(args[optind].equals("--"))
 	             {
