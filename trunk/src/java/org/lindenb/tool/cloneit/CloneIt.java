@@ -10,12 +10,16 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.net.URL;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.Vector;
 
 import javax.swing.AbstractAction;
@@ -37,15 +41,18 @@ import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.PlainDocument;
 
+import org.lindenb.bio.GeneticCode;
 import org.lindenb.bio.NucleotideUtils;
+import org.lindenb.io.IOUtils;
 import org.lindenb.lang.ThrowablePane;
 import org.lindenb.swing.table.AbstractGenericTableModel;
 import org.lindenb.util.Algorithms;
-import org.lindenb.util.Pair;
+import org.lindenb.util.Assert;
 import org.lindenb.util.XObject;
 import org.lindenb.util.iterator.AbstractIterator;
 import org.lindenb.util.iterator.FilterIterator;
 import org.lindenb.util.iterator.YIterator;
+
 
 enum Orientation
 	{
@@ -70,14 +77,17 @@ class Enzyme
 	private String name;
 	private String fullSite;
 	private String site;
+	private String provider;
 	private int pos3_5;
 	private int pos5_3;
 	private boolean palindromic=false;
-	public Enzyme(String name,String fullSite)
+	
+	public Enzyme(String name,String fullSite, String provider)
 		{
 		this.name=name;
 		this.fullSite=fullSite;
 		this.site="";
+		this.provider=provider;
 		this.palindromic =fullSite.indexOf("^")!=-1;
 
         if(this.palindromic)
@@ -115,7 +125,10 @@ class Enzyme
 		return this.getSite().length();
 		}
 	
-
+	public String getProviders()
+		{
+		return provider;
+		}
 	
 	public String getName() {
 		return name;
@@ -203,7 +216,37 @@ class Enzyme
 		}
 	@Override
 	public String toString() {
-		return getName().toString();
+		return getName().toString()+"["+getFullSite()+"]";
+		}
+	
+	
+	public float getWeight()
+		{
+		float n=0f;
+		for(int i=0;i< size();++i)
+			{
+			switch(Character.toLowerCase(getSite().charAt(i)))
+				{
+				case 'a':
+				case 't':
+				case 'g':
+				case 'c': n+=1f;break;
+				
+				case 'y':
+				case 'r':
+				case 'm':
+				case 'k':
+				case 's':
+				case 'w': n+=0.5f;break;
+				case 'b':
+				case 'd':
+				case 'h':
+				case 'v': n+=0.25;break;
+				case 'n': n+=0f;break;
+				default:Assert.assertUnreachableStatement();break;
+				}
+			}
+		return n;
 		}
 	
 	static public boolean DNAcmp(char plasmid,char b)
@@ -289,7 +332,10 @@ class IntegerField extends JTextField
 	
 	}
 
-
+interface EnzymeSelector
+	{
+	public boolean accept(Enzyme e);
+	}
 
 class EnzymeList
 	extends AbstractGenericTableModel<Enzyme>
@@ -302,6 +348,8 @@ class EnzymeList
 	static final String COLS[]={"Use","Name","Site"};
 	private Vector<Enzyme> enzymes=new Vector<Enzyme>();
 	private HashMap<Enzyme, Boolean> enzymeUsage= new HashMap<Enzyme, Boolean>();
+	private HashMap<String, Enzyme> site2enzyme= new HashMap<String, Enzyme>();
+	private HashMap<String, TreeSet<Enzyme>> site2isoschyzomers= new HashMap<String, TreeSet<Enzyme>>();
 	
 	static private final String RE_BASE[]={
 		"AarI","CACCTGC(4/8)","AatII","GACGT^C","Acc36I","ACCTGC(4/8)","Acc65I","G^GTACC","AccBSI","CCGCTC(-3/-3)","AccI","GT^MKAC","AccII","CG^CG",
@@ -339,7 +387,7 @@ class EnzymeList
 		EnzymeList L= new EnzymeList();
 		for(int i=0;i< RE_BASE.length;i+=2)
 			{
-			Enzyme e=new Enzyme( RE_BASE[i+0], RE_BASE[i+1]);
+			Enzyme e=new Enzyme( RE_BASE[i+0], RE_BASE[i+1],"");
 			L.enzymes.add(e);
 			L.enzymeUsage.put(e,true);
 			}
@@ -374,7 +422,30 @@ class EnzymeList
 	
 	public void addEnzyme( Enzyme e)
 		{
+		TreeSet<Enzyme> set= this.site2isoschyzomers.get(e.getFullSite());
+		if(set==null)
+			{
+			set=new TreeSet<Enzyme>();
+			this.site2isoschyzomers.put(e.getFullSite(),set);
+			}
+		set.add(e);
+		
+		Enzyme old= this.site2enzyme.get(e.getFullSite());
+		
+		
+		if(old!=null)
+			{
+			if(old.getProviders().length()< e.getProviders().length())
+				{
+				int index= this.enzymes.indexOf(old);
+				this.enzymes.setElementAt(e, index);
+				this.site2enzyme.put(e.getFullSite(), e);
+				fireTableRowsUpdated(index, index);
+				}
+			 return;
+			}
 		this.enzymes.add(e);
+		this.site2enzyme.put(e.getFullSite(),e);
 		fireTableRowsInserted(getEnzymeCount()-1, getEnzymeCount()-1);
 		}
 	
@@ -454,7 +525,38 @@ class EnzymeList
 		return new EnzymeList(this);
 		}
 	
-	
+	public static EnzymeList read(BufferedReader in) throws IOException
+		{
+		EnzymeList el= new EnzymeList();
+		String line;
+		String name=null,site=null;
+		while((line=in.readLine())!=null)
+			{
+			if(!line.startsWith("<") ||
+				line.length()<3 ||
+				line.charAt(2)!='>') continue;
+			switch(line.charAt(1))
+				{
+				case '1': name= line.substring(3).trim();break;
+				case '5': site= line.substring(3).trim();break;
+				case '7':
+					{
+					String provider= line.substring(3).trim();
+					int n=site.indexOf("^");
+					if(n!=-1 &&  site.indexOf("^",n+1)==-1 &&
+							provider.length()>0)
+						{
+						Enzyme e= new Enzyme(name,site,provider);
+						el.addEnzyme(e);
+						}
+					name=null;
+					site=null;
+					break;
+					}
+				}
+			}
+		return el;
+		}
 	
 	}
 
@@ -498,6 +600,17 @@ class Site extends XObject implements Comparable<Site>
 		return this.loc;
 		}
 	
+	public int getPos5_3()
+		{
+		return this.getPosition()+getEnzyme().getPos5_3(getOrientation());
+		}
+	
+	public int getPos3_5()
+		{
+		return this.getPosition()+getEnzyme().getPos3_5(getOrientation());
+		}
+	
+	
 	public int end()
 		{
 		return getPosition()+getEnzyme().size();
@@ -523,7 +636,16 @@ class Site extends XObject implements Comparable<Site>
 	public String toString() {
 		return getEnzyme().toString()+ " on "+getSequence().getName()+" at "+getPosition();
 		}
+	
+	public char relativeAt(int index)
+		{
+		return getSequence().at(getPosition()+index);
+		}
+	
 	}
+
+
+
 class IndexIterator implements Iterator<Integer>
 	{
 	private int cur;
@@ -682,6 +804,9 @@ class SiteList  implements Iterable<Site>
 	
 	}
 
+
+
+
 enum Polymerase
 	{
 	NO_TREATMENT,
@@ -702,47 +827,231 @@ class SiteUsage
 		return polymerase;
 		}
 	
+	public Plasmid getSequence() { return getSite().getSequence();}
+	public int getPosition() { return getSite().getPosition(); }
+	public Enzyme getEnzyme() { return getSite().getEnzyme(); }
+	
+	
 	public Site getSite() {
 		return site;
 		}
-	
-	public int getPos5_3()
-		{
-		return -1;//TODO
-		}
-	
-	public int getPos3_5()
-		{
-		return -1;//TODO
-		}
 
+	@Override
+	public String toString() {
+		return getSite().toString()+(polymerase==Polymerase.NO_TREATMENT?"":" Treated with a Polymerase.");
+		}
+	
+	String print()
+		{
+		StringBuilder lines[]=new StringBuilder[3];
+		for(int i=0;i< lines.length;++i) lines[i]=new StringBuilder();
+		
+		for(int i=-10;i<=getSite().getEnzyme().size()+10;++i)
+			{
+			char c= getSite().relativeAt(i);
+			if(i>0 || i>= getSite().getEnzyme().size()) c=Character.toLowerCase(c);
+			lines[0].append(c);
+			lines[1].append(NucleotideUtils.complement(c));
+			}
+		return lines[0].append("\n").append(lines[1]).append("\n").append(lines[2]).append("\n").toString();
+		}
 	
 	}
 
-abstract class  HemiStrategy
+ class  HemiStrategy
 	{
 	protected SiteUsage siteUsages[]=new SiteUsage[2];
-	
-	public HemiStrategy(SiteUsage s1,SiteUsage s2)
+	protected boolean frameMatter;
+	public HemiStrategy(SiteUsage s1,SiteUsage s2,boolean frameMatter)
 		{
 		siteUsages[0]=s1;
 		siteUsages[1]=s2;
+		this.frameMatter=frameMatter;
 		}
-	}
-
-class LeftStrategy extends HemiStrategy
-	{
-	public LeftStrategy(SiteUsage s1,SiteUsage s2)
+	public int leftOverhang() { return left5_3()-left3_5();}
+	public int rightOverhang() { return right5_3()-right3_5();}
+	public int left5_3()	{ return priv_5_3(0); }
+	public int right5_3()	{ return priv_5_3(1); }
+	public int left3_5()	{ return priv_3_5(0); }
+	public int right3_5()	{ return priv_3_5(1); }
+	
+	private int priv_5_3(int side)
 		{
-		super(s1,s2);
+		if(siteUsages[side].getPolymerase()==Polymerase.NO_TREATMENT)
+			{
+			Site s= siteUsages[side].getSite();
+			return	s.getPosition()+
+					s.getEnzyme().getPos5_3(s.getOrientation());
+			}
+		else
+			{
+			return priv_polymerase(side);
+			}
 		}
-	}
-
-class RightStrategy extends HemiStrategy
-	{
-	public RightStrategy(SiteUsage s1,SiteUsage s2)
+	
+	private int priv_3_5(int side)
 		{
-		super(s1,s2);
+		if(siteUsages[side].getPolymerase()==Polymerase.NO_TREATMENT)
+			{
+			Site s= siteUsages[side].getSite();
+			return s.getPosition()+
+				s.getEnzyme().getPos3_5(s.getOrientation());
+			}
+		else
+			{
+			return priv_polymerase(side);
+			}
+		}
+
+	
+	
+	
+	
+	
+	/*
+	if overhang are filled by polymerase.
+		(here is an example with an EcoR1 site but you can check that it 
+		also works with Pst (5' overhanged))
+		
+		on the left (5'):
+			pos5_3--------->
+			5'NNNNNNNNNNNN_G....
+			3'NNNNNNNNNNNN_CTTAA
+			pos3_5------------->
+	
+			Pos5_3= Site.Loc+ Enzyme.pos3_5
+			Pos3_5= Site.Loc+ Enzyme.pos3_5
+			
+		on the left (3'):
+			pos5_3-->
+					AATTC_NNNNNNN 3'
+					....G_NNNNNNN 5'
+			pos3_5------>
+				
+			Pos5_3= Site.Loc+ Enzyme.pos5_3
+			Pos3_5= Site.Loc+ Enzyme.pos5_3
+	 
+	**/
+	private int priv_polymerase(int side)
+		{
+		Site s= siteUsages[side].getSite();
+		if(side==0)
+			{
+			return s.getPosition()+ s.getEnzyme().getPos3_5(s.getOrientation());
+			}
+		else
+			{
+			return s.getPosition()+ s.getEnzyme().getPos5_3(s.getOrientation());
+			}
+		}
+	
+		//Stg_2->Pos5_3[((Stg_2->Test_Trans==FALSE) ? VECTOR :Sites[NumSiteA].NumSeq)] = Sites[NumSiteA].Loc + Enzymes[Sites[NumSiteA].NumEnz].pos5_3;
+		//}
+	
+
+	
+	
+	public static boolean Fct_Identique(char a,char b)
+		{
+		return a==b;
+		}
+	
+	public boolean isValid()
+		{
+		if(!Fct_Compatible2(
+				this.siteUsages[0].getSite().getSequence(), left5_3(),left3_5(),
+				this.siteUsages[1].getSite().getSequence(), right5_3(),right3_5()
+			)) return false;
+		
+		if(this.frameMatter)
+			{
+			return  this.siteUsages[0].getSite().getSequence().getFrameAt(left5_3())==
+					this.siteUsages[1].getSite().getSequence().getFrameAt(right5_3())
+					;
+			}
+		return true;
+		}
+	
+	static boolean Fct_Compatible2(
+			Plasmid SeqA, int varA_5_3, int varA_3_5,
+			Plasmid SeqB, int varB_5_3, int varB_3_5)
+			{
+			/****************************************************************************************
+			This function check if bases from varA_5_3 to varA_3_5 on Sequence SeqA are compatible
+			with bases from varB_5_3 to varB_3_5 on Sequence SeqB
+			*****************************************************************************************/
+			
+			int overhang=(varA_5_3-varA_3_5);
+			
+			/**************************************/
+			/* non overlapping overhang allowed ? */
+			/**************************************/
+			if((overhang!=(varB_5_3-varB_3_5)))
+				{
+				return false;
+				}
+			/****************/
+			/* Enzyme blunt */
+			/****************/
+			/*
+			SeqA			SeqB
+			5-----------	----------3
+			3-----------    ----------5
+			
+			*/
+			else if(overhang==0)
+				{
+				return true;
+				}
+			/****************/
+			/*  3' overhang */
+			/****************/
+			else if(overhang>0)
+				{
+				/**************************************
+				* if len_overhang(A)<=len_overhang(B) *
+				**************************************/
+				/*
+				SeqA			SeqB
+				5-----------	       --3
+				3----------    ----------5
+				
+				*/
+				
+				for(int i=0;i< overhang ;i++)
+					{
+					if(!Fct_Identique(	SeqA.at(varA_3_5+i),SeqB.at(varB_3_5+i)))
+						{
+						return false;
+						}
+					}
+				return true;	
+				}
+			
+			/****************/
+			/*  5' overhang */
+			/****************/
+			else // if(overhang<0)
+			{
+			/**************************************
+			* if len_overhang(A)<=len_overhang(B) *
+			**************************************/
+			/*
+			SeqA			SeqB
+			5----------     ----------3
+			3-----------            --5
+			
+			*/
+			
+			for(int i=0;i< -overhang ;i++)/* negative */
+				{
+				if(!	Fct_Identique(
+						SeqA.at(varA_5_3+i),
+						SeqB.at(varB_5_3+i)))
+					return false;
+				}
+			return true;
+			}
 		}
 	}
 
@@ -752,27 +1061,205 @@ class Strategy implements Comparable<Strategy>
 	{
 	private HemiStrategy hemiStgy[]=new HemiStrategy[2];
 	
-	public Strategy(LeftStrategy s1,RightStrategy s2)
+	public Strategy(HemiStrategy s1,HemiStrategy s2)
 		{
 		hemiStgy[0]=s1;
 		hemiStgy[1]=s2;
 		}
+	
 	@Override
 	public int compareTo(Strategy o) {
 		return 0;
 		}
+	
+	/**
+	Display the sequence from site_5 to site_3
+	where the cuting site of an enzyme will be found a sign '/' will be printed
+	if the sequence position is in FRAME a sign '.' will be printed
+	if the sequence position is in FRAME the translation codon will be printed
+	****/	
+	private  void print(PrintWriter out,SiteUsage site_5,SiteUsage site_3)
+		{
+		StringBuilder lines[]=new StringBuilder[]
+            {
+			new StringBuilder(),new StringBuilder(),new StringBuilder()
+            };
+		
+		
+			
+		Plasmid sequence=site_5.getSequence();
+		Assert.assertTrue(site_5.getSequence()==site_3.getSequence());
+		
+		out.println("Digest "+sequence.getName()+" with "+
+				site_5.getEnzyme()+" at " +site_5.getPosition()+" and "+
+				site_3.getEnzyme()+" at " +site_3.getPosition()
+				);
+		/*****************************************************************************/
+		//N_Seq = site_5.NumSeq; /* number of the sequence VECTOR or INSERT */
+		/* if the two sites are too FAR from each other, write the sequence in two times */
+		
+		/* write first part */
+		lines[0].append("  5'  --");
+		lines[1].append("  3'  --");
+		lines[2].append("  NH2    ");
+
+				
+		for(int i= site_5.getPosition() - 4;
+				i<= site_3.getPosition()+site_3.getEnzyme().size()+4;
+				++i)
+			{
+			if( site_3.getPosition()-(site_5.getPosition()+site_5.getEnzyme().size()) > 50 &&	
+				i==site_5.getPosition()+site_5.getEnzyme().size()+10
+				)
+			   {
+			   i= site_3.getPosition()-10;
+			   lines[0].append("--  --");
+			   lines[1].append("--  --");
+			   continue;
+			   }
+			
+			
+			
+			if(sequence.isInFrame(i))
+				{
+				lines[0].append(".");
+				lines[1].append(".");
+				lines[2].append(GeneticCode.getStandard().translate(sequence.at(i), sequence.at(i+1), sequence.at(i+2)));
+				}
+			else
+				{
+				lines[2].append(" ");
+				}
+			
+			
+			if (i==site_5.getSite().getPos5_3() &&
+				i==site_5.getSite().getPos3_5())
+				{
+				lines[0].append("/");
+				lines[1].append("/");
+				lines[2].append(" ");
+				}
+			else if(i==site_5.getSite().getPos5_3())
+				{
+				lines[0].append("/");
+				lines[1].append(" ");
+				lines[2].append(" ");
+				}
+			else if(i==site_5.getSite().getPos3_5())
+				{
+				lines[0].append(" ");
+				lines[1].append("/");
+				lines[2].append(" ");
+				}
+			
+			
+			
+			if (i==site_3.getSite().getPos5_3() &&
+					i==site_3.getSite().getPos3_5())
+				{
+				lines[0].append("/");
+				lines[1].append("/");
+				lines[2].append(" ");
+				}
+			else if(i==site_3.getSite().getPos5_3())
+				{
+				lines[0].append("/");
+				lines[1].append(" ");
+				lines[2].append(" ");
+				}
+			else if(i==site_3.getSite().getPos3_5())
+				{
+				lines[0].append(" ");
+				lines[1].append("/");
+				lines[2].append(" ");
+				}
+			
+			lines[0].append(sequence.at(i));
+			lines[1].append(NucleotideUtils.complement( sequence.at(i)));
+			}
+		lines[0].append("--  3'");
+		lines[1].append("--  5'");
+		lines[2].append(".COOH");
+				
+		out.println(lines[0]);
+		out.println(lines[1]);
+		out.println(lines[2]);
+		}
+	
+	
+	void print(PrintWriter out)
+		{
+		print(out,hemiStgy[0].siteUsages[0],hemiStgy[1].siteUsages[1]);
+		print(out,hemiStgy[0].siteUsages[1],hemiStgy[1].siteUsages[0]);
+		}
+	
+	@Override
+	public String toString() {
+		StringWriter sw= new StringWriter();
+		PrintWriter out= new PrintWriter(sw);
+		print(out);
+		out.flush();
+		return sw.toString();
+		}
+	
 	}
+
+class Polylinker
+	{
+	String name;
+	String sequences[];
+	Polylinker(String name,String s1,String s2)
+		{
+		this.name=name;
+		this.sequences= new String[]{s1,s2};
+		}
+	}
+
+
+class PolylinkerHit
+	{
+	Polylinker polylinker;
+	int start,end;
+	PolylinkerHit(Polylinker polylinker,int start,int end)
+		{
+		this.polylinker=polylinker;
+		this.start=start;
+		this.end=end;
+		}
+	@Override
+	public String toString() {
+		return polylinker.name+" "+start+"-"+end;
+		}
+}
+
 
 /**
  * Plasmid
  * @author pierre
  *
  */
-class Plasmid
+abstract class Plasmid
 	{
+	static private Polylinker POLYLINKER[]=new Polylinker[]{
+		new Polylinker("pGAD424","CCAAAAAAAGAGATC","TTCAGTATCTACGATTCAT"),
+		new Polylinker("T7/T3","aattaaccctcactaaaggg","taatacgactcactataggg"),
+		new Polylinker("pTOPO","ACCATGATTACGCCAAGCTTG","ATACGACTCACTATAGGGCGA"),
+		new Polylinker("pFASTBAC","TATTCCGGATTATTCATACC","GATTATGATCCTCTAGTACTTCTCGAC"),
+		new Polylinker("Baculo","ttttactgttttcgtaacagtttt","cggatttccttgaagagagta"),
+		new Polylinker("pBK","ggtctatataagcagagctggt","acaggaaacagctatgaccttg"),
+		new Polylinker("GEX","atcgaaggtcg","tcagtcagtcacgatg"),
+		new Polylinker("pET25B","TAATACGACTCACTATA","CCCGTTTAGAGGCCCCAAGGGGTTA"),
+		new Polylinker("pIIIMS2-1","ttccggctagaactagtggatcc","tcgactctagaggatcg"),
+		new Polylinker("pIIIMS2-2","agagtcgacctgcaggcatgcaagctg","gctagaactagtggatcc"),
+		new Polylinker("pGBT9","CAGTTGACTGTATCGCCG","GCCCGGAATTAGCTTGG"),
+		new Polylinker("pGADGL","CCAAAAAAAGAGATC","ACTATAGGGCGAATTGG"),
+		new Polylinker("pcDNAFLAG","atggactacaaggacgacgatgacaa","cttggtaccgagctcggatcc"),
+		new Polylinker("pcDNA3","CACTATAGGGAGACCC","AGGTGACACTATAGAATA")
+		};
 	private String name="";
 	private byte sequence[];
 	private SiteList sites=new SiteList();
+	protected int atgPosition =-1;
 	
 	public Plasmid()
 		{
@@ -782,12 +1269,24 @@ class Plasmid
 		return sites;
 		}
 	
-	public void digest(EnzymeList rebase)
+	public Site getSiteAt(int index)
+		{
+		return getSites().getSiteAt(index);
+		}
+	
+	public int getSiteCount()
+		{
+		return getSites().getSiteCount();
+		}
+	
+	
+	public void digest(EnzymeList rebase,EnzymeSelector selector)
 		{
 		getSites().clear();
 		
 		for(Enzyme e: rebase)
 			{
+			if(selector!=null && !selector.accept(e)) continue;
 			for(Orientation orient: Orientation.values())
 				{
 				for(int i=0;i< size();++i)
@@ -795,7 +1294,7 @@ class Plasmid
 					int j=0;
 					for(j=0;j<e.size();++j)
 						{
-						if(at(i+j)!='?')
+						if(!Enzyme.DNAcmp(at(i+j),e.getCharAt(j, orient)))
 							{
 							break;
 							}
@@ -803,6 +1302,9 @@ class Plasmid
 					if(j==e.size())
 						{
 						getSites().addSite( new Site(this,e,i,orient) );
+						//System.err.print(""+e+" ");
+						//for(j=0;j<e.size();++j) System.err.print(at(i+j));
+						//System.err.println();
 						}
 					}
 				if(e.isPalindromic()) break;
@@ -813,7 +1315,7 @@ class Plasmid
 	
 	public char at(int index)
 		{
-		return (char)sequence[index];
+		return (char)sequence[index%size()];
 		}
 	
 	public int size()
@@ -862,7 +1364,11 @@ class Plasmid
 			}
 		this.sequence= new byte[j];
 		System.arraycopy(array, 0, this.sequence, 0, this.sequence.length);
+		System.err.println("setSequence "+getName()+" "+size());
 		}
+	
+	public abstract int findATG();
+	public abstract String getSpanColor();
 	
 	public int indexOf(CharSequence substr,int pos)
 		{
@@ -878,8 +1384,10 @@ class Plasmid
 		return -1;
 		}
 	
-	public Pair<Integer,Integer> findPolylinker(String forward,String reverse)
+	public PolylinkerHit findPolylinker(Polylinker polylinker)
 		{
+		String forward=polylinker.sequences[0];
+		String reverse=polylinker.sequences[1];
 		forward= forward.toUpperCase();
 		reverse= NucleotideUtils.reverseComplement(reverse.toUpperCase());
 		
@@ -887,7 +1395,7 @@ class Plasmid
 		if(n1!=-1)
 			{
 			int n2= indexOf(reverse, n1+forward.length());
-			if(n2!=-1) return new Pair<Integer,Integer>(n1,n2+reverse.length());
+			if(n2!=-1) return new PolylinkerHit(polylinker,n1,n2+reverse.length());
 			}
 		
 		String s=forward;
@@ -898,12 +1406,62 @@ class Plasmid
 		if(n1!=-1)
 			{
 			int n2= indexOf(reverse, n1+forward.length());
-			if(n2!=-1) return new Pair<Integer,Integer>(n1,n2+reverse.length());
+			if(n2!=-1) return new PolylinkerHit(polylinker,n1,n2+reverse.length());
 			}
 		
 		return null;
 		}
 	
+	
+	public PolylinkerHit findPolylinker()
+		{
+		for(Polylinker polylinker:POLYLINKER)
+			{
+			PolylinkerHit p= findPolylinker(polylinker);
+			if(p!=null)
+				{
+				return p;
+				}
+			}
+		return null;
+		}
+	
+	
+	public int getFrameAt(int pos)
+		{
+		if(this.atgPosition==-1) return -1;
+		int i= pos%3;
+			
+		switch(this.atgPosition%3)
+			{
+			case(0):return(i);
+			case(1):switch(i)
+				{
+				case(0):return(2);
+				case(1):return(0);
+				case(2):return(1);
+				}break;
+			case(2):switch(i)
+				{
+				case(0):return(1);
+				case(1):return(2);
+				case(2):return(0);
+				}
+			}
+		
+		Assert.assertUnreachableStatement();
+		return -1;
+		}
+	public boolean isInFrame(int position)
+		{
+		if(this.atgPosition==-1) return false;
+		return getFrameAt(position)==0;
+		}
+	
+	public String getDescription()
+		{
+		return getName()+" size:"+size()+" sites:"+getSites().getSiteCount();
+		}
 	
 	@Override
 	public String toString() {
@@ -936,12 +1494,122 @@ int polylinker[]=new int[2];
 public boolean isVector() {
 	return true;
 	}
+
+@Override
+public String getSpanColor() {
+	return "vector";
+	}
+
+@Override
+public String getDescription() {
+	return "VECTOR "+ super.getDescription()+" ["+this.polylinker[0]+"-"+this.polylinker[1]+"]";
+	}
+
+
 public boolean isInPolylinker(int loc)
 	{
 	return polylinker[BOX5]<=loc && loc <= polylinker[BOX3];
 	}
+
+public static Vecteur readFasta(BufferedReader in) throws IOException
+	{
+	Vecteur plasmid= new Vecteur();
+	String line=null;
+	StringBuilder b= new StringBuilder();
+	while((line=in.readLine())!=null)
+		{
+		if(line.trim().length()==0) continue;
+		if(line.startsWith(">"))
+			{
+			plasmid.setName(line.substring(1));
+			break;
+			}
+		else
+			{
+			plasmid.setName("VECTOR");
+			b.append(line);
+			break;
+			}
+		}
+	
+	while((line=in.readLine())!=null)
+		{
+		b.append(line);
+		}
+	
+	plasmid.setSequence(b.toString());
+	System.err.println(plasmid.getName()+" "+plasmid.size());
+	return plasmid;
+	}
+
+
+@Override
+public int findATG()
+{
+int ATGpos=-1;
+	GeneticCode code= GeneticCode.getStandard();
+int	_max=-1;
+	/* if the sequence is vector, the program is checking the frame, where there is
+	the longest ORF without stop codon from each side (but not in ) of the cloning box */
+for(int i=0;i<=2;++i)
+	{
+	/* search on the left of cloning box */
+	int vara=0;
+	for(int j=this.polylinker[0]+i;j>=0;j-=3)
+		{
+		if(code.isStopCodon(code.translate(at(j),at(j+1),at(j+1))))
+			{
+			break;
+			}
+		else
+			vara++;
+		}
+	if(vara>_max)
+		{
+		_max=vara;
+		ATGpos=this.polylinker[0]+i;
+		}
+	/* search on the right of cloning box */
+	vara=0;
+	for(int j=this.polylinker[1]+i;j<size();j+=3)
+		{
+		if(code.isStopCodon(code.translate(at(j),at(j+1),at(j+1))))
+			{
+			break;
+			}
+		else
+			vara++;
+		}
+	if(vara>_max)
+		{
+		_max=vara;
+		ATGpos=this.polylinker[1]+i;
+		}
+	/* search IN the cloning box */
+	vara=0;
+	for(int j=this.polylinker[0]+i;j<=this.polylinker[1];j+=3)
+		{
+		if(code.isStopCodon(code.translate(at(j),at(j+1),at(j+1))))
+			break;
+		else
+			vara++;
+		}
+	if(vara>_max)
+		{
+		_max=vara;
+		ATGpos=this.polylinker[0]+i;
+		}
+	}
+return ATGpos;
 }
 
+}
+
+/**
+ * 
+ * @author pierre
+ *
+ */
 class Insert extends Plasmid
 	{
 	static final int BOX5=0;
@@ -954,8 +1622,16 @@ class Insert extends Plasmid
 		return true;
 		}
 	
-	
-	
+	@Override
+	public String getSpanColor() {
+		return "insert";
+		}
+
+
+	@Override
+	public String getDescription() {
+		return "INSERT "+ super.getDescription()+" ["+this.polylinker[0]+"-"+this.polylinker[1]+"-"+this.polylinker[2]+"-"+this.polylinker[3]+"]";
+		}
 	
 	public boolean isInPolylinker5(int loc)
 		{
@@ -966,6 +1642,73 @@ class Insert extends Plasmid
 		{
 		return polylinker[2]<=loc && loc <= polylinker[3];
 		}
+	
+	
+	public static Insert readFasta(BufferedReader in) throws IOException
+		{
+		System.err.println("loading");
+		Insert plasmid= new Insert();
+		String line=null;
+		StringBuilder b= new StringBuilder();
+		while((line=in.readLine())!=null)
+			{
+			if(line.trim().length()==0) continue;
+			if(line.startsWith(">"))
+				{
+				plasmid.setName(line.substring(1));
+				break;
+				}
+			else
+				{
+				plasmid.setName("INSERT");
+				b.append(line);
+				break;
+				}
+			}
+		
+		while((line=in.readLine())!=null)
+			{
+			b.append(line);
+			}
+		System.err.println("ok");
+		plasmid.setSequence(b.toString());
+		System.err.println("I size="+plasmid.size());
+		return plasmid;
+		}
+	
+	@Override
+	public int findATG()
+		{
+		GeneticCode code= GeneticCode.getStandard();
+		int max=0;
+		int ATGPos=-1;
+		/* if the sequence is insert, the program is checking the frame, where there is
+		the longest ORF without stop codon IN the insert */
+		for(int i=0;i<=2;i++)
+			{
+			int vara=0;
+			for(int j= polylinker[0]+i;
+					j<=polylinker[3];j+=3)
+				{
+				if(!code.isStopCodon( code.translate(at(j),at(j+1),at(j+2))))
+					{
+					vara++;
+				
+					if(vara> max)
+						{
+						max=vara;
+						ATGPos=polylinker[0]+i;
+						}
+					}
+				else
+					{
+					vara=0;
+					}
+				}
+			}
+		return ATGPos;
+		}
+	
 	}
 
 abstract class CloneItProgram
@@ -979,6 +1722,10 @@ abstract class CloneItProgram
 		this.rebase= new EnzymeList(enzymes);
 		}
 
+	public void message(Object o)
+		{
+		System.err.println(o);
+		}
 	
 	public boolean canceled()
 		{
@@ -990,8 +1737,6 @@ abstract class CloneItProgram
  class SubCloning
 	extends CloneItProgram
 	{
-	static private final int INSERT=0;
-	static private final int VECTOR=1;
 	int maxPartialDigestionCount=0;
 	boolean usePolymerase=false;
 	boolean useCIAP=false;
@@ -1002,8 +1747,16 @@ abstract class CloneItProgram
 		{
 		for(Plasmid p:this.plasmids)
 			{
+			message("Digest "+p.getName());
 			if(canceled()) break;
-			p.digest(this.rebase);
+			p.digest(this.rebase,new EnzymeSelector()
+				{
+				@Override
+				public boolean accept(Enzyme e) {
+					return e.getWeight()>5f;
+					}
+				});
+			message(p.getName()+" "+p.getSites().getSiteCount());
 			}
 		}
 	 
@@ -1011,7 +1764,8 @@ abstract class CloneItProgram
 	public void run()
 		{
 		digest();
-		HashSet<Enzyme> remove= new HashSet<Enzyme>();
+		
+		HashSet<Enzyme> removeInsert= new HashSet<Enzyme>();
 		for(Enzyme enz: this.rebase)
 			{
 			if(canceled()) break;
@@ -1021,107 +1775,284 @@ abstract class CloneItProgram
 				this.insert.polylinker[Insert.BOX3_INT]-1)
 				> maxPartialDigestionCount)
 				{
-				remove.add(enz);
+				//message("Remove "+enz+" from "+insert.getName());
+				removeInsert.add(enz);
 				}
 			}
-		this.insert.getSites().removeEnzymes(remove);
+		message(this.insert.getDescription());
 		
-		remove.clear();
+		HashSet<Enzyme> removeVector = new HashSet<Enzyme>();
 		for(Enzyme enz: this.rebase)
 			{
 			if(canceled()) break;
 			if(this.vector.countOut(
 					enz,
-					this.insert.polylinker[Vecteur.BOX5]-1,
-					this.insert.polylinker[Vecteur.BOX3]+1)
+					this.vector.polylinker[Vecteur.BOX5]-1,
+					this.vector.polylinker[Vecteur.BOX3]+1)
 					> maxPartialDigestionCount)
 					{
-					remove.add(enz);
+					message("Remove "+enz+" from "+vector.getName());
+					removeVector.add(enz);
 					}
 			}
-		this.vector.getSites().removeEnzymes(remove);
+		message(this.vector.getDescription());
+		message("Loop");
+		
+		Vector<Strategy> strategies= new Vector<Strategy>(200);
 		
 		/** loop over 5' in insert */
-		Iterator<Integer> iterI5= this.insert.getSites().listSitesIn(
-				this.insert.polylinker[Insert.BOX5],
-				this.insert.polylinker[Insert.BOX5_INT]
-				);
-		while(iterI5.hasNext())
+		for(int indexI5=0;indexI5< this.insert.getSiteCount();++indexI5)
 			{
-			int indexI5= iterI5.next();
-			Site siteI5= this.insert.getSites().getSiteAt(indexI5);
+			Site siteI5= this.insert.getSiteAt(indexI5);
+			if(siteI5.getPosition() < this.insert.polylinker[Insert.BOX5]) continue;
+			if(siteI5.getPosition() > this.insert.polylinker[Insert.BOX5_INT]) break;
+		
 			
-			for(int usePolI5=0;usePolI5<2;++usePolI5)
-			{
-			if(!usePolymerase && usePolI5==1) continue;
-			/** loop over 5' in vector */
-			Iterator<Integer> iterV5= this.vector.getSites().listSitesIn(
-					this.vector.polylinker[Vecteur.BOX5],
-					this.vector.polylinker[Vecteur.BOX3]
-					);
-			while(iterV5.hasNext())
+			if(canceled()) break;
+			message("I5 "+siteI5);
+			
+			for(Polymerase usePolI5: Polymerase.values())
 				{
-				int indexV5= iterV5.next();
-				Site siteV5= this.vector.getSites().getSiteAt(indexV5);
-				
-				for(int usePolV5=0;usePolV5<2;++usePolV5)
-				{
-				if(!usePolymerase && usePolV5==1) continue;
-				if(!compatible(siteV5,siteI5,usePolymerase)) continue;
-				
-				/** loop over 3' in vector */
-				Iterator<Integer> iterV3= this.vector.getSites().listSitesIn(
-						siteV5.getPosition(),
-						this.vector.polylinker[Vecteur.BOX3]
-						);
-				while(iterV3.hasNext())
+				if(!usePolymerase && usePolI5==Polymerase.POLYMERASE) continue;
+				/** loop over 5' in vector */
+				for(int indexV5=0; indexV5< this.vector.getSiteCount();++indexV5)
 					{
-					int indexV3= iterV3.next();
-					Site siteV3= this.vector.getSites().getSiteAt(indexV3);
+					Site siteV5= this.vector.getSiteAt(indexV5);
+					if(siteV5.getPosition() < this.vector.polylinker[Vecteur.BOX5]) continue;
+					if(siteV5.getPosition() > this.vector.polylinker[Vecteur.BOX3]) break;
 					
-					for(int usePolV3=0;usePolV3<2;++usePolV3)
-					{
-					if(!usePolymerase && usePolV3==1) continue;
-					if(!useCIAP && compatible(siteV5,siteV3,usePolymerase)) continue;
+					if(canceled()) break;
 					
-					/** loop over 3' in insert */
-					Iterator<Integer> iterI3= this.insert.getSites().listSitesIn(
-							this.insert.polylinker[Insert.BOX3_INT],
-							this.insert.polylinker[Insert.BOX3]
-							);
-					while(iterI3.hasNext())
+					for(Polymerase usePolV5: Polymerase.values())
 						{
-						int indexI3= iterI3.next();
-						Site siteI3= this.insert.getSites().getSiteAt(indexI3);
-						for(int usePolI3=0;usePolI3<2;++usePolI3)
+						if(!usePolymerase && usePolV5==Polymerase.POLYMERASE) continue;
+						
+						HemiStrategy leftStgy= new HemiStrategy(
+								new SiteUsage(siteV5,usePolV5),
+								new SiteUsage(siteI5,usePolI5),
+								false
+								);
+						
+						if(!leftStgy.isValid()) continue;
+						
+						/** loop over 3' in vector */
+						for(int indexV3=indexV5;indexV3 < this.vector.getSiteCount();++indexV3)
 							{
-							if(!usePolymerase && usePolI3==1) continue;
-							if(!compatible(siteI3,siteV3,usePolymerase)) continue;
+							Site siteV3= this.vector.getSites().getSiteAt(indexV3);
+							if(siteV3.getPosition() > this.vector.polylinker[Vecteur.BOX3]) break;
+							
+							
+							for(Polymerase usePolV3: Polymerase.values())
+								{
+								if(!usePolymerase && usePolV3==Polymerase.POLYMERASE) continue;
+								if(!useCIAP)
+									{
+									HemiStrategy stgy= new HemiStrategy(
+										new SiteUsage(siteV5,usePolV5),
+										new SiteUsage(siteV3,usePolV3),
+										false
+										);
+									if(stgy.isValid())  continue;
+									}
+								
+								/** loop over 3' in insert */
+								for(int indexI3= indexI5+1; indexI3 < this.insert.getSiteCount();++indexI3)
+									{
+									Site siteI3= this.insert.getSites().getSiteAt(indexI3);
+									if(siteI3.getPosition() < this.insert.polylinker[Insert.BOX3_INT]) continue;
+									if(siteI3.getPosition() > this.insert.polylinker[Insert.BOX3]) break;
+									
+									
+									for(Polymerase usePolI3:Polymerase.values())
+										{
+										if(!usePolymerase && usePolI3==Polymerase.POLYMERASE) continue;
+										HemiStrategy rightStgy= new HemiStrategy(
+												new SiteUsage(siteI3,usePolI3),
+												new SiteUsage(siteV3,usePolV3),
+												false
+												);
+										if(!rightStgy.isValid())
+											{
+											continue;
+											}
+										Strategy strategy = new Strategy(
+											leftStgy,rightStgy
+											);
+										strategies.add(strategy);
+										Collections.sort(strategies);
+										if(strategies.size()> 100)
+											{
+											strategies.setSize(100);
+											}
+										System.err.println("COUCOU !!\n"+strategy);
+										}
+									}		
+								}
 							}
 						}
-					
 					}
-					}
-					}
-				
-				}
-				
 				}
 			}
-		
 		}
 	
-	private boolean compatible(Site left,Site right,boolean usePolymerase)
-		{
-		//TODO
-		return false;
-		}
+
 	}
 
- 
-class Standalone
+abstract class CloneItBase
 	{
-	void exec(String args[])
+	protected EnzymeList rebase=null;
+	protected String userDefinedRebasePath=null;
+	protected String program=null;
+	protected Vecteur vector=null;
+	protected Insert insert=null;
+	protected int vbox[]=new int[]{-1,-1};
+	protected int ibox[]=new int[]{-1,-1,-1,-1};
+	
+	abstract void message(Object o);
+	
+	protected EnzymeList downloadRebase() throws IOException
+		{
+		final String FTP_REBASE="ftp://ftp.neb.com/pub/rebase/";
+		String url=FTP_REBASE+"VERSION";
+		message("Fetching "+url);
+		BufferedReader in= new BufferedReader(new InputStreamReader(new URL(url).openStream()));
+		String line= in.readLine();
+		in.close();
+		if(line==null) throw new IOException("Cannot get latest version in "+url);
+		message("Version "+line);
+		url=FTP_REBASE+"allenz."+line.trim();
+		message("Fetching "+url);
+		in= new BufferedReader(new InputStreamReader(new URL(url).openStream()));
+		EnzymeList el= EnzymeList.read(in);
+		in.close();
+		return el;
+		}
+	
+	public void run()
+		{
+		if(userDefinedRebasePath!=null)
+			{
+			message("Getting Rebase from "+userDefinedRebasePath);
+			try
+				{
+				BufferedReader in= IOUtils.openReader(this.userDefinedRebasePath);
+				this.rebase= EnzymeList.read(in);
+				in.close();
+				}
+			catch(IOException err)
+				{
+				throw new RuntimeException(err);	
+				}
+			}
+		if(this.rebase==null && System.getenv("REBASE_PATH")!=null)
+			{
+			String path= System.getenv("REBASE_PATH");
+			message("Getting Rebase from $REBASE_PATH="+path);
+			try
+				{
+				BufferedReader in= IOUtils.openReader(path);
+				this.rebase= EnzymeList.read(in);
+				in.close();
+				}
+			catch(IOException err)
+				{
+				throw new RuntimeException(err);	
+				}
+			}
+		else if(this.rebase==null)
+			{
+			message("Undefined $REBASE_PATH");
+			}
+		
+		if(this.rebase==null)
+			{
+			message("Getting Rebase from NEB");
+			try
+				{
+				this.rebase= downloadRebase();
+				}
+			catch(IOException err)
+				{
+				throw new RuntimeException(err);	
+				}
+			}
+		message(this.rebase.getEnzymeCount());
+		if(this.rebase.getEnzymeCount()==0)
+			{
+			throw new IllegalArgumentException("Rebase is empty");
+			}
+		
+		if(program==null) throw new IllegalArgumentException("Undefined program");
+		else if(program.equals("subcloning"))
+			{
+			if(this.vector==null) throw new IllegalArgumentException("undefined vector");
+			if(this.vector.size()==0) throw new IllegalArgumentException("Empty vector");
+			if(this.insert==null) throw new IllegalArgumentException("undefined insert");
+			if(this.insert.size()==0) throw new IllegalArgumentException("Empty insert");
+			if( this.ibox[0]==-1 && this.ibox[1]==-1 &&
+				this.ibox[2]==-1 && this.ibox[3]==-1)
+				{
+				message("Searching Polylinker in "+this.insert.getName());
+				PolylinkerHit p=this.insert.findPolylinker();
+				if(p==null) throw new IllegalArgumentException("Cannot find Polylinker of "+this.insert.getName());
+				message(p);
+				this.ibox[0]=p.start;
+				this.ibox[3]=p.end;
+				int n= (this.ibox[3]-this.ibox[0])/10;
+				this.ibox[1]=this.ibox[0]+n;
+				this.ibox[2]=this.ibox[3]-n;
+				}
+			if( this.vbox[0]==-1 && this.vbox[1]==-1)
+				{
+				message("Searching Polylinker in "+this.vector.getName());
+				PolylinkerHit p=this.vector.findPolylinker();
+				if(p==null) throw new IllegalArgumentException("Cannot find Polylinker of "+this.vector.getName());
+				message(p);
+				this.vbox[0]=p.start;
+				this.vbox[1]=p.end;
+				}
+			if(this.ibox[0]>= this.ibox[1] ||
+			   this.ibox[1]>= this.ibox[2] ||
+			   this.ibox[2]>= this.ibox[3])
+				{	
+				throw new IllegalArgumentException("In Insert "+this.insert.getName()+" bad Polylinker");
+				}
+			if(this.vbox[Vecteur.BOX5]>= this.vbox[Vecteur.BOX3])
+				{	
+				throw new IllegalArgumentException("In Vector "+this.vector.getName()+" bad Polylinker");
+				}
+			
+			SubCloning app= new SubCloning();
+			app.rebase= this.rebase;
+			app.vector= this.vector;
+			app.insert= this.insert;
+			app.vector.polylinker[Vecteur.BOX5]=vbox[Vecteur.BOX5];
+			app.vector.polylinker[Vecteur.BOX3]=vbox[Vecteur.BOX3];
+			app.insert.polylinker[Insert.BOX5]=ibox[Insert.BOX5];
+			app.insert.polylinker[Insert.BOX5_INT]=ibox[Insert.BOX5_INT];
+			app.insert.polylinker[Insert.BOX3_INT]=ibox[Insert.BOX3_INT];
+			app.insert.polylinker[Insert.BOX3]=ibox[Insert.BOX3];
+			
+			app.plasmids=new Plasmid[]{app.insert,app.vector};
+			app.run();
+			}
+		else
+			{
+			throw new IllegalArgumentException("Unknown program :"+this.program);
+			}
+		}
+	}
+ 
+class Standalone extends CloneItBase
+	{
+	@Override
+	void message(Object o)
+		{
+		System.out.println("[LOG]"+o);
+		}
+	
+	
+	void exec(String args[]) throws IOException
 		{
 		int optind=0;
 		String vectorSource=null;
@@ -1136,9 +2067,33 @@ class Standalone
 	         	{
 	        	vectorSource= args[++optind];
 	         	}
+	         else if(args[optind].equals("-vbox"))
+	         	{
+	        	String pos[]= args[++optind].split("[,]");
+	        	if(pos.length!=4) throw new IllegalArgumentException("expected 2 integeres in "+args[optind]);
+	        	this.vbox[0]=Integer.parseInt(pos[0].trim());
+	        	this.vbox[1]=Integer.parseInt(pos[1].trim());
+	         	}
+	         else if(args[optind].equals("-ibox"))
+	         	{
+	        	String pos[]= args[++optind].split("[,]");
+	        	if(pos.length!=4) throw new IllegalArgumentException("expected 2 integeres in "+args[optind]);
+	        	for(int i=0;i< 4;++i)
+		        	{
+		        	this.ibox[i]=Integer.parseInt(pos[i].trim());
+		        	}
+	        	}
 	         else if(args[optind].equals("-i"))
 	         	{
 	        	insertSource= args[++optind];
+	         	}
+	         else if(args[optind].equals("-rebase"))
+	         	{
+	        	super.userDefinedRebasePath = args[++optind];
+	         	}
+	         else if(args[optind].equals("-program"))
+	         	{
+	        	super.program = args[++optind];
 	         	}
 	         else if(args[optind].equals("--"))
 	             {
@@ -1156,11 +2111,26 @@ class Standalone
 	         ++optind;
 	         }
 		
+		
+		
 		if(optind!=args.length)
 			{
 			 throw new IllegalArgumentException("Too many arguments");	
 			}
 		
+		if(vectorSource!=null)
+			{
+			BufferedReader in= IOUtils.openReader(vectorSource);
+			super.vector= Vecteur.readFasta(in);
+			in.close();
+			}
+		if(insertSource!=null)
+			{
+			BufferedReader in= IOUtils.openReader(insertSource);
+			super.insert= Insert.readFasta(in);
+			in.close();
+			}
+		run();
 		}
 	}
  
@@ -1168,23 +2138,7 @@ class Standalone
 public class CloneIt extends JPanel
 	{
 	private static final long serialVersionUID = 1L;
-	static private String POLYLINKER[]=new String[]{
-		"pGAD424","CCAAAAAAAGAGATC","TTCAGTATCTACGATTCAT",
-		"T7/T3","aattaaccctcactaaaggg","taatacgactcactataggg",
-		"pTOPO","ACCATGATTACGCCAAGCTTG","ATACGACTCACTATAGGGCGA",
-		"pFASTBAC","TATTCCGGATTATTCATACC","GATTATGATCCTCTAGTACTTCTCGAC",
-		"Baculo","ttttactgttttcgtaacagtttt","cggatttccttgaagagagta",
-		"pBK","ggtctatataagcagagctggt","acaggaaacagctatgaccttg",
-		"GEX","atcgaaggtcg","tcagtcagtcacgatg",
-		"pET25B","TAATACGACTCACTATA","CCCGTTTAGAGGCCCCAAGGGGTTA",
-		"pIIIMS2-1","ttccggctagaactagtggatcc","tcgactctagaggatcg",
-		"pIIIMS2-2","agagtcgacctgcaggcatgcaagctg","gctagaactagtggatcc",
-		"pGBT9","CAGTTGACTGTATCGCCG","GCCCGGAATTAGCTTGG",
-		"pGADGL","CCAAAAAAAGAGATC","ACTATAGGGCGAATTGG",
-		"pcDNAFLAG","atggactacaaggacgacgatgacaa","cttggtaccgagctcggatcc",
-		"pcDNA3","CACTATAGGGAGACCC","AGGTGACACTATAGAATA",
-		"pYX213","TAACGTCAAGGAGAAAAAACCCCGGAT","GAAAAACGTTCATTGTTCCTTAT"
-		};
+	
 	
 	private static final int INSERT=0;
 	private static final int VECTOR=1;
@@ -1335,7 +2289,13 @@ public class CloneIt extends JPanel
 			{
 			prog.plasmids[i].setSequence(this.seqArea[i].getText());
 			prog.plasmids[i].setName(this.seqName[i].getText().trim());
-			prog.plasmids[i].digest(getEnzymeList());
+			prog.plasmids[i].digest(getEnzymeList(),new EnzymeSelector()
+				{
+				@Override
+				public boolean accept(Enzyme e) {
+					return true;
+					}
+				});
 			}
 		if(!fillInsertData(prog.insert)) return;
 		
@@ -1382,19 +2342,7 @@ public class CloneIt extends JPanel
 		return true;
 		}
 	
-	private Pair<Integer,Integer> findPolylinker(Plasmid plasmid)
-		{
-		Pair<Integer,Integer> p=null;
-		for(int i=0;i<POLYLINKER.length;i+=3)
-			{
-			p= plasmid.findPolylinker(POLYLINKER[i+1], POLYLINKER[i+2]);
-			if(p!=null)
-				{
-				return p;
-				}
-			}
-		return null;
-		}
+
 	
 	public void readSequence(int seq,InputStream is) throws IOException
 		{
@@ -1421,13 +2369,13 @@ public class CloneIt extends JPanel
 		this.seqArea[seq].setCaretPosition(0);
 		Vecteur tmp= new Vecteur();
 		tmp.setSequence(b.toString());
-		Pair<Integer,Integer> bounds=findPolylinker(tmp);
+		PolylinkerHit bounds=tmp.findPolylinker();
 		if(bounds!=null)
 			{
 			if(seq==INSERT)
 				{
-				int n=bounds.first();
-				int m=bounds.second();
+				int n=bounds.start;
+				int m=bounds.end;
 				this.spinnerInsertBox[0].setValue(n);
 				this.spinnerInsertBox[1].setValue(n+(m-n)/10);
 				this.spinnerInsertBox[2].setValue(m-(m-n)/10);
@@ -1435,8 +2383,8 @@ public class CloneIt extends JPanel
 				}
 			else
 				{
-				this.spinnerVectorBox[0].setValue(bounds.first());
-				this.spinnerVectorBox[1].setValue(bounds.second());
+				this.spinnerVectorBox[0].setValue(bounds.start);
+				this.spinnerVectorBox[1].setValue(bounds.end);
 				}
 			}
 		}
@@ -1466,19 +2414,25 @@ public class CloneIt extends JPanel
 	
 	 public static void main(String[] args)
 	 	 {
-		 if(args.length!=0)
-		 	{
-			new Standalone().exec(args);
-		 	}
-		 else
-			 {
-			 JFrame.setDefaultLookAndFeelDecorated(true);
-			 JDialog.setDefaultLookAndFeelDecorated(true);
-			 javax.swing.SwingUtilities.invokeLater(new Runnable() {
-		            public void run() {
-		                createAndShowGUI();
-		            }
-		        });
-			 }
+		 try {
+			 if(args.length!=0)
+			 	{
+				new Standalone().exec(args);
+			 	}
+			 else
+				 {
+				 JFrame.setDefaultLookAndFeelDecorated(true);
+				 JDialog.setDefaultLookAndFeelDecorated(true);
+				 javax.swing.SwingUtilities.invokeLater(new Runnable() {
+			            public void run() {
+			                createAndShowGUI();
+			            }
+			        });
+				 }
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		 
+		
 	 	}
 	}

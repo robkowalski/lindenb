@@ -26,6 +26,7 @@ import javax.swing.JTextField;
 import javax.swing.table.DefaultTableCellRenderer;
 
 import org.lindenb.swing.table.AbstractGenericTableModel;
+import org.lindenb.util.Compilation;
 
 
 
@@ -133,7 +134,9 @@ public class ThrowablePane extends JPanel
         StringWriter statckTrace= new StringWriter();
         throwable.printStackTrace(new PrintWriter(statckTrace));
         JTextArea msg= new JTextArea(throwable.getClass().getName()+
-                "\n"+statckTrace.toString());
+                "\n"+
+                Compilation.getLabel()+"\n"+
+                statckTrace.toString());
         msg.setEditable(false);
         msg.setBackground(Color.WHITE);
         msg.setLineWrap(true);
