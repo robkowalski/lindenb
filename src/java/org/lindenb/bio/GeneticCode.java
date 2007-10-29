@@ -2,9 +2,11 @@ package org.lindenb.bio;
 
 public abstract class GeneticCode
 	{
+	private static final char STOP_CODON='*';
 	private static final GeneticCode standard=  new StdGeneticCode();
 	public abstract String getName();
 	public abstract char translate(char a, char b,char c);
+	public boolean isStopCodon(char c) { return c==STOP_CODON;}
 	
 	public static GeneticCode getStandard()
 		{
@@ -83,9 +85,9 @@ public abstract class GeneticCode
 	                           case 'a':
 	                                   switch(c3)
 	                                           {
-	                                           case 'a':c='*';break;
+	                                           case 'a':c=STOP_CODON;break;
 	                                           case 't':c='Y';break;
-	                                           case 'g':c='*';break;
+	                                           case 'g':c=STOP_CODON;break;
 	                                           case 'c':c='Y';break;
 	                                           default: c='?';break;
 	                                           }break;
@@ -103,7 +105,7 @@ public abstract class GeneticCode
 	                           case 'g':
 	                                   switch(c3)
 	                                           {
-	                                           case 'a':c= '*';break;
+	                                           case 'a':c= STOP_CODON;break;
 	                                           case 't':c='C';break;
 	                                           case 'g':c='W';break;
 	                                           case 'c':c='C';break;
