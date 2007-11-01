@@ -8,7 +8,7 @@ public class Debug
 protected Debug() {}
 
 private static PrintStream out=System.err;
-private static boolean debugging=true;
+private static boolean debugging=false;
 
 public static void setDebugging(boolean debugging) {
 	Debug.debugging = debugging;
