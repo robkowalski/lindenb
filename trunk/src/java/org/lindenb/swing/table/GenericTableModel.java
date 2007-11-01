@@ -54,4 +54,11 @@ public abstract class GenericTableModel<T> extends AbstractGenericTableModel<T>
 		fireTableRowsDeleted(i,i);
 		}
 	
+	public void clear()
+		{
+		int n= getDataVector().size();
+		if(n==0) return;
+		getDataVector().clear();
+		fireTableRowsDeleted(0, n-1);
+		}
 	}

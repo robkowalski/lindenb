@@ -2,8 +2,8 @@
 <project name="lindenb" default="all">
 
  <target name="build-ant-tasks">
-	<mkdir dir="build"/>
-	<javac destdir="build">
+	<mkdir dir="build/ant"/>
+	<javac destdir="build/ant">
 	  <src path="src/java"/>
 	  <include name="org/lindenb/ant/*.java"/>
 	</javac>
@@ -11,12 +11,45 @@
 
  <target name="declare-ant-tasks" depends="build-ant-tasks">
     <taskdef name="compileInfoTask"
-        classname="org.lindenb.ant.CompileInfoTask"
-        classpath="build"/>
+        	 classname="org.lindenb.ant.CompileInfoTask"
+        	 classpath="build/ant"/>
+    <taskdef name="makeSplash"
+	     classname="org.lindenb.ant.SplashTask"
+             classpath="build/ant"/>
  </target>
 
- <target name="all" depends="declare-ant-tasks">
-	<compileInfoTask package="jeter1.jeter2" dir="build"/>
+ 
+ <target name="all" depends="pubmed2wikipedia">
  </target>
+ 
+ 
+ <target name="pubmed2wikipedia" depends="declare-ant-tasks">
+	 <mkdir dir="build/compile"/>
+	 <makeSplash title="Pubmed2Wikipedia" file="build/compile/splash.jpeg"/>
+	 <copy todir="build/compile" includeEmptyDirs="false">
+		<fileset dir="src/java"/>
+	 </copy>
+	 <compileInfoTask name="Pubmed2Wikipedia" package="org.lindenb.util" dir="build/compile"/>
+	 <javac srcdir="build/compile"
+		destdir="build/compile"
+		source="1.6"
+		target="1.6">
+		 <include name="**/Pubmed2Wikipedia.java"/>
+	 </javac>
+	
+	 <delete includeEmptyDirs="true">
+		 <fileset dir="build/compile" includes="**/*.java"/>
+	 </delete>
+	 <jar destfile="build/pubmed2wikipedia.jar"
+	      basedir="build/compile">
+		 <manifest>
+			 <attribute name="Main-Class" value="org.lindenb.tool.oneshot.Pubmed2Wikipedia"/>
+			 <attribute name="SplashScreen-Image" value="splash.jpeg"/>
+		 </manifest>
+	 </jar>
+ </target>
+ 
+ 
+ 
 
 </project>

@@ -19,11 +19,16 @@ public class CompileInfoTask extends  org.apache.tools.ant.Task
 {
 private String pakage="";
 private File dir=null;
+private String name=null;
 
 public CompileInfoTask()
 	{
 	}
 
+public void setName(String name)
+	{
+	this.name=name;
+	}
 
 public File getDir()
 	{
@@ -98,6 +103,7 @@ public void execute() throws BuildException {
 			"public class Compilation\n"+
 			" {\n"+
 			" private Compilation() {}\n"+
+			" public static String getName() { return "+(name==null?"\"Untitled Application\"":"\""+name+"\"")+";}\n"+
 			" public static String getPath() { return \""+ System.getProperty("user.dir")+"\";}\n"+
 			" public static String getUser() { return \""+ System.getProperty("user.name")+"\";}\n"+
 			" public static GregorianCalendar getCalendar() { return new GregorianCalendar("+
@@ -116,7 +122,7 @@ public void execute() throws BuildException {
 					LPAD( now.get(GregorianCalendar.MINUTE))+":"+
 					LPAD( now.get(GregorianCalendar.SECOND))+
 					"\"; }\n"+
-			" public static String getLabel() { return \"Compiled by \"+getUser()+\" on \"+getDate()+\" in \"+getPath();}\n"+ 
+			" public static String getLabel() { return (getName()==null?\"\":getName()+\" : \")+\"Compiled by \"+getUser()+\" on \"+getDate()+\" in \"+getPath();}\n"+ 
 			" public static void main(String args[]) { System.out.println(getLabel());}\n"+
 			" }\n"
 			);
