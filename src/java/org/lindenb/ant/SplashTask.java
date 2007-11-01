@@ -63,6 +63,7 @@ public void setFile(File toFile)
 public void execute() throws BuildException {
 
 	if(this.toFile==null)  throw new BuildException("Missing Destination File");
+	if(this.toFile.exists()) return;
 	if(this.title==null) throw new BuildException("Missing Title");
 	
 

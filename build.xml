@@ -16,6 +16,9 @@
     <taskdef name="makeSplash"
 	     classname="org.lindenb.ant.SplashTask"
              classpath="build/ant"/>
+    <taskdef name="wget"
+	     classname="org.lindenb.ant.WGetTask"
+             classpath="build/ant"/>
  </target>
 
  
@@ -25,7 +28,20 @@
  
  <target name="pubmed2wikipedia" depends="declare-ant-tasks">
 	 <mkdir dir="build/compile"/>
-	 <makeSplash title="Pubmed2Wikipedia" file="build/compile/splash.jpeg"/>
+	 <mkdir dir="build/compile/images"/>
+	 <makeSplash title="Pubmed2Wikipedia" file="build/compile/images/splash.jpeg"/>
+	 <wget  url="button_bold.png button_italic.png button_link.png button_headline.png button_image.png button_media.png button_math.png button_nowiki.png button_sig.png button_hr.png
+		http://upload.wikimedia.org/wikipedia/en/c/c8/Button_redirect.png
+		http://upload.wikimedia.org/wikipedia/en/c/c9/Button_strike.png
+		http://upload.wikimedia.org/wikipedia/en/1/13/Button_enter.png
+		http://upload.wikimedia.org/wikipedia/en/3/34/Button_hide_comment.png
+		http://upload.wikimedia.org/wikipedia/en/f/fd/Button_blockquote.png
+		http://upload.wikimedia.org/wikipedia/en/6/60/Button_insert_table.png
+		"
+		base="http://en.wikipedia.org/skins-1.5/common/images/"
+		todir="build/compile/images"
+		/>
+	 
 	 <copy todir="build/compile" includeEmptyDirs="false">
 		<fileset dir="src/java"/>
 	 </copy>
@@ -44,7 +60,7 @@
 	      basedir="build/compile">
 		 <manifest>
 			 <attribute name="Main-Class" value="org.lindenb.tool.oneshot.Pubmed2Wikipedia"/>
-			 <attribute name="SplashScreen-Image" value="splash.jpeg"/>
+			 <attribute name="SplashScreen-Image" value="images/splash.jpeg"/>
 		 </manifest>
 	 </jar>
  </target>
