@@ -125,4 +125,12 @@ public abstract class XAbstractTableModel extends AbstractTableModel
 		{
 		return findValueIndex(columnIndex, o,0);
 		}
+	
+	public boolean isEmpty()
+		{
+		return getRowCount()==0;
+		}
+	
+
+	
 	}

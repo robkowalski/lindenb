@@ -102,7 +102,7 @@ public class ThrowablePane extends JPanel
             	}
             
             @Override
-            public StackTraceElement getElementAt(int rowIndex) {
+            public StackTraceElement elementAt(int rowIndex) {
             	return ThrowablePane.this.stackTrace[rowIndex];
             	}
             
@@ -121,7 +121,7 @@ public class ThrowablePane extends JPanel
         
         JTabbedPane tabbedPane=new JTabbedPane(JTabbedPane.SCROLL_TAB_LAYOUT);
         this.add(tabbedPane,BorderLayout.CENTER);
-        JTextField tf= new JTextField(throwable.getLocalizedMessage());
+        JTextField tf= new JTextField(throwable.getClass()+" : "+throwable.getLocalizedMessage());
         tf.setToolTipText(tf.getText());
         tf.setEditable(false);
         tf.setCaretPosition(0);
