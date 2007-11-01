@@ -409,7 +409,7 @@ class EnzymeList
 		}
 	
 	@Override
-	public Enzyme getElementAt(int rowIndex) {
+	public Enzyme elementAt(int rowIndex) {
 		return this.enzymes.elementAt(rowIndex);
 		}
 	
@@ -417,7 +417,7 @@ class EnzymeList
 	
 	public Enzyme getEnzymeAt(int index)
 		{
-		return getElementAt(index);
+		return elementAt(index);
 		}
 	
 	public void addEnzyme( Enzyme e)
