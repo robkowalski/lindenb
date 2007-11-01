@@ -5,6 +5,7 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Graphics;
 import java.awt.GridLayout;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
@@ -12,6 +13,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -22,7 +24,6 @@ import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.StringWriter;
 
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.util.Collections;
@@ -33,9 +34,11 @@ import java.util.Vector;
 import java.util.prefs.Preferences;
 import java.util.regex.Pattern;
 
+import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.ActionMap;
+import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JDialog;
@@ -810,19 +813,11 @@ private abstract class TextAction extends AbstractAction
         {
         this(name);
         this.selectionRequired=selectionRequired;
-        try
-            {
-            if(!iconUrl.startsWith("http://"))
-                {
-                iconUrl="http://en.wikipedia.org/skins-1.5/common/images/"+iconUrl;
-                }
-            ImageIcon icn= new ImageIcon(new URL(iconUrl),name);
-            putValue(AbstractAction.SMALL_ICON, icn);
-            putValue(AbstractAction.LARGE_ICON_KEY, icn);
-            }catch(MalformedURLException err)
-            {
-           
-            }
+        
+        Icon icn= makeIcon(iconUrl);
+        putValue(AbstractAction.SMALL_ICON, icn);
+        putValue(AbstractAction.LARGE_ICON_KEY, icn);
+        
         putValue(AbstractAction.SHORT_DESCRIPTION, name);
         }
    
@@ -998,8 +993,7 @@ private Pubmed2Wikipedia(Vector<Paper> papers)
         })));
     button.setHideActionText(true);
    
-    top.add(button=new JButton(addTextAction(new TextAction("Redirect",false,
-    		"http://upload.wikimedia.org/wikipedia/en/c/c8/Button_redirect.png")
+    top.add(button=new JButton(addTextAction(new TextAction("Redirect",false,"Button_redirect.png")
         {
     	private static final long serialVersionUID = 1L;
         @Override
@@ -1009,8 +1003,7 @@ private Pubmed2Wikipedia(Vector<Paper> papers)
         })));
     button.setHideActionText(true);
    
-    top.add(button=new JButton(addTextAction(new TextAction("Strike",true,
-    		"http://upload.wikimedia.org/wikipedia/en/c/c9/Button_strike.png")
+    top.add(button=new JButton(addTextAction(new TextAction("Strike",true,"Button_strike.png")
         {
     	private static final long serialVersionUID = 1L;
         @Override
@@ -1020,8 +1013,7 @@ private Pubmed2Wikipedia(Vector<Paper> papers)
         })));
     button.setHideActionText(true);
    
-    top.add(button=new JButton(addTextAction(new TextAction("Line Break",false,
-			"http://upload.wikimedia.org/wikipedia/en/1/13/Button_enter.png"
+    top.add(button=new JButton(addTextAction(new TextAction("Line Break",false,"Button_enter.png"
 			)
 		{
 		private static final long serialVersionUID = 1L;
@@ -1034,8 +1026,7 @@ private Pubmed2Wikipedia(Vector<Paper> papers)
 		})));
 	button.setHideActionText(true);
 		
-    top.add(button=new JButton(addTextAction(new TextAction("Comment",false,
-	"http://upload.wikimedia.org/wikipedia/en/3/34/Button_hide_comment.png")
+    top.add(button=new JButton(addTextAction(new TextAction("Comment",false,"Button_hide_comment.png")
 		{
 		private static final long serialVersionUID = 1L;
 		@Override
@@ -1045,8 +1036,7 @@ private Pubmed2Wikipedia(Vector<Paper> papers)
 		})));
 	button.setHideActionText(true);
 	
-	 top.add(button=new JButton(addTextAction(new TextAction("Quote",false,
-	 	"http://upload.wikimedia.org/wikipedia/en/f/fd/Button_blockquote.png")
+	 top.add(button=new JButton(addTextAction(new TextAction("Quote",false,"Button_blockquote.png")
 		{
 		private static final long serialVersionUID = 1L;
 		@Override
@@ -1056,8 +1046,7 @@ private Pubmed2Wikipedia(Vector<Paper> papers)
 		})));
 	button.setHideActionText(true);
 	
-	 top.add(button=new JButton(addTextAction(new TextAction("Table",false,
-	 	"http://upload.wikimedia.org/wikipedia/en/6/60/Button_insert_table.png")
+	 top.add(button=new JButton(addTextAction(new TextAction("Table",false,"Button_insert_table.png")
 		{
 		private static final long serialVersionUID = 1L;
 		 @Override
@@ -1325,6 +1314,45 @@ private void saveLinkPattern(File file,boolean quiet)
 		}
 	}
 	}
+
+private Icon makeIcon(String name)
+	{
+	InputStream in= Pubmed2Wikipedia.class.getResourceAsStream("/images/"+name);
+	try
+		{
+		if(in!=null)
+			{
+			BufferedImage img= ImageIO.read(in);
+			in.close();
+			return new ImageIcon(img,name);
+			}
+		}
+	catch(Exception err)
+		{
+		Debug.debug(err);
+		}
+	
+	Debug.debug(name);
+		return new Icon()
+			{
+			@Override
+			public int getIconHeight() {
+				return 22;
+				}
+			@Override
+			public int getIconWidth() {
+				return 22;
+				}
+			@Override
+			public void paintIcon(Component c, Graphics g, int x, int y) {
+				g.setColor(Color.WHITE);
+				g.fillRect(x, y, 22, 22);
+				g.setColor(Color.BLACK);
+				g.drawRect(x, y, 21, 21);
+				}
+			};
+	}
+
 
 private void saveLinkPattern()
 	{

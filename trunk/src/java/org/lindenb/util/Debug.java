@@ -52,7 +52,14 @@ public static void debug(Object o)
 	synchronized (out)
 		{
 		out.print("[DEBUG]"+getStackTraceElement(2)+" : ");
-		out.print(o);
+		if(o instanceof Throwable)
+			{
+			Throwable.class.cast(o).printStackTrace(out);
+			}
+		else
+			{
+			out.print(o);
+			}
 		out.println();
 		out.flush();
 		}
