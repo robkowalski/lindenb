@@ -19,6 +19,9 @@
     <taskdef name="wget"
 	     classname="org.lindenb.ant.WGetTask"
              classpath="build/ant"/>
+    <taskdef name="makeIcon"
+	     classname="org.lindenb.ant.MakeIconTask"
+             classpath="build/ant"/>
  </target>
 
  
