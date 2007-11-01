@@ -907,7 +907,7 @@ private Pubmed2Wikipedia(Vector<Paper> papers)
     	private static final long serialVersionUID = 1L;
         @Override
         public void replace(String text) {
-            textArea.replaceSelection("[["+text.replaceAll("[ \t]", "_")+" "+text+"]]");
+            textArea.replaceSelection("[["+text.trim().replaceAll("[ \t]", "_")+"|"+text+"]]");
             }
         })));
     button.setHideActionText(true);
