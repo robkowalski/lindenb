@@ -63,8 +63,8 @@
 			 <attribute name="SplashScreen-Image" value="images/splash.jpeg"/>
 		 </manifest>
 	 </jar>
+	<delete dir="build/compile"/>
  </target>
- 
  
  
 
