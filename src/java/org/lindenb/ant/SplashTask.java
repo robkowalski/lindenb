@@ -1,5 +1,8 @@
 /**
- * 
+ *  Create a quick Splash Screen for java executable jar
+ *  See http://java.sun.com/developer/technicalArticles/J2SE/Desktop/javase6/splashscreen/
+ *  <taskdef name="makeIcon" classname="org.lindenb.ant.SplashTask" classpath="build/ant"/>
+ *  <makeSplash title="Hello World !" file="task.jpeg"/>
  */
 package org.lindenb.ant;
 
@@ -23,7 +26,7 @@ import org.apache.tools.ant.BuildException;
 
 
 /**
- * @author pierre
+ * @author Pierre Lindenbaum
  * Create a quick Splash Screen for java executable jar
  * 
  * Manifest-Version: 1.0

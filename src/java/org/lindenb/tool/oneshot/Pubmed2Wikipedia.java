@@ -1086,7 +1086,7 @@ private Pubmed2Wikipedia(Vector<Paper> papers)
 	        sw.append("\n\n");
 	        }
 	    //signature
-	    sw.append("\n--~~~~\n");
+	    //not in articles sw.append("\n--~~~~\n");
 	    
 	    
 	    sw.append("\n\n\n");
