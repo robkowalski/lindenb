@@ -58,15 +58,16 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 		super(object, name, icon);
 		}
 
+
 	
 	private static abstract class Validator1<X extends JComponent>
 		{
-		X component;
+		 X component;
 		Validator1(X component)
 			{
 			this.component=component;
 			}
-		abstract String getErrorMessage();
+		public abstract String getErrorMessage();
 		}
 	
 	private static abstract class Validator2<X extends JComponent,Y> extends  Validator1<X>
@@ -86,7 +87,7 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 		{
 		addTextValidator(new Validator2<JTextComponent,Pattern>(component,pattern)
 			{
-			String getErrorMessage()
+			public String getErrorMessage()
 				{
 				return (param.matcher(component.getText()).matches()?
 					   "Doesn\'t match "+param.pattern():null);
@@ -98,7 +99,7 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 		{
 		addTextValidator(new Validator1<JTextComponent>(component)
 			{
-			String getErrorMessage()
+			public String getErrorMessage()
 				{
 				try {
 					Pattern.compile(component.getText());
@@ -114,7 +115,7 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 		{
 		addTextValidator(new Validator1<JTextComponent>(component)
 			{
-			String getErrorMessage()
+			public String getErrorMessage()
 				{
 				return this.component.getText().trim().length()==0?"Empty Field":null;
 				}
@@ -129,21 +130,21 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 	public void mustBeURL(JTextComponent component) {mustBeAClass(component, URL.class);}
 	public void mustBeURI(JTextComponent component) {mustBeAClass(component, URI.class);}
 	
-	public void mustBeAClass(JTextComponent component,Class<?> clazz)
+	public <X> void mustBeAClass(JTextComponent component,Class<X> clazz)
 		{
-		addTextValidator(new Validator2<JTextComponent,Class<?> >(component,clazz)
+		addTextValidator(new Validator2<JTextComponent,Class<X> >(component,clazz)
 			{
 			@Override
-			String getErrorMessage()
+			public String getErrorMessage()
 				{
 				try {
-					Constructor<?> cstor = this.param.getConstructor(String.class);
+					Constructor<X> cstor = this.param.getConstructor(String.class);
 					cstor.newInstance(this.component.getText());
 					return null;
 					}
 				catch (Exception e)
 					{
-					return e.getMessage();
+					return "Cannot cast "+this.component.getName()+" to "+this.param +"("+this.component.getText()+"\" : "+e.getMessage();
 					}
 				}
 			});
@@ -174,7 +175,7 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 		addValidator(new Validator2<JTable,Pair<Integer, Integer>>(table,new Pair<Integer, Integer>(minInclusive,maxExclusive))
 			{
 			@Override
-			String getErrorMessage()
+			public String getErrorMessage()
 				{
 				int n= this.component.getModel().getRowCount();
 				return n>= this.param.first() && n< this.param.second()?null:"Illegale Number of Selected Rows";
@@ -208,7 +209,7 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 		addValidator(new Validator2<JTable,Pair<Integer, Integer>>(table,new Pair<Integer, Integer>(minInclusive,maxExclusive))
 			{
 			@Override
-			String getErrorMessage()
+			public String getErrorMessage()
 				{
 				int n= this.component.getSelectedRowCount();
 				return n>= this.param.first() && n< this.param.second()?null:"Illegale Number of Selected Rows";
@@ -237,7 +238,7 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 		return addValidator(v);
 		}
 	
-	protected Validator1<?> addValidator(Validator1<?> v)
+	public Validator1<?> addValidator(Validator1<?> v)
 		{
 		this.validators.addElement(v);
 		validate();
