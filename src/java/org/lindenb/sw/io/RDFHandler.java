@@ -24,8 +24,10 @@ import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 
 import org.lindenb.sw.vocabulary.RDF;
+import org.lindenb.util.Compilation;
+import org.lindenb.util.Debug;
 import org.lindenb.xml.XMLUtilities;
-
+import static org.lindenb.util.Debug.debug;
 
 
 /**
@@ -179,25 +181,7 @@ public class RDFHandler
 		return this.parser;
 		}
 	
-	/** debugging function */
-	protected void trace(Object o)
-		{
-		if(true) return;
-		
-		try {
-			throw new Exception();
-			}
-		catch (Exception e)
-			{
-			StackTraceElement elt[]=e.getStackTrace();
-			System.err.println(
-					"#"+
-					elt[1].getFileName()+" "+
-					elt[1].getLineNumber()+" : "+
-					o
-					);
-			}
-		}
+	
 	
 	/** do the parsing */
 	private void read(Reader in) throws XMLStreamException
@@ -212,10 +196,10 @@ public class RDFHandler
 				if(event.isStartElement())
 					{
 					StartElement start=(StartElement)event;
-					trace("found start "+start);
+					debug("found start "+start);
 					if(name2string(start).equals(RDF.NS+"RDF"))
 						{
-						trace("found RDF");
+						debug("found RDF");
 						parseRDF();
 						}
 					}
@@ -231,7 +215,7 @@ public class RDFHandler
 
 private void parseRDF() throws XMLStreamException,URISyntaxException
 	{
-	trace("In RDF ROOT: loop over each rdf:Description");
+	debug("In RDF ROOT: loop over each rdf:Description");
 	while(getReader().hasNext())
 		{
 		XMLEvent event = getReader().nextEvent();
@@ -265,7 +249,7 @@ private void parseRDF() throws XMLStreamException,URISyntaxException
  */
 private URI parseDescription(StartElement description) throws URISyntaxException,XMLStreamException
 	{
-	trace("Found a new  rdf:Description "+description);
+	debug("Found a new  rdf:Description "+description.getName());
 	URI descriptionURI=null;
 	Attribute att= description.getAttributeByName(new QName(RDF.NS,"about"));
 	if(att!=null) descriptionURI= createURI( att.getValue());
@@ -285,7 +269,7 @@ private URI parseDescription(StartElement description) throws URISyntaxException
 		descriptionURI= createAnonymousURI();
 		}
 	
-	trace("Description uri=\""+descriptionURI+"\"");
+	debug("Description uri=\""+descriptionURI+"\"");
 	
 	QName qn=description.getName();
 	if(!(qn.getNamespaceURI().equals(RDF.NS) &&
@@ -312,7 +296,7 @@ private URI parseDescription(StartElement description) throws URISyntaxException
 				{
 				continue;
 				}
-		trace("found Attribute;"+att);
+		debug("found Attribute;"+att);
 		RDFEvent evt= new RDFEvent();
 		evt.subject=descriptionURI;
 		evt.predicate= name2uri(qn);
@@ -366,7 +350,7 @@ private void parsePredicate(URI descriptionURI,StartElement predicate) throws UR
 	URI resource=null;
 
 	URI predicateURI=name2uri(predicate.getName());
-	trace("parse rdf:description=\""+descriptionURI+"\" subject:"+predicateURI);
+	debug("parse rdf:description=\""+descriptionURI+"\" predicate:"+predicateURI);
 	
 	/** collect attributes */
 	for(int loop=0;loop<2;++loop)
@@ -388,31 +372,31 @@ private void parsePredicate(URI descriptionURI,StartElement predicate) throws UR
 				if(local.equals("parseType"))
 					{
 					if(loop==0)  parseType=att.getValue();
-					trace("parseType:"+parseType);
+					debug("parseType:"+parseType);
 					continue;
 					}
 				else if(local.equals("datatype"))
 					{
 					if(loop==0) datatype= createURI(att.getValue());
-					trace("dataType="+datatype);
+					debug("dataType="+datatype);
 					continue;
 					}
 				else if(local.equals("resource"))
 					{
 					if(loop==0) resource=  createURI(att.getValue());
-					trace("resource="+resource);
+					debug("rdf:resource="+resource);
 					continue;
 					}
 				else if(local.equals("nodeID"))
 					{
 					if(loop==0) resource=  createURI(att.getValue());
-					trace("nodeID="+resource);
+					debug("rdf:nodeID="+resource);
 					continue;
 					}
 				else if(local.equals("ID"))
 					{
 					if(loop==0) resource= resolveBase(att.getValue());
-					trace("ID="+resource);
+					debug("ID="+resource);
 					continue;
 					}
 				}
@@ -421,7 +405,7 @@ private void parsePredicate(URI descriptionURI,StartElement predicate) throws UR
 				{
 				if(resource!=null)
 					{
-					trace(resource);
+					debug(resource);
 					RDFEvent evt= new RDFEvent();
 					evt.subject= resource;
 					evt.predicate= name2uri(att.getName());
@@ -447,10 +431,11 @@ private void parsePredicate(URI descriptionURI,StartElement predicate) throws UR
 		evt.predicate= predicateURI;
 		evt.value=resource;
 		found(evt);
-		
+		debug();
 		XMLEvent event=getReader().peek();
 		if(event!=null && event.isEndElement())
 			{
+			debug();
 			getReader().nextEvent();
 			return;
 			}
@@ -528,16 +513,28 @@ private void parsePredicate(URI descriptionURI,StartElement predicate) throws UR
 		}
 	else
 		{
+		boolean foundResourceAsChild=false;
 		StringBuilder b= new StringBuilder();
 		while(getReader().hasNext())
 			{
 			XMLEvent event = getReader().nextEvent();
 			if(event.isStartElement())
 				{
-				throw new XMLStreamException(
-						"?? opening element "+
-						event.asStartElement().getName()
-						);
+				if(b.toString().trim().length()!=0)
+					{
+					throw new XMLStreamException(
+							"Bad text \""+b+"\" before "+
+							event.asStartElement().getName()
+							);
+					}
+				URI childURI=parseDescription(event.asStartElement());
+				RDFEvent evt= new RDFEvent();
+				evt.subject=descriptionURI;
+				evt.predicate= predicateURI;
+				evt.value= childURI;
+				found(evt);
+				b.setLength(0);
+				foundResourceAsChild=true;
 				}
 			else if(event.isCharacters())
 				{
@@ -545,13 +542,20 @@ private void parsePredicate(URI descriptionURI,StartElement predicate) throws UR
 				}
 			else if(event.isEndElement())
 				{
-				RDFEvent evt= new RDFEvent();
-				evt.subject=descriptionURI;
-				evt.predicate= predicateURI;
-				evt.value= b.toString();
-				evt.lang=lang;
-				evt.valueType=datatype;
-				found(evt);
+				if(!foundResourceAsChild)
+					{
+					RDFEvent evt= new RDFEvent();
+					evt.subject=descriptionURI;
+					evt.predicate= predicateURI;
+					evt.value= b.toString();
+					evt.lang=lang;
+					evt.valueType=datatype;
+					found(evt);
+					}
+				else
+					{
+					if(b.toString().trim().length()!=0) throw new XMLStreamException("Found bad text "+b);
+					}
 				return;
 				}
 			}
@@ -639,11 +643,11 @@ public void parse(Reader in) throws XMLStreamException
 public void parse(File in) throws XMLStreamException
 	{
 	try {
-		trace("Parsing file "+in);
+		debug("Parsing file "+in);
 		FileReader fin= new FileReader(in);
 		read(fin);
 		fin.close();
-		trace("End Parsing file "+in);
+		debug("End Parsing file "+in);
 		}
 	catch (IOException e)
 		{
@@ -653,7 +657,7 @@ public void parse(File in) throws XMLStreamException
 
 public void parse(URL in) throws XMLStreamException
 	{
-	trace("parsing URL "+in);
+	debug("parsing URL "+in);
 	try {
 		InputStream fin= in.openStream();
 		read(new InputStreamReader(fin));
@@ -701,6 +705,38 @@ private static String escapeXML(String s)
 public static void main(String[] args)
 	{
 	try {
+		Debug.setDebugging(false);
+    	int optind=0;
+    	
+    	while(optind<args.length)
+		        {
+		        if(args[optind].equals("-h"))
+		           {
+		        	System.err.println(Compilation.getLabel());
+		        	System.err.println("\t-h this screen");
+		        	System.err.println("\t-d turns debugging on");
+					return;
+		           	}
+		        else if(args[optind].equals("-d"))
+		        	{
+		        	Debug.setDebugging(true);
+		        	}
+		       else if(args[optind].equals("--"))
+		            {
+		            ++optind;
+		            break;
+		            }
+		        else if(args[optind].startsWith("-"))
+		            {
+		            throw new IllegalArgumentException("Unknown option "+args[optind]);
+		            }
+		        else
+		            {
+		            break;    
+		            }
+		        ++optind;
+		        }
+    	
 		System.out.println("<?xml version=\"1.0\" encoding=\"UTF-8\" ?>");
 		System.out.println("<rdf:RDF  xmlns:rdf=\""+RDF.NS+"\">");
 		
@@ -712,10 +748,12 @@ public static void main(String[] args)
 				}
 			
 			};
-		for(String s:args)
+		
+		while(optind< args.length)
 			{
-			h.parse(new URL(s));
+			h.parse(new URL(args[optind++]));
 			}
+		
 		System.out.println("</rdf:RDF>");
 		
 	} catch (Exception e) {
