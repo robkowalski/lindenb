@@ -1,4 +1,16 @@
+= Pubmed2Wikipedia =
 Pubmed2Wikipedia transforms a set of articles from pubmed into an entry for wikipedia.
 
-= About =
-First, the user select a set of articles about a given subject from http://www.pubmed.org the software then download, prepare and format the data for a new wikipedia page. For example it creates the 'references' part and suggest the Categories: from the Mesh terms. I've also included a dictionary (see menu 'File') which recognizes some regex patterns to help create a wikipedia internal link.
+
+== About ==
+First, the user select a set of articles about a given subject from http://www.pubmed.org the software then download, prepare and format the data for a new wikipedia page.
+
+For example it creates the 'references' part and suggest the Categories: from the Mesh terms.
+
+I've also included a dictionary (see menu 'File') which recognizes some regex patterns to help create a wikipedia internal link. This dictionary can be saved using the "File" menu.
+
+Use the right click of your mouse to open a contextual menu (formatting commands, suggestion s of links, add a pattern...)
+
+
+
+
