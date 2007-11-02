@@ -25,7 +25,7 @@
  </target>
 
  
- <target name="all" depends="pubmed2wikipedia">
+ <target name="all" depends="pubmed2wikipedia,pivot">
  </target>
  
  
@@ -68,5 +68,34 @@
 	 </jar>
 	<delete dir="build/compile"/>
  </target>
+ 
+ 
+ 
+ 
+ <target name="pivot" depends="declare-ant-tasks">
+	 <mkdir dir="build/compile"/>
+	 <copy todir="build/compile" includeEmptyDirs="false">
+		 <fileset dir="src/java"/>
+	 </copy>
+	 <compileInfoTask name="Pivot" package="org.lindenb.util" dir="build/compile"/>
+	 <javac srcdir="build/compile"
+		destdir="build/compile"
+		source="1.6"
+		target="1.6">
+		 <include name="**/Pivot.java"/>
+	 </javac>
+	 
+	 <delete includeEmptyDirs="true">
+		 <fileset dir="build/compile" includes="**/*.java"/>
+	 </delete>
+	 <jar destfile="build/pivot.jar"
+	      basedir="build/compile">
+		 <manifest>
+			 <attribute name="Main-Class" value="org.lindenb.tool.pivot.Pivot"/>
+		 </manifest>
+	 </jar>
+	 <delete dir="build/compile"/>
+ </target>
+ 
  
 </project>
