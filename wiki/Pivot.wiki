@@ -1,4 +1,4 @@
-#Pivot digests tabular source and prints a summary of the data.
+Pivot digests tabular source and prints a summary of the data.
 
 = Introduction =
 
