@@ -15,6 +15,7 @@ Use the right click of your mouse to open a contextual menu (formatting commands
 
 == Examples ==
 
-* http://en.wikipedia.org/wiki/NSP1%28Rotavirus%29
-* http://en.wikipedia.org/wiki/NSP2%28Rotavirus%29
-* http://en.wikipedia.org/wiki/NSP3%28Rotavirus%29
+  * [http://en.wikipedia.org/wiki/NSP1%28Rotavirus%29 NSP1]
+  * [http://en.wikipedia.org/wiki/NSP2%28Rotavirus%29 NSP2]
+  * [http://en.wikipedia.org/wiki/NSP3%28Rotavirus%29 NSP3]
+  * [http://en.wikipedia.org/wiki/Roxan_%28Protein%29 RoXaN]
