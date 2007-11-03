@@ -9,9 +9,10 @@ Pivot digests tabular source and prints a summary of the data.
 java 1.5
 
 = Compilation =
-There is a _Makefile_ in the source distribution I hate ant ! :-)
-Tuste type 'make', an executable jar called pivot.jar will be created
-
+The distribution contains a ant 'buix.xml'. Type
+{{{
+ant pivot
+}}}
 = Example =
 
 == Getting Help ==
