@@ -14,7 +14,6 @@ import javax.swing.Icon;
 import javax.swing.JComponent;
 import javax.swing.JTable;
 import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.event.TableModelEvent;
@@ -90,7 +89,9 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 			public String getErrorMessage()
 				{
 				return (param.matcher(component.getText()).matches()?
-					   "Doesn\'t match "+param.pattern():null);
+						null:
+					   String.valueOf(component.getName())+
+					   	" doesn\'t match "+param.pattern());
 				}
 			});
 		}
@@ -150,7 +151,56 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 			});
 		}
 	
+	public void mustHaveMaxLength(JTextComponent component,int maxLengthExclusive)
+		{
+		addTextValidator(new Validator2<JTextComponent,Integer >(component,maxLengthExclusive)
+			{
+			@Override
+			public String getErrorMessage()
+				{
+				int n=this.component.getText().length();
+				return n< this.param ?
+						null:
+						this.component.getName()+" is too large: "+n+" chars (max:"+this.param+")"
+						;
+				}
+			});
+		}
 	
+	public void mustHaveMinLength(JTextComponent component,int minLengthInclusive)
+		{
+		addTextValidator(new Validator2<JTextComponent,Integer >(component,minLengthInclusive)
+			{
+			@Override
+			public String getErrorMessage()
+				{
+				int n=this.component.getText().length();
+				return  n>= this.param ?
+						null:
+						this.component.getName()+" is too short: "+n+" chars (min:"+this.param+")"
+						;
+				}
+			});
+		}
+	
+	
+	public void mustBeInClassPath(JTextComponent component)
+		{
+		addTextValidator(new Validator1<JTextComponent >(component)
+			{
+			@Override
+			public String getErrorMessage()
+				{
+				try {
+					Class.forName(this.component.getText());
+					return null;
+				} catch (ClassNotFoundException e)
+					{
+					return this.component.getText()+" is not in CLASSPATH :"+e.getMessage();
+					}
+				}
+			});
+		}
 	
 	public void mustHaveRows(JTable table)
 		{
@@ -220,18 +270,10 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 	
 	protected Validator1<?> addTextValidator(Validator1<JTextComponent> v)
 		{
-		v.component.getDocument().addDocumentListener(new DocumentListener()
+		v.component.getDocument().addDocumentListener(new DocumentAdapter()
 			{
 			@Override
-			public void changedUpdate(DocumentEvent e) {
-				validate();
-				}
-			@Override
-			public void insertUpdate(DocumentEvent e) {
-				validate();
-				}
-			@Override
-			public void removeUpdate(DocumentEvent e) {
+			public void documentChanged(DocumentEvent e) {
 				validate();
 				}
 			});
