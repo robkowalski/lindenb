@@ -1273,7 +1273,7 @@ private LinkPattern createLinkPattern(String sel)
 	pane.add(f2);
 	SimpleDialog dialog= new SimpleDialog(this,"Create New Pattern");
 	dialog.getOKAction().mustBeARegexPattern(f1);
-	dialog.getOKAction().mustNotEmpty(f2);
+	dialog.getOKAction().mustNotEmpty(f2,true);
 	dialog.getContentPane().add(pane);
 	if(dialog.showDialog()!=SimpleDialog.OK_OPTION) return null;
 	try

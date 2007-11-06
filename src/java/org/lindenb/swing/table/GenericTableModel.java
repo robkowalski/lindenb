@@ -3,9 +3,11 @@
  */
 package org.lindenb.swing.table;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Iterator;
 import java.util.Vector;
-
-
 
 /**
  * @author pierre
@@ -42,6 +44,14 @@ public abstract class GenericTableModel<T> extends AbstractGenericTableModel<T>
 		fireTableRowsInserted(getRowCount()-1, getRowCount()-1);
 		}
 	
+	public void addAll(Collection<T> col)
+		{
+		if(col.isEmpty()) return;
+		int i= getRowCount();
+		getDataVector().addAll(col);
+		fireTableRowsInserted(i,i+col.size()-1);
+		}
+	
 	public void removeElement(T t)
 		{
 		int i = indexOf(t);
@@ -60,5 +70,35 @@ public abstract class GenericTableModel<T> extends AbstractGenericTableModel<T>
 		if(n==0) return;
 		getDataVector().clear();
 		fireTableRowsDeleted(0, n-1);
+		}
+	
+	public void sort(Comparator<T> comparator)
+		{
+		if(isEmpty()) return;
+		Collections.sort(getDataVector(),comparator);
+		fireTableRowsUpdated(0, getDataVector().size()-1);
+		}
+	
+	@Override
+	public Iterator<T> listElements()
+		{
+		return new MyIterator();
+		}	
+	
+	private class MyIterator implements Iterator<T>
+		{
+		int index=-1;
+		@Override
+		public boolean hasNext() {
+			return index+1< getRowCount();
+			}
+		@Override
+		public T next() {
+			return elementAt(++index);
+			}
+		@Override
+		public void remove() {
+			removeElementAt(index--);
+			}
 		}
 	}

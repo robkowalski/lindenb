@@ -3,6 +3,7 @@
  */
 package org.lindenb.swing.table;
 
+import java.util.Iterator;
 import java.util.Vector;
 
 
@@ -71,4 +72,27 @@ public abstract class AbstractGenericTableModel<T> extends XAbstractTableModel
 		for(int i=0;i< getElementCount();++i) v.addElement(elementAt(i));
 		return v;
 		}
+	
+	public Iterator<T> listElements()
+		{
+		return new MyIterator();
+		}	
+	
+	private class MyIterator implements Iterator<T>
+		{
+		int index=-1;
+		@Override
+		public boolean hasNext() {
+			return index+1< getRowCount();
+			}
+		@Override
+		public T next() {
+			return elementAt(++index);
+			}
+		@Override
+		public void remove() {
+			throw new UnsupportedOperationException();
+			}
+		}
+	
 	}
