@@ -9,7 +9,6 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
@@ -70,7 +69,14 @@ public class SimpleDialog extends JDialog
 				}
 			
 			@Override
-			public void actionPerformed(ActionEvent e) {
+			public void actionPerformed(ActionEvent e)
+				{
+				String s= SimpleDialog.this.getErrorMessage();
+				SimpleDialog.this.setErrorMessage(s);
+				if(s!=null)
+					{
+					return;
+					}
 				closeDialogWithStatus(OK_OPTION);
 				}
 			}));
@@ -126,7 +132,11 @@ public class SimpleDialog extends JDialog
 		super(owner==null?null:SwingUtilities.getWindowAncestor(owner),title, ModalityType.APPLICATION_MODAL);
 		init();
 		}
-
+	
+	public String getErrorMessage()
+		{
+		return getOKAction().getErrorMessage();
+		}
 	
 	public ConstrainedAction<?> getOKAction()
 		{
@@ -144,14 +154,7 @@ public class SimpleDialog extends JDialog
 
 	public int showDialog()
 		{
-		this.pack();
-		Dimension screen= Toolkit.getDefaultToolkit().getScreenSize();
-		Dimension d= getPreferredSize();
-		setBounds(
-				(screen.width-d.width)/2,
-				(screen.height-d.height)/2,
-				d.width,
-				d.height);
+		SwingUtils.packAndCenter(this);
 		setVisible(true);
 		return this.status;
 		}

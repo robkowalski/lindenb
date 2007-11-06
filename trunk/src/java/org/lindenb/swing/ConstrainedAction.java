@@ -3,6 +3,8 @@
  */
 package org.lindenb.swing;
 
+import java.awt.Component;
+import java.io.StringReader;
 import java.lang.reflect.Constructor;
 import java.net.URI;
 import java.net.URL;
@@ -19,8 +21,12 @@ import javax.swing.event.ListSelectionListener;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
 import javax.swing.text.JTextComponent;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
 
 import org.lindenb.util.Pair;
+import org.xml.sax.InputSource;
+import org.xml.sax.helpers.DefaultHandler;
 
 /**
  * @author pierre
@@ -79,7 +85,10 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 			}
 		}
 	
-	
+	private static String name(Component c)
+		{
+		return c.getName()!=null?c.getName(): c.getClass().getSimpleName().toLowerCase();
+		}
 	
 	
 	public void mustMatchPattern(JTextComponent component,Pattern pattern)
@@ -90,7 +99,7 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 				{
 				return (param.matcher(component.getText()).matches()?
 						null:
-					   String.valueOf(component.getName())+
+						name(component)+
 					   	" doesn\'t match "+param.pattern());
 				}
 			});
@@ -112,13 +121,15 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 			});
 		}
 	
-	public void mustNotEmpty(JTextComponent component)
+	public void mustNotEmpty(JTextComponent component,boolean trim)
 		{
-		addTextValidator(new Validator1<JTextComponent>(component)
+		addTextValidator(new Validator2<JTextComponent,Boolean>(component,trim)
 			{
 			public String getErrorMessage()
 				{
-				return this.component.getText().trim().length()==0?"Empty Field":null;
+				String s=this.component.getText();
+				if(this.param) s=s.trim();
+				return s.length()==0?"is Empty":null;
 				}
 			});
 		}
@@ -145,7 +156,7 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 					}
 				catch (Exception e)
 					{
-					return "Cannot cast "+this.component.getName()+" to "+this.param +"("+this.component.getText()+"\" : "+e.getMessage();
+					return "Cannot cast "+name(this.component)+" to "+this.param +"("+this.component.getText()+"\" : "+e.getMessage();
 					}
 				}
 			});
@@ -161,7 +172,7 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 				int n=this.component.getText().length();
 				return n< this.param ?
 						null:
-						this.component.getName()+" is too large: "+n+" chars (max:"+this.param+")"
+						name(this.component)+" is too large: "+n+" chars (max:"+this.param+")"
 						;
 				}
 			});
@@ -177,7 +188,7 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 				int n=this.component.getText().length();
 				return  n>= this.param ?
 						null:
-						this.component.getName()+" is too short: "+n+" chars (min:"+this.param+")"
+							name(this.component)+" is too short: "+n+" chars (min:"+this.param+")"
 						;
 				}
 			});
@@ -198,6 +209,46 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 					{
 					return this.component.getText()+" is not in CLASSPATH :"+e.getMessage();
 					}
+				}
+			});
+		}
+	
+	public void mustBeValidXML(JTextComponent component,boolean namespaceAware)
+		{
+		addTextValidator(new Validator2<JTextComponent,Boolean>(component,namespaceAware)
+			{
+			@Override
+			public String getErrorMessage()
+				{
+				try {
+					SAXParserFactory f= SAXParserFactory.newInstance();
+					f.setNamespaceAware(this.param);
+					f.setValidating(false);
+					f.setXIncludeAware(false);
+					SAXParser parser= f.newSAXParser();
+					parser.parse(new InputSource(new StringReader(this.component.getText())), new DefaultHandler());
+					return null;
+				} catch (Exception e)
+					{
+					return name(this.component)+" is not valid XML :"+e.getMessage();
+					}
+				}
+			});
+		}
+	
+	
+	public void mustHaveSelection(JTextComponent component)
+		{
+		addTextValidator(new Validator1<JTextComponent>(component)
+			{
+			@Override
+			public String getErrorMessage()
+				{
+				if(this.component.getSelectionStart()== this.component.getSelectionEnd())
+					{
+					return name(this.component)+" : selection is empty";
+					}
+				return null;
 				}
 			});
 		}
@@ -228,12 +279,42 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 			public String getErrorMessage()
 				{
 				int n= this.component.getModel().getRowCount();
-				return n>= this.param.first() && n< this.param.second()?null:"Illegale Number of Selected Rows";
+				return n>= this.param.first() && n< this.param.second()?null:"Illegale Number of Rows";
+				}
+			});
+		}
+	
+	public void mustHaveOneRowSelected(JTable table)
+		{
+		mustHaveRowsSelected(table,1);
+		}
+	
+	public void mustHaveRowsSelected(JTable table,int rowCount)
+		{
+		mustHaveRowsSelected(table,rowCount,rowCount+1);
+		}
+
+	public void mustHaveRowsSelected(JTable table,int minInclusive,int maxExclusive)
+		{
+		table.getSelectionModel().addListSelectionListener(new ListSelectionListener()
+			{
+			@Override
+			public void valueChanged(ListSelectionEvent e){
+				validate();
+				}
+			});
+		
+		addValidator(new Validator2<JTable,Pair<Integer, Integer>>(table,new Pair<Integer, Integer>(minInclusive,maxExclusive))
+			{
+			@Override
+			public String getErrorMessage()
+				{
+				int n= this.component.getSelectedRowCount();
+				return n>= this.param.first() && n< this.param.second()?null:String.valueOf(this.component.getName())+": Illegale Number of Selected Rows";
 				}
 			});
 		}
 
-	
 	
 	
 	public void mustBeSelected(JTable table)
