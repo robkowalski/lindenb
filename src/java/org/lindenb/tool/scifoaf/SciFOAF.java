@@ -11,6 +11,8 @@ import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
@@ -22,20 +24,23 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Vector;
+import java.util.prefs.Preferences;
 import java.util.regex.Pattern;
 
 import javax.swing.AbstractAction;
 import javax.swing.Box;
 import javax.swing.DefaultComboBoxModel;
-import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
@@ -43,14 +48,23 @@ import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
+import javax.swing.filechooser.FileFilter;
 import javax.xml.namespace.QName;
+import javax.xml.stream.XMLEventFactory;
 import javax.xml.stream.XMLEventReader;
+import javax.xml.stream.XMLEventWriter;
 import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamWriter;
 import javax.xml.stream.events.Attribute;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 
+import org.lindenb.io.PreferredDirectory;
+import org.lindenb.lang.RunnableObject;
+import org.lindenb.lang.ThrowablePane;
+import org.lindenb.sw.PrefixMapping;
 import org.lindenb.sw.vocabulary.DC;
 import org.lindenb.sw.vocabulary.FOAF;
 import org.lindenb.sw.vocabulary.RDF;
@@ -60,12 +74,12 @@ import org.lindenb.swing.ObjectAction;
 import org.lindenb.swing.SimpleDialog;
 import org.lindenb.swing.SwingUtils;
 import org.lindenb.swing.layout.InputLayout;
-import org.lindenb.swing.table.AbstractGenericTableModel;
 import org.lindenb.swing.table.GenericTableModel;
 import org.lindenb.util.Assert;
 import org.lindenb.util.Compilation;
 import org.lindenb.util.Debug;
 import org.lindenb.util.IStringComparator;
+import org.lindenb.util.Pair;
 import org.lindenb.util.XObject;
 
 /**
@@ -74,6 +88,7 @@ import org.lindenb.util.XObject;
  */
 public class SciFOAF extends JFrame
 	{
+	private static final long serialVersionUID = 1L;
 	static private final IStringComparator ISTRING_COMPARATOR= new IStringComparator();
 	
 	private abstract static class AbstractPredicate<X> extends XObject
@@ -169,6 +184,7 @@ public class SciFOAF extends JFrame
 	
 	private static abstract class Instance extends XObject
 		{
+		private static final long serialVersionUID = 1L;
 		private boolean anonymousURI;
 		private URI uri=null;
 		private URI rdfType;
@@ -252,6 +268,37 @@ public class SciFOAF extends JFrame
 		public String toString() {
 			return getRDFType()+":"+getID();
 			}
+		
+		private Pair<String,String>  split(URI uri)
+			{
+			String s= uri.toString();
+			int n= s.lastIndexOf('#');
+			if(n==-1) n= s.lastIndexOf('/');
+			return new Pair<String, String>(s.substring(0,n+1),s.substring(n+1));
+			}
+		
+		public void write(XMLStreamWriter w) throws XMLStreamException
+			{
+			Pair<String,String> p= split(getRDFType());
+			w.writeStartElement(getModel().getNsURIPrefix(p.first()),p.second(),p.first());
+			w.writeAttribute(RDF.NS, "ID", getID().toString());
+			w.writeCharacters("\n");
+			
+			for(DataPredicate prop:this.dataPredicates)
+				{
+				p= split(prop.getPredicate());
+				w.writeCharacters("\t");
+				w.writeStartElement(getModel().getNsURIPrefix(p.first()),p.second(),p.first());
+				w.writeCharacters(prop.getValue());
+				w.writeEndElement();
+				w.writeCharacters("\n");
+				}
+			
+			w.writeEndElement();
+			w.writeCharacters("\n");
+			}
+		
+		
 		public abstract RDFModel getModel();
 		}
 	
@@ -275,21 +322,53 @@ public class SciFOAF extends JFrame
 		}
 	
 	private static class RDFModel
+		extends PrefixMapping
 		{
 		private Vector<Instance> instances= new Vector<Instance>(1000,100);
 		
 		
 		public RDFModel()
 			{
+			super(true);
 			}
 		
 		public void saveTo(File file) throws IOException
 			{
 			FileWriter fout = new FileWriter(file);
-			PrintWriter out= new PrintWriter(fout);
-			out.println("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
 			
-			out.flush();
+			try
+				{
+				XMLOutputFactory f=XMLOutputFactory.newInstance();
+				XMLStreamWriter w= f.createXMLStreamWriter(fout);
+				w.writeStartDocument();
+				
+				
+				
+				w.writeStartElement("rdf", "RDF", RDF.NS);
+				for(String prefix: this.getPrefixes())
+					{
+					w.setPrefix(prefix, getNsPrefixURI(prefix));
+					w.writeAttribute("xmlns:"+prefix, getNsPrefixURI(prefix));
+					}
+				
+				w.writeCharacters("\n");
+				
+				for(Instance instance: getInstanceVector())
+					{
+					instance.write(w);
+					}
+				
+				w.writeEndElement();
+				w.writeEndDocument();
+				}
+			catch(XMLStreamException err)
+				{
+				err.printStackTrace();
+				throw new IOException(err);
+				}
+			
+			
+			fout.flush();
 			fout.close();
 			}
 		
@@ -506,6 +585,7 @@ public class SciFOAF extends JFrame
 	
 	private class InstanceEditor extends SimpleDialog
 		{
+		private static final long serialVersionUID = 1L;
 		Vector<PropertyOption> dataPropOptions= new Vector<PropertyOption>();
 		JLabel iconLabel;
 		JLabel titleLabel;
@@ -549,6 +629,7 @@ public class SciFOAF extends JFrame
 			top.add(dataPredicateValueField=new JTextField(30));
 			this.actionAddPredicate=new AbstractAction("Add")
 				{
+				private static final long serialVersionUID = 1L;
 				@Override
 				public void actionPerformed(ActionEvent e) {
 					PropertyOption opt= PropertyOption.class.cast(predicateCombo.getSelectedItem());
@@ -577,6 +658,7 @@ public class SciFOAF extends JFrame
 						SimpleDialog d= new SimpleDialog(InstanceEditor.this,"Link...");
 						GenericTableModel<Instance> m= new GenericTableModel<Instance>()
 							{
+							private static final long serialVersionUID = 1L;
 							@Override
 							public String getColumnName(int column) {
 								switch(column)
@@ -674,10 +756,14 @@ public class SciFOAF extends JFrame
 			String s=this.dataPredicateValueField.getText().trim();
 			
 			PropertyOption option1=PropertyOption.class.cast(predicateCombo.getSelectedItem());
-			if(option1!=null  &&
-				DataPropOption.class.isInstance(option1) &&
+			if(option1==null)
+				{
+				Debug.debug();
+				}
+			else if(DataPropOption.class.isInstance(option1) &&
 				s.length()>0)
 				{
+				Debug.debug();
 				DataPropOption option=DataPropOption.class.cast(option1);
 				DataPredicate p= new DataPredicate(option.uri,s.trim());
 				if(!this.predicateModel.contains(p))
@@ -716,6 +802,16 @@ public class SciFOAF extends JFrame
 						}
 					}
 				}
+			else if(ObjectPropOption.class.isInstance(option1))
+				{
+				Debug.debug();
+				enabled=true;
+				}
+			else if(LinkPredicate.class.isInstance(option1))
+				{
+				Debug.debug();
+				enabled=true;
+				}
 			this.actionAddPredicate.setEnabled(enabled);
 			}
 		
@@ -751,6 +847,7 @@ public class SciFOAF extends JFrame
 			{
 			return new GenericTableModel<AbstractPredicate<?>>()
 				{
+				private static final long serialVersionUID = 1L;
 				@Override
 				public String getColumnName(int column) {
 					switch(column)
@@ -809,6 +906,7 @@ public class SciFOAF extends JFrame
 	
 	private class AgentEditor extends InstanceEditor
 		{
+		private static final long serialVersionUID = 1L;
 		protected AgentEditor(Component owner,String localName)
 			{
 			super(owner,URI.create(FOAF.NS+localName));
@@ -847,11 +945,65 @@ public class SciFOAF extends JFrame
 	private JTable instanceTable;
 	private Vector<JButton> setRDFTypeButtons = new Vector<JButton>(10,1);
 	private GenericTableModel<Instance> intancesTableModel;
-	private SciFOAF(RDFModel model)
+	private File saveAsFile=null;
+	private SciFOAF(File saveAsFile,RDFModel model)
 		{
 		super("SciFOAF");
-		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+		setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 		this.model=model;
+		this.saveAsFile=saveAsFile;
+		this.addWindowListener(new WindowAdapter()
+			{
+			@Override
+			public void windowClosing(WindowEvent e) {
+				doMenuQuit();
+				}
+			});
+		JMenuBar bar= new JMenuBar();
+		setJMenuBar(bar);
+		JMenu menu= new JMenu("File");
+		bar.add(menu);
+		menu.add(new JMenuItem(new AbstractAction("About...")
+			{
+			private static final long serialVersionUID = 1L;
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				JOptionPane.showMessageDialog(SciFOAF.this,
+					"<html><body>"+
+					"<h1 align='center'>SciFOAF 2.0</h1>"+
+					"<h2 align='center'>"+Compilation.getLabel()+"</h2>"+
+					"</body></html>",
+					"About",JOptionPane.PLAIN_MESSAGE,null
+					);
+				}
+			}));
+		
+		menu.add(new JMenuItem(new AbstractAction("Save As...")
+			{
+			private static final long serialVersionUID = 1L;
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				doMenuSaveAs();
+				}
+			}));
+		
+		menu.add(new JMenuItem(new AbstractAction("Save")
+			{
+			private static final long serialVersionUID = 1L;
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				doMenuSave(SciFOAF.this.saveAsFile);
+				}
+			}));
+		
+		menu.add(new JMenuItem(new AbstractAction("Quit")
+			{
+			private static final long serialVersionUID = 1L;
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				doMenuQuit();
+				}
+			}));
 		
 		JPanel pane1= new JPanel(new BorderLayout());
 		setContentPane(pane1);
@@ -932,14 +1084,58 @@ public class SciFOAF extends JFrame
 		action.mustHaveOneRowSelected(instanceTable);
 		bot.add(new JButton(action));
 		
+		
+		
 		setRDFType(URI.create(FOAF.NS+"Person"));
-		SwingUtils.packAndCenter(this);
+		SwingUtils.center(this,50);
+		}
+	private void doMenuSave(File f)
+		{
+		if(f==null)
+			{
+			doMenuSaveAs();
+			return;
+			}
+		
+		try {
+			getModel().saveTo(f);
+			this.saveAsFile=f;
+			PreferredDirectory.setPreferredDirectory(f);
+			Preferences prefs= Preferences.userNodeForPackage(SciFOAF.class);
+			prefs.put("save.as.file",f.toString());
+			prefs.sync();
+			}
+		catch (Exception err)
+			{
+			ThrowablePane.show(this, err);
+			}
+		}
+	
+	private void doMenuSaveAs()
+		{
+		JFileChooser chooser= new JFileChooser();
+		
+		chooser.setSelectedFile(
+				this.saveAsFile!=null?
+				this.saveAsFile:
+				new File(PreferredDirectory.getPreferredDirectory(),"foaf.rdf")
+				);
+		
+		if(chooser.showSaveDialog(this)!=JFileChooser.APPROVE_OPTION) return;
+		File  f= chooser.getSelectedFile();
+		if(f==null || (f.exists() && JOptionPane.showConfirmDialog(this, f.toString()+" exists. Overwrite.","Overwrite ?",JOptionPane.OK_CANCEL_OPTION,JOptionPane.WARNING_MESSAGE,null)!=JOptionPane.OK_OPTION))
+			{
+			return;
+			}
+		doMenuSave(f);
 		}
 	
 	private JButton createChooseRDFTypeButton(String ns,String prefix,String local)
 		{
 		JButton but= new JButton(new ObjectAction<URI>(URI.create(ns+local),prefix+":"+local)
 			{
+			private static final long serialVersionUID = 1L;
+
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				setRDFType(getObject());
@@ -1039,6 +1235,12 @@ public class SciFOAF extends JFrame
 		updateInstancesTable();
 		}
 	
+	private void doMenuQuit()
+		{
+		this.setVisible(true);
+		this.dispose();
+		}
+	
 	private InstanceEditor getInstanceEditor(Component owner,URI rdfType)
 		{
 		InstanceEditor ed=null;
@@ -1054,7 +1256,7 @@ public class SciFOAF extends JFrame
 	 */
 	public static void main(String[] args) {
 		try {
-			Debug.setDebugging(false);
+			Debug.setDebugging(true);
 			JFrame.setDefaultLookAndFeelDecorated(true);
 			JDialog.setDefaultLookAndFeelDecorated(true);
 	    	int optind=0;
@@ -1087,24 +1289,67 @@ public class SciFOAF extends JFrame
 			            }
 			        ++optind;
 			        }
+	    	File fileIn=null;
 	    	
-	    	if(optind!=args.length)
+	    	if(optind+1==args.length)
+	    		{	
+	    		fileIn= new File(args[++optind]);
+				}
+	    	else if(optind==args.length)
+	    		{
+	    		Preferences prefs= Preferences.userNodeForPackage(SciFOAF.class);
+				String f = prefs.get("save.as.file",null);
+	    		
+	    		JFileChooser chooser= new JFileChooser(PreferredDirectory.getPreferredDirectory());
+	    		if(f!=null) chooser.setSelectedFile(new File(f));
+	    		chooser.setFileFilter(new FileFilter()
+	    			{
+	    			@Override
+	    			public boolean accept(File f)
+	    				{
+	    				String name=f.getName().toLowerCase();
+	    				return f.isDirectory() || name.endsWith("rdf") || name.endsWith("rdf.gz");
+	    				}
+	    			@Override
+	    			public String getDescription() {
+	    				return "*.rdf";
+	    				}
+	    			});
+	    		if(chooser.showOpenDialog(null)==JFileChooser.APPROVE_OPTION)
+		    		{
+		    		fileIn= chooser.getSelectedFile();
+		    		prefs.put("save.as.file",f.toString());
+		    		PreferredDirectory.setPreferredDirectory(fileIn);
+		    		prefs.sync();
+		    		}
+	    		}
+	    	else
 	    		{	
 	    		throw new IllegalArgumentException("Bad number of argments.");
 				}
-	    	else
-	    		{
-				SwingUtilities.invokeAndWait(new Runnable()
+	    	
+	    	
+	    		
+			SwingUtilities.invokeAndWait(new RunnableObject<File>(fileIn)
+				{
+				@Override
+				public void run()
 					{
-					@Override
-					public void run()
+					RDFModel model= new RDFModel();
+					if(getObject()!=null)
 						{
-						RDFModel model= new RDFModel();
-						SciFOAF win= new SciFOAF(model);
-						win.setVisible(true);
+						try {
+							model.read(getObject());
+						} catch (Exception e) {
+							ThrowablePane.show(null, e);
+							return;
+							}
 						}
-					});
-				}
+					SciFOAF win= new SciFOAF(getObject(),model);
+					win.setVisible(true);
+					}
+				});
+				
 			
 			
 			//LoginDialog ed= new LoginDialog(null);
