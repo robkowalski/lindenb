@@ -30,6 +30,22 @@ public static void center(Window window)
 		);
 	}
 
+public static void center(Window window,int marginH,int marginV)
+	{
+	Dimension screen= Toolkit.getDefaultToolkit().getScreenSize();
+	window.setBounds(
+		Math.max(0,(screen.width-marginH)/2),
+		Math.max(0,(screen.height-marginV)/2),
+		screen.width-marginH,screen.height-marginV
+		);
+	}
+
+
+public static void center(Window window,int margin)
+	{
+	center(window,margin,margin);
+	}
+
 public static void packAndCenter(Window window)
 	{
 	window.pack();
