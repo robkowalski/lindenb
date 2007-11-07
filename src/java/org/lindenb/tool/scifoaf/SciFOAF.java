@@ -38,6 +38,7 @@ import javax.swing.Box;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
+import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -54,9 +55,11 @@ import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
+import javax.swing.border.TitledBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.text.JTextComponent;
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
@@ -73,6 +76,7 @@ import org.lindenb.lang.ThrowablePane;
 import org.lindenb.sw.PrefixMapping;
 import org.lindenb.sw.vocabulary.DC;
 import org.lindenb.sw.vocabulary.FOAF;
+import org.lindenb.sw.vocabulary.Namespace;
 import org.lindenb.sw.vocabulary.RDF;
 import org.lindenb.swing.ConstrainedAction;
 import org.lindenb.swing.DocumentAdapter;
@@ -91,8 +95,13 @@ import org.lindenb.util.Pair;
 import org.lindenb.util.TimeUtils;
 import org.lindenb.util.XObject;
 
+class NCBI extends Namespace
+	{
+	public static final String NS="http://www.ncbi.nlm.nih.gov/rdf/";
+	}
 
 /**
+ * SciFOAF
  * @author pierre
  *
  */
@@ -268,6 +277,10 @@ public class SciFOAF extends JFrame
 			{
 			this.rdfType=rdfType;
 			this.anonymous=anonymous;
+			if(this.anonymous)
+				{
+				uri= getModel().createAnonymousURI();
+				}
 			}
 		
 		
@@ -434,6 +447,7 @@ public class SciFOAF extends JFrame
 		public RDFModel()
 			{
 			super(true);
+			setNsPrefix("ncbi", NCBI.NS);
 			}
 		
 		public URI reverse(URI uri)
@@ -769,20 +783,19 @@ public class SciFOAF extends JFrame
 			}
 		
 		}
-	static private abstract class ObjectPropOption extends PropertyOption
+	static private class ObjectPropOption extends PropertyOption
 		{
 		URI rdfEditedType=null;
-		ObjectPropOption(String ns,String prefix,String local)
+		ObjectPropOption(String ns,String prefix,String local,URI rdfEditedType)
 			{
 			super(ns,prefix,local);
+			this.rdfEditedType=rdfEditedType;
 			}
 		@Override
 		public PREDICATE_TYPE getType() {
 			return PREDICATE_TYPE.INSTANCE;
 			}
 		
-		public abstract void editInstance(Instance i);
-		public abstract Instance createAndEditInstance(RDFModel rdfModel);
 		
 		}
 	
@@ -800,19 +813,125 @@ public class SciFOAF extends JFrame
 			}
 		}
 	
+	
+	private abstract class AbsractInstanceEditor extends SimpleDialog
+		{
+		private URI _rdfType;
+		private boolean readOnly=false;
+		protected AbsractInstanceEditor(java.awt.Component owner,URI rdfType,boolean readOnly)
+			{
+			super(owner,rdfType.toString());
+			this._rdfType=rdfType;
+			this.readOnly=readOnly;	
+			}
+		
+		public URI getRDFType()
+			{
+			return this._rdfType;
+			}
+		
+		public boolean isReadOnly()
+			{
+			return this.readOnly;
+			}
+		
+		public abstract void setInstance(Instance instance);
+		public abstract void updateInstance(Instance instance);
+		}
+	
+	private class TinyInstanceEditor extends AbsractInstanceEditor
+		{
+		protected JPanel inputPane=null;
+		
+		private Vector<Pair<URI,JComponent>> fields= new Vector<Pair<URI,JComponent>>(10,1);
+		
+		TinyInstanceEditor(java.awt.Component owner,URI rdfType,boolean readOnly)
+			{
+			super(owner,rdfType,readOnly);
+			JPanel pane= new JPanel(new BorderLayout());
+			pane.setBorder(new TitledBorder(getModel().shortForm(getRDFType().toString())));
+			getContentPane().add(pane);
+			this.inputPane= new JPanel(new InputLayout());
+			pane.add(this.inputPane,BorderLayout.CENTER);
+			}
+		
+		void addField(String label,String tooltip,Pair<URI,JComponent> f)
+			{
+			if(label==null) label= getModel().shortForm(f.first().toString());
+			if(tooltip==null) tooltip= f.first().toString();
+			JLabel label1= new JLabel(label,JLabel.RIGHT);
+			label1.setToolTipText(tooltip);
+			this.fields.add(f);
+			this.inputPane.add(label1);
+			this.inputPane.add(f.second());
+			
+			}
+		
+		public void addField(URI predicate,String label,String tooltip,Pattern pattern)
+			{
+			JTextField f= new JTextField("",30);
+			f.setEnabled(!isReadOnly());
+			if(pattern!=null && !isReadOnly()) getOKAction().mustMatchPattern(f, pattern);
+			Pair<URI,JComponent> p= new Pair<URI, JComponent>(predicate,f);
+			addField(label,tooltip,p);
+			}
+		
+		public void addField(URI predicate,String label,String tooltip,Class<?> clazz)
+			{
+			JTextField f= new JTextField("",30);
+			f.setEnabled(!isReadOnly());
+			if(clazz!=null && !isReadOnly()) getOKAction().mustBeAClass(f, clazz);
+			Pair<URI,JComponent> p= new Pair<URI, JComponent>(predicate,f);
+			addField(label,tooltip,p);
+			}
+		
+		@Override
+		public void setInstance(Instance instance)
+			{
+			for(Pair<URI,JComponent> p:fields)
+				{
+				if(JTextComponent.class.isInstance(p.second()))
+					{
+					JTextComponent tc= JTextComponent.class.cast(p.second());
+					String value=instance.getDataProperty(p.first());
+					tc.setText(value==null?"":value);
+					}
+				}
+			}
+		@Override
+		public void updateInstance(Instance instance)
+			{
+			if(isReadOnly()) return;
+			instance.getPredicates().clear();
+			for(Pair<URI,JComponent> p:fields)
+				{
+				if(JTextComponent.class.isInstance(p.second()))
+					{
+					JTextComponent tc= JTextComponent.class.cast(p.second());
+					String s= tc.getText().trim();
+					if(s.length()==0) continue;
+					instance.getPredicates().addElement(new DataPredicate(p.first(),s));
+					}
+				}
+			}
+		
+		
+		}
+	
+	
 	/**
 	 * 
 	 * @author lindenb
 	 *
 	 */
-	private class InstanceEditor extends SimpleDialog
+	private class InstanceEditor extends AbsractInstanceEditor
 		{
 		private static final long serialVersionUID = 1L;
 		protected Vector<PropertyOption> dataPropOptions= new Vector<PropertyOption>();
 		protected JLabel iconLabel;
 		protected JLabel titleLabel;
 		protected JLabel idLabel;
-		protected URI rdfType;
+		
 		protected JTabbedPane tabbedPane;
 		protected JTable predicateTable;
 		protected JTextField dataPredicateValueField;
@@ -821,7 +940,7 @@ public class SciFOAF extends JFrame
 		protected JComboBox predicateCombo;
 		protected JComboBox linkInstanceCombo;
 		protected URI instanceID=null;
-		private boolean readOnly=false;
+		
 		private JPanel cardPane;
 		
 		/**
@@ -832,9 +951,7 @@ public class SciFOAF extends JFrame
 		 */
 		InstanceEditor(java.awt.Component owner,URI rdfType,boolean readOnly)
 			{
-			super(owner,rdfType.toString());
-			this.rdfType=rdfType;
-			this.readOnly=readOnly;
+			super(owner,rdfType,readOnly);
 			buildOptions(dataPropOptions);
 			JPanel main= new JPanel(new BorderLayout());
 			JPanel top= new JPanel(new BorderLayout());
@@ -1027,14 +1144,16 @@ public class SciFOAF extends JFrame
 					}
 				case INSTANCE:
 					{
-					InstanceEditor ed= getInstanceEditor(InstanceEditor.this,
+					AbsractInstanceEditor ed= getInstanceEditor(InstanceEditor.this,
 							ObjectPropOption.class.cast(opt).rdfEditedType,
 							isReadOnly()
 							);
-					ed.setInstanceURI(getModel().createAnonymousURI());
+					
 					if(ed.showDialog()!=OK_OPTION) return;
-					Instance instance= getModel().newInstance(ed.instanceID,true);
-					ObjectPredicate p= new ObjectPredicate(opt.uri,instance);
+					
+					Instance child= getModel().newInstance(ObjectPropOption.class.cast(opt).rdfEditedType, true);
+					ed.updateInstance(child);
+					ObjectPredicate p= new ObjectPredicate(opt.uri,child);
 					if(predicateModel.contains(p)) return;
 					predicateModel.addElement(p);
 					break;
@@ -1128,11 +1247,8 @@ public class SciFOAF extends JFrame
 			return false;
 			}
 		
-		public boolean isReadOnly()
-			{
-			return this.readOnly;
-			}
 		
+		@Override
 		public void setInstance(Instance instance)
 			{
 			setInstanceURI(instance.getID());
@@ -1244,16 +1360,8 @@ public class SciFOAF extends JFrame
 				};
 			}
 		
-		public Instance updateModel()
-			{
-			Assert.assertNotNull(this.instanceID);
-			Instance instance=getModel().findInstanceByTypeAndURI(this.rdfType, this.instanceID);
-			if(instance==null)
-				{
-				instance= getModel().newInstance(this.rdfType,false);
-				instance.setID(this.instanceID);
-				getModel().getInstanceVector().addElement(instance);
-				}
+		@Override
+		public void updateInstance(Instance instance) {
 			instance.getPredicates().clear();
 			for(Iterator<Predicate<?>> iter=this.predicateModel.listElements();
 				iter.hasNext();
@@ -1261,6 +1369,19 @@ public class SciFOAF extends JFrame
 				{
 				instance.getPredicates().addElement( iter.next() );
 				}
+			}
+		
+		public Instance updateModel()
+			{
+			Assert.assertNotNull(this.instanceID);
+			Instance instance=getModel().findInstanceByTypeAndURI(getRDFType(), this.instanceID);
+			if(instance==null)
+				{
+				instance= getModel().newInstance(getRDFType(),false);
+				instance.setID(this.instanceID);
+				getModel().getInstanceVector().addElement(instance);
+				}
+			updateInstance(instance);
 			return instance;
 			}
 		}
@@ -1302,6 +1423,9 @@ public class SciFOAF extends JFrame
 			range.add(URI.create(FOAF.NS+"Person"));
 			LinkOption lkopt= new LinkOption(FOAF.NS,"foaf","knows",range);
 			options.add(lkopt);
+			
+			ObjectPropOption oo= new ObjectPropOption(NCBI.NS,"ncbi","author",URI.create(NCBI.NS+"Author"));
+			options.add(oo);
 			super.buildOptions(options);
 			}
 		}
@@ -1596,8 +1720,8 @@ public class SciFOAF extends JFrame
 		d.getOKAction().mustNotEmpty(f,true);
 		f.setText(String.valueOf(getModel().createAnonymousURI().toString()));
 		if(d.showDialog()!=InstanceEditor.OK_OPTION) return;
-		InstanceEditor ed=getInstanceEditor(owner,rdfType,false);
 		
+		InstanceEditor ed=InstanceEditor.class.cast(getInstanceEditor(owner,rdfType,false));
 		if(ed!=null)
 			{
 			ed.setInstanceURI(URI.create(f.getText()));
@@ -1611,8 +1735,8 @@ public class SciFOAF extends JFrame
 	
 	private void doMenuEditInstance(Component owner,Instance instance,boolean readOnly)
 		{
-		InstanceEditor ed=getInstanceEditor(owner,instance.getRDFType(),readOnly);
-		
+		InstanceEditor ed=InstanceEditor.class.cast(getInstanceEditor(owner,instance.getRDFType(),readOnly));
+
 		if(ed!=null)
 			{
 			ed.setInstance(instance);
@@ -1630,13 +1754,26 @@ public class SciFOAF extends JFrame
 		this.dispose();
 		}
 	
-	private InstanceEditor getInstanceEditor(Component owner,URI rdfType,boolean readOnly)
+	private AbsractInstanceEditor getInstanceEditor(Component owner,URI rdfType,boolean readOnly)
 		{
-		InstanceEditor ed=null;
+		AbsractInstanceEditor ed=null;
 		if(rdfType.equals(URI.create(FOAF.NS+"Person")))
 			{
 			ed= new PersonEditor(owner,readOnly);
 			}
+		else if(rdfType.equals(URI.create(NCBI.NS+"Author")))
+			{
+			TinyInstanceEditor te= new TinyInstanceEditor(owner,rdfType,readOnly);
+			te.addField(URI.create(NCBI.NS+"FirstName"), "First Name", null,Pattern.compile(".+"));
+			te.addField(URI.create(NCBI.NS+"LastName"), "Last Name", null,Pattern.compile(".+"));
+			ed=te;
+			}
+		
+		if(ed==null)
+			{
+			Debug.debug("cannot create editor for "+rdfType);
+			}
+		
 		return ed;
 		}
 	
