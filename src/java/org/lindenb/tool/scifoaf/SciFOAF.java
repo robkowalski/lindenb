@@ -655,7 +655,8 @@ public class SciFOAF extends JFrame
 						{
 						StartElement start2= event.asStartElement();
 						URI predicateURI= new URI(start2.getName().getNamespaceURI()+start2.getName().getLocalPart());
-						Attribute resource =element.getAttributeByName(new QName(RDF.NS,"resource"));
+						Attribute resource =start2.getAttributeByName(new QName(RDF.NS,"resource"));
+						Debug.debug(resource);
 						if(resource!=null)
 							{
 							LinkWrapper lw= new LinkWrapper(id,predicateURI,new URI(resource.getValue()));
@@ -768,9 +769,8 @@ public class SciFOAF extends JFrame
 			}
 		
 		}
-	static private class ObjectPropOption extends PropertyOption
+	static private abstract class ObjectPropOption extends PropertyOption
 		{
-		Class<Instance> EditorClass=null;
 		URI rdfEditedType=null;
 		ObjectPropOption(String ns,String prefix,String local)
 			{
@@ -780,6 +780,10 @@ public class SciFOAF extends JFrame
 		public PREDICATE_TYPE getType() {
 			return PREDICATE_TYPE.INSTANCE;
 			}
+		
+		public abstract void editInstance(Instance i);
+		public abstract Instance createAndEditInstance(RDFModel rdfModel);
+		
 		}
 	
 	static private class LinkOption extends PropertyOption
@@ -1169,6 +1173,40 @@ public class SciFOAF extends JFrame
 					return c;
 					}
 				});
+			DefaultTableCellRenderer tcr= new DefaultTableCellRenderer()
+				{
+				private static final long serialVersionUID = 1L;
+				@Override
+				public Component getTableCellRendererComponent(
+						JTable table, Object value, boolean isSelected,
+						boolean hasFocus, int row, int column)
+					{
+					Component c= super.getTableCellRendererComponent(table, value, isSelected, hasFocus,
+							row, column);
+					
+					if(value instanceof String)
+						{
+						this.setForeground(Color.BLACK);
+						}
+					else if(value instanceof Instance)
+						{
+						Instance i= Instance.class.cast(value);
+						this.setForeground(i.isAnonymous()?
+							Color.BLUE:
+							Color.MAGENTA
+							);
+						}
+					else
+						{
+						this.setForeground(Color.GREEN);
+						}
+						
+					return c;
+					}
+				};
+			
+			table.getColumnModel().getColumn(1).setCellRenderer(tcr);
+			
 			table.setFont(new Font("Dialog",Font.PLAIN,18));
 			table.setShowVerticalLines(false);
 			table.setRowHeight(22);
