@@ -80,4 +80,11 @@ public static JComponent withFont(JComponent c,Font font)
 	c.setFont(font);
 	return c;
 	}
+
+public static JComponent withToolTipText(JComponent c,String tooltip)
+	{
+	c.setToolTipText(tooltip);
+	return c;
+	}
+
 }
