@@ -127,7 +127,7 @@ class Author
 	String FirstName="";
 	String MiddleName="";
 	String Initials="";
-	String Affiliation="";
+
 	static Author parse(Element root)
 		{
 		Author author= new Author();
@@ -254,7 +254,7 @@ class Paper
 		else if(name.equals("Author"))
 			{
 			Author author= Author.parse(node);
-			if(author!=null) paper.authors.addElement(author);
+			if(author!=null && author.LastName!=null) paper.authors.addElement(author);
 			}
 		else if(name.equals("QualifierName"))
 			{
@@ -341,6 +341,7 @@ public class SciFOAF extends JFrame
 		 */
 		private static final long serialVersionUID = 1L;
 		private Vector<Pair<JComboBox,Author>> joinAuthor2Instance;
+		private Vector<Pair<JCheckBox,String>> meshes;
 		private Paper paper;
 		
 		PaperEditor(Component c,Paper paper)
@@ -349,6 +350,7 @@ public class SciFOAF extends JFrame
 			Debug.debug();
 			this.paper=paper;
 			this.joinAuthor2Instance= new Vector<Pair<JComboBox,Author>>(paper.authors.size(),1); 
+			this.meshes= new Vector<Pair<JCheckBox,String>>(paper.meshes.size());
 			int predWidth= (int)(Toolkit.getDefaultToolkit().getScreenSize().width*0.75);
 			JPanel pane= new JPanel(new BorderLayout(5,5));
 			getContentPane().add(pane);
@@ -380,6 +382,7 @@ public class SciFOAF extends JFrame
 			for(String mesh:paper.meshes)
 				{
 				JCheckBox cb= new JCheckBox(mesh,false);
+				this.meshes.add(new Pair<JCheckBox,String>(cb,mesh));
 				pane3.add(cb);
 				}
 			}
@@ -421,6 +424,119 @@ public class SciFOAF extends JFrame
 			return cbox;
 			}
 		
+		
+		public void create()
+			{
+			if(SciFOAF.this.containsPaperPMID(paper.PMID)) return;
+			Instance instance= getModel().newInstance(URI.create(FOAF.NS+"Document"),false);
+			instance.setID(URI.create("http://view.ncbi.nlm.nih.gov/pubmed/"+paper.PMID));
+			getModel().getInstanceVector().add(instance);
+			instance.getPredicates().add(new DataPredicate(URI.create(NCBI.NS+"pmid"),paper.PMID));
+			if(paper.ArticleTitle!=null) instance.getPredicates().add(new DataPredicate(URI.create(DC.NS+"title"),paper.ArticleTitle));
+			if(paper.Issue!=null)  instance.getPredicates().add(new DataPredicate(URI.create(NCBI.NS+"issue"),paper.Issue));
+			if(paper.Volume!=null)  instance.getPredicates().add(new DataPredicate(URI.create(NCBI.NS+"volume"),paper.Volume));
+			if(paper.MedlinePgn!=null)  instance.getPredicates().add(new DataPredicate(URI.create(NCBI.NS+"medlinePgn"),paper.MedlinePgn));
+			if(paper.PubDate!=null)  instance.getPredicates().add(new DataPredicate(URI.create(DC.NS+"date"),paper.PubDate));
+			if(paper.JournalTitle!=null)  instance.getPredicates().add(new DataPredicate(URI.create(NCBI.NS+"journalTitle"),paper.JournalTitle));
+			if(paper.DOI!=null)
+				{
+				try {
+					instance.getPredicates().add(new ExternalURLPredicate(URI.create(NCBI.NS+"doi"),new URL("http://dx.doi.org/"+paper.DOI)));
+				} catch (MalformedURLException e) {
+					Debug.debug(e);
+				}
+				}
+			
+			for(Pair<JCheckBox,String> p:this.meshes)
+				{
+				if(!p.first().isSelected()) continue;
+				instance.getPredicates().add(new DataPredicate(URI.create(DC.NS+"title"),p.second()));
+				}
+			
+			for(Pair<JComboBox,Author> p:this.joinAuthor2Instance)
+				{
+				DefaultComboBoxModel m= DefaultComboBoxModel.class.cast(p.first().getModel());
+				int index= p.first().getSelectedIndex();
+				if(index==-1) continue;
+				else if(index==0) continue;//ignore
+				else if(index==1)//new author
+					{
+					Instance author= createAuthor(p.second());
+					if(author!=null)
+						{
+						linkAuthorAndPaper(instance,author);
+						}
+					}
+				else if(index==2)//literal
+					{
+					instance.getPredicates().add(new DataPredicate(URI.create(FOAF.NS+"maker"),p.second().toString()));
+					}
+				else// 
+					{
+					Instance author=Instance.class.cast(m.getElementAt(index));
+					if(author!=null)
+						{
+						linkAuthorAndPaper(instance,author);
+						}
+					}
+				}
+			
+			
+			}
+		
+		private void linkAuthorAndPaper(Instance paper,Instance author)
+			{
+			LinkPredicate link= new LinkPredicate(URI.create(FOAF.NS+"maker"),author);
+			if(!paper.getPredicates().contains(link))
+				{
+				paper.getPredicates().addElement(link);
+				}
+			link= new LinkPredicate(URI.create(FOAF.NS+"made"),paper);
+			if(!author.getPredicates().contains(link))
+				{
+				author.getPredicates().addElement(link);
+				}
+			}
+		
+		private Instance createAuthor(Author o)
+			{
+			if(o.FirstName==null) o.FirstName="";
+			Instance author= getModel().newInstance(URI.create(FOAF.NS+"Person"), false);
+			URI uri=URI.create((o.FirstName+o.LastName).replaceAll("[^a-zA-Z]", ""));
+			if(getModel().findInstanceByURI(uri)!=null)
+				{
+				uri=getModel().createAnonymousURI();
+				}
+			author.setID(uri);
+			getModel().getInstanceVector().addElement(author);
+			_addpredicate(author,FOAF.NS,"name",(o.FirstName+" "+o.LastName).trim());
+			_addpredicate(author,FOAF.NS,"firstName",o.FirstName);
+			_addpredicate(author,FOAF.NS,"family_name",o.LastName);
+			
+			Instance ncbiName= createNCBIAuthor(o);
+			if(ncbiName!=null)
+				{
+				author.getPredicates().add(new ObjectPredicate(URI.create(NCBI.NS+NCBI.IsNCBIAuthor),ncbiName));
+				}
+			return author;
+			}
+		
+		private Instance createNCBIAuthor(Author o)
+			{
+			Instance author= getModel().newInstance(URI.create(NCBI.NS+"Author"), true);
+			_addpredicate(author,NCBI.NS,NCBI.firstName,o.FirstName);
+			_addpredicate(author,NCBI.NS,NCBI.lastName,o.LastName);
+			_addpredicate(author,NCBI.NS,"initials",o.Initials);
+			_addpredicate(author,NCBI.NS,"middleName",o.MiddleName);
+			_addpredicate(author,NCBI.NS,"suffix",o.Suffix);
+			return author;
+			}
+		
+		private void _addpredicate(Instance instance,String ns,String local,String value)
+			{
+			if(value==null || value.trim().length()==0) return;
+			instance.getPredicates().add(new DataPredicate(URI.create(ns+local),value.trim()));
+			}
 		}
 	
 	/**
@@ -2567,10 +2683,10 @@ public class SciFOAF extends JFrame
 			PaperEditor paperEditor= new PaperEditor(owner,s.paper);
 			Debug.debug();
 			if(paperEditor.showDialog()!=PaperEditor.OK_OPTION) continue;
-			//TODO
+			paperEditor.create();
 			}
 		
-		
+		updateInstancesTable();
 		}
 	
 	private boolean containsPaperPMID(String pmid)
@@ -2708,8 +2824,9 @@ public class SciFOAF extends JFrame
 			Debug.debug("Done");
 			Paper test=Paper.parse(param.dom.getDocumentElement());
 			PaperEditor ed= new PaperEditor(owner,test);
-			ed.showDialog();
-			
+			if(ed.showDialog()!=PaperEditor.OK_OPTION) return null;
+			ed.create();
+			updateInstancesTable();
 			return param.dom;
 			}
 		catch (Exception e) {
