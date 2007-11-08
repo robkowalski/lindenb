@@ -87,4 +87,20 @@ public static JComponent withToolTipText(JComponent c,String tooltip)
 	return c;
 	}
 
+public static JComponent withName(JComponent c,String name)
+	{
+	c.setName(name);
+	return c;
+	}
+
+public static JComponent withPreferredSize(JComponent c,Dimension preferredSize)
+	{
+	c.setPreferredSize(preferredSize);
+	return c;
+	}
+
+public static JComponent withPreferredSize(JComponent c,int width,int height)
+	{
+	return withPreferredSize(c,new Dimension(width,height));
+	}
 }

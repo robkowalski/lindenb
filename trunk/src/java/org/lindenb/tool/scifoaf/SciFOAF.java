@@ -7,9 +7,11 @@ import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dialog;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
@@ -20,8 +22,10 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -37,9 +41,11 @@ import javax.swing.AbstractAction;
 import javax.swing.Box;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
+import javax.swing.JEditorPane;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -48,10 +54,14 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
+import javax.swing.JSeparator;
+import javax.swing.JSpinner;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
@@ -61,6 +71,8 @@ import javax.swing.filechooser.FileFilter;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.text.JTextComponent;
 import javax.xml.namespace.QName;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLOutputFactory;
@@ -94,10 +106,181 @@ import org.lindenb.util.ObserverObject;
 import org.lindenb.util.Pair;
 import org.lindenb.util.TimeUtils;
 import org.lindenb.util.XObject;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+
+class Author
+	{
+	String Suffix="";
+	String LastName="";
+	String FirstName="";
+	String MiddleName="";
+	String Initials="";
+	String Affiliation="";
+	static Author parse(Element root)
+		{
+		Author author= new Author();
+		for(Node n= root.getFirstChild();n!=null;n=n.getNextSibling())
+			{
+			if(n.getNodeType()!=Node.ELEMENT_NODE) continue;
+			String tag= n.getNodeName();
+			String content= n.getTextContent().trim();
+			if(tag.equals("LastName"))
+				{
+				author.LastName= content;
+				}
+			else if(tag.equals("FirstName") || tag.equals("ForeName"))
+				{
+				author.FirstName= content;
+				}
+			else if(tag.equals("Initials"))
+				{
+				author.Initials= content;
+				}
+			else if(tag.equals("MiddleName"))
+				{
+				author.MiddleName= content;
+				}
+			else if(tag.equals("CollectiveName"))
+				{
+				return null;
+				}
+			else if(tag.equals("Suffix"))
+				{
+				author.Suffix= content;
+				}
+			else
+				{
+				Debug.debug("ignoring "+tag+"="+content);
+				}
+			}
+		return author;
+		}
+	String toHTML()
+		{
+		return "<a>"+LastName+" "+FirstName+"</a>";
+		}
+	@Override
+	public String toString() {
+		return ""+LastName+" "+FirstName;
+		}
+	}
+
+class Paper
+	{
+	Vector<Author> authors= new Vector<Author>(10);
+	HashSet<String> meshes= new HashSet<String>();
+	String PMID=null;
+	String ArticleTitle=null;
+	String Volume=null;
+	String Issue=null;
+	String PubDate=null;
+	String MedlinePgn=null;
+	String JournalTitle=null;
+	String DOI=null;
+	
+	Paper()
+		{
+		
+		}
+	
+	public String toHTML()
+		{
+		StringBuilder b= new StringBuilder("<div>");
+		if(ArticleTitle!=null) b.append("<h3>"+ArticleTitle+"</h3>");
+		b.append("<h4>");
+		for(int i=0;i< authors.size();++i)
+			{
+			if(i!=0 && i+1!=authors.size()) b.append(",");
+			if(i!=0 && i+1==authors.size()) b.append(" and ");
+			b.append(authors.elementAt(i).toHTML());
+			}
+		b.append("</h4>");
+		
+		
+		b.append("<p>");
+		if(JournalTitle!=null) b.append("<b>"+JournalTitle+"</b>. ");
+		if(PubDate!=null) b.append(" <i>"+PubDate+"</i>. ");
+		if(Volume!=null) b.append(" ("+Volume+") ");
+		if(Issue!=null) b.append(" "+Issue+", ");
+		if(MedlinePgn!=null) b.append(" pp."+MedlinePgn+". ");
+		b.append("</p>");
+		b.append("<i>PMID.</i>"+PMID+"<br>");
+		if(DOI!=null) b.append("<i>DOI.</i>"+DOI+"<br>");
+		b.append("</div>");
+		return b.toString();
+		}
+	
+	static Paper parse(Document dom)
+		{
+		Paper paper= new Paper();
+		parse(paper,dom.getDocumentElement(),0);
+		return paper;
+		}
+	
+	static private void parse(Paper paper,Element node,int depth)
+		{
+		if(node==null) return;
+		String name=node.getNodeName();
+		if(name.equals("PMID")) { paper.PMID= node.getTextContent().trim();}
+		else if(name.equals("Volume")) { paper.Volume= node.getTextContent().trim();}
+		else if(name.equals("Issue")) { paper.Issue= node.getTextContent().trim();}
+		else if(name.equals("MedlinePgn")) { paper.MedlinePgn= node.getTextContent().trim();}
+		else if(name.equals("Title")) { paper.JournalTitle= node.getTextContent().trim();}
+		else if(node.getParentNode()!=null &&
+				node.getParentNode().getNodeName().equals("PubDate"))
+			{
+			if(paper.PubDate==null) paper.PubDate="";
+			if(paper.PubDate.length()>0) paper.PubDate+="-";
+			paper.PubDate+=node.getTextContent().trim();
+			}
+		else if(name.equals("ArticleTitle")) { paper.ArticleTitle= node.getTextContent().trim();}
+		else if(name.equals("Author"))
+			{
+			Author author= Author.parse(node);
+			if(author!=null) paper.authors.addElement(author);
+			}
+		else if(name.equals("QualifierName"))
+			{
+			paper.meshes.add(node.getTextContent());
+			}
+		else if(name.equals("ArticleId"))
+			{
+			String doi= node.getAttribute("IdType");
+			if("doi".equals(doi))
+				{
+				paper.DOI=node.getTextContent().trim();
+				}
+			}
+		
+			{
+			for(int i=0;i< depth;++i) System.err.print("  ");
+			System.err.print(name);
+			for(int i=0;i< node.getAttributes().getLength();++i)
+				{
+				System.err.print(" "+node.getAttributes().item(i).getNodeName()+"="+node.getAttributes().item(i).getNodeValue()+" ");
+				}
+			if(node.getFirstChild()!=null && node.getFirstChild().getNodeType()==Node.TEXT_NODE)
+				{
+				System.err.print(" "+node.getFirstChild().getTextContent());
+				}
+			System.err.println();
+			}
+		
+		
+		for(Node n= node.getFirstChild();n!=null;n=n.getNextSibling())
+			{
+			if(n.getNodeType()!=Node.ELEMENT_NODE) continue;
+			parse(paper,Element.class.cast(n),depth+1);
+			}
+		}
+	}
 
 class NCBI extends Namespace
 	{
 	public static final String NS="http://www.ncbi.nlm.nih.gov/rdf/";
+	public static final String IsNCBIAuthor="isNCBIAuthor";
 	}
 
 /**
@@ -109,6 +292,7 @@ public class SciFOAF extends JFrame
 	{
 	private static final long serialVersionUID = 1L;
 	static private final IStringComparator ISTRING_COMPARATOR= new IStringComparator();
+	/** comparator used in Generic Table Model of Instance */
 	static private Comparator<Instance> INSTANCE_COMPARATOR=new Comparator<Instance>()
 		{
 		@Override
@@ -118,13 +302,113 @@ public class SciFOAF extends JFrame
 			}
 		};
 	
-	
+	/** type of oject stored in a Predicate<X> */
 	private enum PREDICATE_TYPE
 		{
-		DATA,INSTANCE,LINK
+		/** plain text data */
+		DATA,
+		/** a instance that just belong to the current instance */
+		INSTANCE,
+		/** another instance IN the model */
+		LINK,
+		/** an external URL */
+		EXTERNAL_URL
 		}
 	
+	private class PaperEditor extends SimpleDialog
+		{
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
+		private Vector<Pair<JComboBox,Author>> joinAuthor2Instance;
+		private Paper paper;
+		
+		PaperEditor(Component c,Paper paper)
+			{
+			super(c,"Pubmed PMID."+paper.PMID);
+			this.paper=paper;
+			this.joinAuthor2Instance= new Vector<Pair<JComboBox,Author>>(paper.authors.size(),1); 
+			int predWidth= (int)(Toolkit.getDefaultToolkit().getScreenSize().width*0.75);
+			JPanel pane= new JPanel(new BorderLayout(5,5));
+			getContentPane().add(pane);
+			JPanel top = new JPanel(new BorderLayout(5,5));
+			pane.add(top,BorderLayout.NORTH);
+			JEditorPane editor=new JEditorPane("text/html",
+					"<html><body width='"+predWidth+"'>"+paper.toHTML()+"</body></html>");
+			editor.setEditable(false);
+			top.add(new JScrollPane(editor));
+			top.add(new JSeparator(JSeparator.HORIZONTAL),BorderLayout.SOUTH);
+			
+			JPanel pane2= new JPanel(new GridLayout(1,0,10,10));
+			pane.add(pane2);
+			
+			JPanel pane3= new JPanel(new GridLayout(0,2,3,3));
+			pane3.setBorder(new TitledBorder("Authors"));
+			pane2.add(new JScrollPane(pane3));
+			for(Author author:paper.authors)
+				{
+				JLabel label= new JLabel(author.toString(),JLabel.RIGHT);
+				pane3.add(label);
+				JComboBox cbox= createCombo(author);
+				pane3.add(cbox);
+				}
+			
+			pane3= new JPanel(new GridLayout(0,3,3,3));
+			pane3.setBorder(new TitledBorder("Mesh Terms"));
+			pane2.add(new JScrollPane(pane3));
+			for(String mesh:paper.meshes)
+				{
+				JCheckBox cb= new JCheckBox(mesh,false);
+				pane3.add(cb);
+				}
+			}
+		private JComboBox createCombo(Author author)
+			{
+			DefaultComboBoxModel m= new DefaultComboBoxModel();
+			
+			int selectedIndex=-1;
+			m.addElement("-- Ignore --");
+			m.addElement("Create New foaf:Person");
+			m.addElement("As Literal");
+			URI person= URI.create(FOAF.NS+"Person");
+			URI isNCBIAuthor= URI.create(NCBI.NS+NCBI.IsNCBIAuthor);
+			URI lastNameURI= URI.create(NCBI.NS+"lastName");
+			for(Instance i: getModel().getInstanceVector())
+				{
+				if(!i.getRDFType().equals(person)) continue;
+				m.addElement(i);
+				
+				for(Iterator<ObjectPredicate> iter=i.listObjectPredicates();
+					selectedIndex==-1 && iter.hasNext();)
+					{
+					ObjectPredicate p= iter.next();
+					if(!p.getPredicate().equals(isNCBIAuthor)) continue;
+					Instance value=p.getValue();
+					String name= value.getDataProperty(lastNameURI);
+					if(name!=null && author.LastName!=null && ISTRING_COMPARATOR.compare(name, author.LastName)==0)
+						{
+						selectedIndex=m.getSize()-1;
+						}
+					}
+				}
+			
+			JComboBox cbox= new JComboBox(m);
+			cbox.setName(author.toString());
+			cbox.setSelectedIndex(selectedIndex);
+			getOKAction().mustBeSelected(cbox);
+			joinAuthor2Instance.add(new Pair<JComboBox,Author>(cbox,author));
+			return cbox;
+			}
+		
+		}
 	
+	/**
+	 * Predicate<X>
+	 * @author pierre
+	 *
+	 * @param <X> type of value in a RDF statement
+	 */
 	private abstract static class Predicate<X> extends XObject
 		{
 		private URI uri;
@@ -145,6 +429,11 @@ public class SciFOAF extends JFrame
 		public abstract void write(XMLStreamWriter w,Instance owner,int depth) throws XMLStreamException;
 		}
 		
+	/**
+	 * 
+	 * @author pierre
+	 *
+	 */
 	private static class LinkPredicate extends Predicate<Instance>
 		{
 		LinkPredicate(URI uri,Instance value)
@@ -175,18 +464,53 @@ public class SciFOAF extends JFrame
 		public void write(XMLStreamWriter w,Instance owner,int depth) throws XMLStreamException
 			{
 			Pair<String,String> p= owner.split(this.getPredicate());
-			w.writeComment("[LINK END]\n");
 			w.writeCharacters(" ");
 			w.writeEmptyElement(owner.getModel().getNsURIPrefix(p.first()),p.second(),p.first());
-			w.writeAttribute("rdf",RDF.NS,"resource",this.getValue().getID().toString());
+			w.writeAttribute("rdf",RDF.NS,"resource","#"+this.getValue().getID().toString());
 			//w.writeEndElement();
 			w.writeCharacters("\n");
-			w.writeComment("[LINK END]\n");
 			}
 		
 		}
 	
-
+	private static class ExternalURLPredicate extends Predicate<URL>
+		{
+		ExternalURLPredicate(URI uri,URL value)
+			{
+			super(uri,value);
+			}
+		
+		@Override
+		public PREDICATE_TYPE getType() {
+			return PREDICATE_TYPE.EXTERNAL_URL;
+			}
+		
+		@Override
+		public boolean equals(Object obj) {
+			if(obj==this) return true;
+			if(obj==null || !(obj instanceof ExternalURLPredicate)) return false;
+			ExternalURLPredicate cp= ExternalURLPredicate.class.cast(obj);
+			return getPredicate().equals(cp.getPredicate()) &&
+					getValue().equals(cp.getValue());
+			}
+		
+		@Override
+		public String toString() {
+			return "<"+getPredicate()+"> <"+getValue()+">";
+			}
+		
+		@Override
+		public void write(XMLStreamWriter w,Instance owner,int depth) throws XMLStreamException
+			{
+			Pair<String,String> p= owner.split(this.getPredicate());
+			w.writeCharacters(" ");
+			w.writeEmptyElement(owner.getModel().getNsURIPrefix(p.first()),p.second(),p.first());
+			w.writeAttribute("rdf",RDF.NS,"resource",this.getValue().toString());
+			//w.writeEndElement();
+			w.writeCharacters("\n");
+			}
+		
+		}
 	
 	private static class DataPredicate extends Predicate<String>
 		{
@@ -542,12 +866,26 @@ public class SciFOAF extends JFrame
 	            	if(from==null)		
 	            		{
 	            		Debug.debug("Cannot find instance URI="+link.from);
+	            		continue;
 	            		}
 	            	Instance to = findInstanceByURI(link.to);
 	            	if(to==null)		
 	            		{
-	            		Debug.debug("Cannot find instance URI="+link.to);
+	            		URL url= null;
+	            		try {
+	            			url=link.to.toURL();
+	            			ExternalURLPredicate p= new ExternalURLPredicate(link.predicate,url);
+	            			if(!from.getPredicates().contains(p))
+		            			{
+		            			from.getPredicates().addElement(p);
+								}
+	            			}	
+	            		catch (Exception e) {
+							Debug.debug("Cannot find instance URI="+link.to);
+							}
+	            		continue;
 	            		}
+	            	
 	            	LinkPredicate p= new LinkPredicate(
 	            		link.predicate,
 	            		to
@@ -673,7 +1011,9 @@ public class SciFOAF extends JFrame
 						Debug.debug(resource);
 						if(resource!=null)
 							{
-							LinkWrapper lw= new LinkWrapper(id,predicateURI,new URI(resource.getValue()));
+							String to= resource.getValue();
+							if(to.startsWith("#")) to=to.substring(1);
+							LinkWrapper lw= new LinkWrapper(id,predicateURI,new URI(to));
 							links.addElement(lw);
 							if(!parser.hasNext()) throw new XMLStreamException("Expected an event");
 							event= parser.nextEvent();
@@ -752,7 +1092,6 @@ public class SciFOAF extends JFrame
 	static private class DataPropOption extends PropertyOption
 		{
 		Pattern pattern=Pattern.compile(".*");
-		String defaultValue="";
 		Class<?> clazz=String.class;
 		DataPropOption(String ns,String prefix,String local)
 			{
@@ -781,8 +1120,32 @@ public class SciFOAF extends JFrame
 				}
 			return true;
 			}
-		
 		}
+	
+	static private class ExternalURLPropOption extends PropertyOption
+		{
+		ExternalURLPropOption(String ns,String prefix,String local)
+			{
+			super(ns,prefix,local);
+			}
+		@Override
+		public PREDICATE_TYPE getType() {
+			return PREDICATE_TYPE.EXTERNAL_URL;
+			}
+		
+		public URL validateURL(String s)
+			{
+			URL url=null;
+			try {
+				url= new URL(s);
+			} catch (Exception e) {
+				return null;
+				}
+			return url;
+			}
+		}
+
+	
 	static private class ObjectPropOption extends PropertyOption
 		{
 		URI rdfEditedType=null;
@@ -795,9 +1158,8 @@ public class SciFOAF extends JFrame
 		public PREDICATE_TYPE getType() {
 			return PREDICATE_TYPE.INSTANCE;
 			}
-		
-		
 		}
+	
 	
 	static private class LinkOption extends PropertyOption
 		{
@@ -814,6 +1176,11 @@ public class SciFOAF extends JFrame
 		}
 	
 	
+	
+	/**
+	 * AbsractInstanceEditor
+	 *
+	 */
 	private abstract class AbsractInstanceEditor extends SimpleDialog
 		{
 		private URI _rdfType;
@@ -1058,6 +1425,12 @@ public class SciFOAF extends JFrame
 								dataPredicateValueField.setEnabled(true);
 								break;
 								}
+							case EXTERNAL_URL: 
+								{
+								layout.show(cardPane, PREDICATE_TYPE.DATA.toString());
+								dataPredicateValueField.setEnabled(true);
+								break;
+								}
 							case INSTANCE:
 								{
 								layout.show(cardPane,  opt.getType().toString());
@@ -1086,6 +1459,7 @@ public class SciFOAF extends JFrame
 							default:
 								{
 								layout.show(cardPane, "EMPTY");
+								Assert.assertUnreachableStatement();
 								break;
 								}
 							}
@@ -1122,8 +1496,6 @@ public class SciFOAF extends JFrame
 			
 			this.tabbedPane.addTab("Data Properties", pane2);
 			
-			pane2= new JPanel(new BorderLayout());
-			this.tabbedPane.addTab("Object Properties", pane2);
 			
 			getContentPane().add(main);
 			}
@@ -1137,6 +1509,23 @@ public class SciFOAF extends JFrame
 				case DATA:
 					{
 					DataPredicate p=new DataPredicate(opt.uri,dataPredicateValueField.getText().trim());
+					if(predicateModel.contains(p)) return;
+					predicateModel.addElement(p);
+					dataPredicateValueField.setText("");
+					break;
+					}
+				case EXTERNAL_URL:
+					{
+					URL url=null;
+					try {
+						url = new URL(dataPredicateValueField.getText().trim());
+						} 
+					catch (MalformedURLException e) {
+						Toolkit.getDefaultToolkit().beep();
+						Debug.debug(e);
+						return;
+						}
+					ExternalURLPredicate p=new ExternalURLPredicate(opt.uri,url);
 					if(predicateModel.contains(p)) return;
 					predicateModel.addElement(p);
 					dataPredicateValueField.setText("");
@@ -1221,6 +1610,19 @@ public class SciFOAF extends JFrame
 					if(!option.isValid(s)) return false;
 					return true;
 					}
+				case EXTERNAL_URL:
+					{
+					String s=this.dataPredicateValueField.getText().trim();
+					try
+						{
+						new URL(s);
+						}
+					catch(MalformedURLException err)
+						{
+						return false;
+						}
+					return true;
+					}
 				case INSTANCE:
 					{
 					Debug.debug();
@@ -1239,6 +1641,7 @@ public class SciFOAF extends JFrame
 					Debug.debug();
 					return true;
 					}
+				default: Assert.assertUnreachableStatement();break;
 				}
 				
 			
@@ -1303,6 +1706,10 @@ public class SciFOAF extends JFrame
 					if(value instanceof String)
 						{
 						this.setForeground(Color.BLACK);
+						}
+					else if(value instanceof URL)
+						{
+						this.setForeground(Color.PINK);
 						}
 					else if(value instanceof Instance)
 						{
@@ -1424,7 +1831,7 @@ public class SciFOAF extends JFrame
 			LinkOption lkopt= new LinkOption(FOAF.NS,"foaf","knows",range);
 			options.add(lkopt);
 			
-			ObjectPropOption oo= new ObjectPropOption(NCBI.NS,"ncbi","author",URI.create(NCBI.NS+"Author"));
+			ObjectPropOption oo= new ObjectPropOption(NCBI.NS,"ncbi",NCBI.IsNCBIAuthor,URI.create(NCBI.NS+"Author"));
 			options.add(oo);
 			super.buildOptions(options);
 			}
@@ -1688,46 +2095,68 @@ public class SciFOAF extends JFrame
 		this.intancesTableModel.sort(INSTANCE_COMPARATOR);
 		}
 	
+	/** @return the associated RDFModel */
 	private RDFModel getModel()
 		{
 		return this.model;
 		}
 	
+	/**
+	 * creates a new Instance of the given rdf:type
+	 */
 	private void doMenuNewInstance(Component owner,URI rdfType)
 		{
-		SimpleDialog d= new SimpleDialog(this,"Enter a URI for this new Instance")
+		if(rdfType.equals(URI.create(FOAF.NS+"Document")))
 			{
-			private static final long serialVersionUID = 1L;
-
-			@Override
-			public String getErrorMessage()
+			SimpleDialog dialog= new SimpleDialog(this,"Enter a PMID");
+			JPanel pane= new JPanel(new InputLayout());
+			dialog.getContentPane().add(pane);
+			pane.add(new JLabel("Enter a Pubmed Identifier (PMID)",JLabel.RIGHT));
+			JTextField f= new JTextField(20);
+			if(Debug.isDebugging()) f.setText("23123");
+			f.setName("PMID");
+			dialog.getOKAction().mustBeInRange(f,1,Integer.MAX_VALUE);
+			pane.add(f);
+			if(dialog.showDialog()!=SimpleDialog.OK_OPTION) return;
+			int pmid= Integer.parseInt(f.getText().trim());
+			loadPubmedPapersByPMID(owner,pmid);
+			}
+		else
+			{
+			SimpleDialog d= new SimpleDialog(this,"Enter a URI for this new Instance")
 				{
-				String s= SwingUtils.findComponentByName(this.getContentPane(), "instance-uri", JTextField.class).getText();
-				if(getModel().findInstanceByURI(URI.create(s))!=null)
+				private static final long serialVersionUID = 1L;
+	
+				@Override
+				public String getErrorMessage()
 					{
-					return "URI "+s+" already exists";
+					String s= SwingUtils.findComponentByName(this.getContentPane(), "instance-uri", JTextField.class).getText();
+					if(getModel().findInstanceByURI(URI.create(s))!=null)
+						{
+						return "URI "+s+" already exists";
+						}
+					return super.getErrorMessage();
 					}
-				return super.getErrorMessage();
-				}
-			};
-		JPanel pane= new JPanel(new InputLayout());
-		pane.add(new JLabel("URI",JLabel.RIGHT));
-		JTextField f= new JTextField("",20);
-		f.setName("instance-uri");
-		pane.add(f);
-		d.getContentPane().add(pane);
-		d.getOKAction().mustBeURI(f);
-		d.getOKAction().mustNotEmpty(f,true);
-		f.setText(String.valueOf(getModel().createAnonymousURI().toString()));
-		if(d.showDialog()!=InstanceEditor.OK_OPTION) return;
-		
-		InstanceEditor ed=InstanceEditor.class.cast(getInstanceEditor(owner,rdfType,false));
-		if(ed!=null)
-			{
-			ed.setInstanceURI(URI.create(f.getText()));
-			if(ed.showDialog()==InstanceEditor.OK_OPTION)
+				};
+			JPanel pane= new JPanel(new InputLayout());
+			pane.add(new JLabel("URI",JLabel.RIGHT));
+			JTextField f= new JTextField("",20);
+			f.setName("instance-uri");
+			pane.add(f);
+			d.getContentPane().add(pane);
+			d.getOKAction().mustBeURI(f);
+			d.getOKAction().mustNotEmpty(f,true);
+			f.setText(String.valueOf(getModel().createAnonymousURI().toString()));
+			if(d.showDialog()!=InstanceEditor.OK_OPTION) return;
+			
+			InstanceEditor ed=InstanceEditor.class.cast(getInstanceEditor(owner,rdfType,false));
+			if(ed!=null)
 				{
-				ed.updateModel();
+				ed.setInstanceURI(URI.create(f.getText()));
+				if(ed.showDialog()==InstanceEditor.OK_OPTION)
+					{
+					ed.updateModel();
+					}
 				}
 			}
 		updateInstancesTable();
@@ -1775,6 +2204,104 @@ public class SciFOAF extends JFrame
 			}
 		
 		return ed;
+		}
+	private Document loadPubmedPapersByPMID(Component owner, int pmid)
+		{
+		try {
+			class Param extends WindowAdapter
+				{
+				int pmid;
+				JDialog dialog;
+				Document dom;
+				Throwable error=null;
+				
+				@Override
+				public void windowOpened(WindowEvent e)
+					{
+					Runnable runner= new Runnable()
+						{
+						@Override
+						public void run()
+							{
+							try {	
+								DocumentBuilderFactory factory= DocumentBuilderFactory.newInstance();
+								factory.setCoalescing(true);
+								factory.setExpandEntityReferences(true);
+								factory.setValidating(false);
+								factory.setIgnoringComments(true);
+								factory.setIgnoringElementContentWhitespace(true);
+								factory.setXIncludeAware(false);
+								DocumentBuilder builder= factory.newDocumentBuilder();
+							
+							
+								String url="http://www.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id="+
+								Param.this.pmid+"&retmode=xml";
+								Debug.debug(url);
+								Param.this.dom=builder.parse(url);
+								Debug.debug("OK, downloaded");
+								
+								}
+							catch (Exception e)
+								{
+								Debug.debug(e);
+								Param.this.error=e;
+								Param.this.dom=null;
+								}
+							Debug.debug("End Thread");
+							Param.this.dialog.setVisible(false);
+							Param.this.dialog.dispose();
+							}	
+						};
+					Thread t= new Thread(runner);
+					t.start();
+					}
+				
+				}
+			Param param= new Param();
+			param.pmid=pmid;
+			
+			
+			
+			param.dialog= new JDialog(owner==null?null:SwingUtilities.getWindowAncestor(owner),"Fetching Paper",Dialog.ModalityType.APPLICATION_MODAL);
+			param.dialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+			JPanel pane= new JPanel(new BorderLayout());
+			pane.setBorder(new EmptyBorder(10,10,10,10));
+			param.dialog.setContentPane(pane);
+			pane.add(SwingUtils.withFont(new JLabel(" Fetching PMID."+pmid+" from NCBI ",JLabel.CENTER),new Font("Dialog",Font.BOLD,24)),BorderLayout.NORTH);
+			JProgressBar bar= new JProgressBar();
+			bar.setIndeterminate(true);
+			pane.add(bar,BorderLayout.CENTER);
+			SwingUtils.packAndCenter(param.dialog);
+			param.dialog.addWindowListener(param);
+			param.dialog.setVisible(true);
+			
+			if(param.dom!=null)
+				{
+				Element root=param.dom.getDocumentElement();
+				if(root!=null && !root.getNodeName().equals("PubmedArticleSet"))
+					{
+					param.error= new IOException(root.getNodeName()+":"+root.getTextContent());
+					param.dom=null;
+					}
+				}
+			
+			if(param.error!=null)
+				{
+				ThrowablePane.show(owner, param.error);
+				return null;
+				}
+			
+			Debug.debug("Done");
+			Paper test=Paper.parse(param.dom);
+			PaperEditor ed= new PaperEditor(owner,test);
+			ed.showDialog();
+			
+			return param.dom;
+			}
+		catch (Exception e) {
+			ThrowablePane.show(owner, e);
+			return null;
+			}
 		}
 	
 	/**

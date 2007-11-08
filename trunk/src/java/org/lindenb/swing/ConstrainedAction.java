@@ -4,6 +4,8 @@
 package org.lindenb.swing;
 
 import java.awt.Component;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.StringReader;
 import java.lang.reflect.Constructor;
 import java.net.URI;
@@ -13,6 +15,7 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 import javax.swing.Icon;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JTable;
 import javax.swing.event.DocumentEvent;
@@ -237,6 +240,51 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 		}
 	
 	
+	public void mustBeInRange(JTextComponent component,int minInclusive,int maxExclusive)
+		{
+		addTextValidator(new Validator2<JTextComponent,Pair<Integer,Integer>>(component,new Pair<Integer,Integer>(minInclusive,maxExclusive))
+				{
+				@Override
+				public String getErrorMessage()
+					{
+					int value;
+					try {
+						value= Integer.parseInt(this.component.getText().trim());
+						if(value< this.param.first()) return name(this.component)+" should be greater or equal to "+this.param.first();
+						if(value>= this.param.second()) return name(this.component)+" should be stricly lower than "+this.param.second();
+						return null;
+						} 
+					catch (NumberFormatException err)
+						{
+						return name(this.component)+": not a valid number";
+						}
+					}
+				});
+		}
+	
+	public void mustBeInRange(JTextComponent component,double minInclusive,double maxInclusive/* oui inclusive */)
+		{
+		addTextValidator(new Validator2<JTextComponent,Pair<Double,Double>>(component,new Pair<Double,Double>(minInclusive,maxInclusive))
+				{
+				@Override
+				public String getErrorMessage()
+					{
+					double value;
+					try {
+						value= Double.parseDouble(this.component.getText().trim());
+						if(value< this.param.first()) return name(this.component)+" should be greater or equal to "+this.param.first();
+						if(value> this.param.second()) return name(this.component)+" should be stricly lower than "+this.param.second();
+						return null;
+						} 
+					catch (NumberFormatException err)
+						{
+						return name(this.component)+": not a valid number";
+						}
+					}
+				});
+		}
+	
+	
 	public void mustHaveSelection(JTextComponent component)
 		{
 		addTextValidator(new Validator1<JTextComponent>(component)
@@ -348,6 +396,28 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 			});
 		}
 
+	
+	public void mustBeSelected(JComboBox cbox)
+		{
+		cbox.addActionListener(new ActionListener()
+			{
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				validate();
+				}
+			});
+		
+		addValidator(new Validator1<JComboBox>(cbox)
+			{
+			@Override
+			public String getErrorMessage()
+				{
+				int n= this.component.getSelectedIndex();
+				return n!=-1?null:name(this.component)+" Should be selected";
+				}
+			});
+		}
+	
 	
 	protected Validator1<?> addTextValidator(Validator1<JTextComponent> v)
 		{
