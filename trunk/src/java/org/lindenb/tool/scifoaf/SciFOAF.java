@@ -22,10 +22,12 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -34,6 +36,7 @@ import java.util.Iterator;
 import java.util.Observable;
 import java.util.Set;
 import java.util.Vector;
+import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import java.util.regex.Pattern;
 
@@ -67,6 +70,8 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.border.TitledBorder;
 import javax.swing.event.DocumentEvent;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.text.JTextComponent;
@@ -110,6 +115,11 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
+/**
+ * An author in a NCBI Pubmed paper
+ * @author pierre
+ *
+ */
 class Author
 	{
 	String Suffix="";
@@ -167,6 +177,11 @@ class Author
 		}
 	}
 
+/**
+ * A paper from PUBMED
+ * @author pierre
+ *
+ */
 class Paper
 	{
 	Vector<Author> authors= new Vector<Author>(10);
@@ -212,10 +227,10 @@ class Paper
 		return b.toString();
 		}
 	
-	static Paper parse(Document dom)
+	static Paper parse(Element root)
 		{
 		Paper paper= new Paper();
-		parse(paper,dom.getDocumentElement(),0);
+		parse(paper,root,0);
 		return paper;
 		}
 	
@@ -281,6 +296,10 @@ class NCBI extends Namespace
 	{
 	public static final String NS="http://www.ncbi.nlm.nih.gov/rdf/";
 	public static final String IsNCBIAuthor="isNCBIAuthor";
+	public static final String lastName="lastName";
+	public static final String firstName="firstName";
+	public static final String Author="Author";
+	;
 	}
 
 /**
@@ -327,6 +346,7 @@ public class SciFOAF extends JFrame
 		PaperEditor(Component c,Paper paper)
 			{
 			super(c,"Pubmed PMID."+paper.PMID);
+			Debug.debug();
 			this.paper=paper;
 			this.joinAuthor2Instance= new Vector<Pair<JComboBox,Author>>(paper.authors.size(),1); 
 			int predWidth= (int)(Toolkit.getDefaultToolkit().getScreenSize().width*0.75);
@@ -373,7 +393,7 @@ public class SciFOAF extends JFrame
 			m.addElement("As Literal");
 			URI person= URI.create(FOAF.NS+"Person");
 			URI isNCBIAuthor= URI.create(NCBI.NS+NCBI.IsNCBIAuthor);
-			URI lastNameURI= URI.create(NCBI.NS+"lastName");
+			URI lastNameURI= URI.create(NCBI.NS+NCBI.lastName);
 			for(Instance i: getModel().getInstanceVector())
 				{
 				if(!i.getRDFType().equals(person)) continue;
@@ -624,6 +644,15 @@ public class SciFOAF extends JFrame
 		public Vector<Predicate<?>> getPredicates()
 			{
 			return this._predicates;
+			}
+		
+		public boolean hasPredicate(URI uri)
+			{
+			for(Predicate<?> p: getPredicates())
+				{
+				if(p.getPredicate().equals(uri)) return true;
+				}
+			return false;
 			}
 		
 		@Override
@@ -1831,24 +1860,38 @@ public class SciFOAF extends JFrame
 			LinkOption lkopt= new LinkOption(FOAF.NS,"foaf","knows",range);
 			options.add(lkopt);
 			
-			ObjectPropOption oo= new ObjectPropOption(NCBI.NS,"ncbi",NCBI.IsNCBIAuthor,URI.create(NCBI.NS+"Author"));
+			ObjectPropOption oo= new ObjectPropOption(NCBI.NS,"ncbi",NCBI.IsNCBIAuthor,URI.create(NCBI.NS+NCBI.Author));
 			options.add(oo);
 			super.buildOptions(options);
 			}
 		}
 	
-	
+	/** the rdf model holding all instanes */
 	private RDFModel model;
+	private AbstractAction addPubmedReferenceAction;
 	private URI currentRDFType=null;
 	private JTable instanceTable;
 	private Vector<JButton> setRDFTypeButtons = new Vector<JButton>(10,1);
 	private GenericTableModel<Instance> intancesTableModel;
 	private Observed<File> saveAsFile=new Observed<File>();
+	private int pubmedStart=0;
+	private int pubmedCount=50;
+	
+	/**
+	 * SCIFOAF
+	 * @param saveAsFile
+	 * @param model
+	 */
 	private SciFOAF(File saveAsFile,RDFModel model)
 		{
 		super("SciFOAF");
 		setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 		this.model=model;
+		
+		
+		Preferences prefs= Preferences.userNodeForPackage(SciFOAF.class);
+		this.pubmedStart= prefs.getInt("pubmedStart", this.pubmedStart);
+		this.pubmedCount= prefs.getInt("pubmedCount", this.pubmedCount);
 		
 		this.addWindowListener(new WindowAdapter()
 			{
@@ -1894,6 +1937,31 @@ public class SciFOAF extends JFrame
 				}
 			}));
 		
+		
+		menu.add(new JMenuItem(new AbstractAction("Preferences")
+			{
+			private static final long serialVersionUID = 1L;
+
+			@Override
+			public void actionPerformed(ActionEvent e)
+				{
+				SimpleDialog d= new SimpleDialog(SciFOAF.this,"Preferences");
+				JPanel pane= new JPanel(new InputLayout());
+				d.getContentPane().add(pane);
+				pane.add(new JLabel("Pubmed Max Return:",JLabel.RIGHT));
+				JSpinner spin1= new JSpinner(new SpinnerNumberModel(SciFOAF.this.pubmedCount,1,100,1));
+				pane.add(spin1);
+				pane.add(new JLabel("Pubmed Start From:",JLabel.RIGHT));
+				JSpinner spin2= new JSpinner(new SpinnerNumberModel(SciFOAF.this.pubmedStart,0,Integer.MAX_VALUE,1));
+				pane.add(spin2);
+				if(d.showDialog()!=SimpleDialog.OK_OPTION) return;
+				SciFOAF.this.pubmedCount= Number.class.cast(spin1.getValue()).intValue();
+				SciFOAF.this.pubmedStart= Number.class.cast(spin2.getValue()).intValue();
+				}
+			}));
+		
+		
+		
 		menu.add(new JMenuItem(new AbstractAction("Quit")
 			{
 			private static final long serialVersionUID = 1L;
@@ -1902,6 +1970,9 @@ public class SciFOAF extends JFrame
 				doMenuQuit();
 				}
 			}));
+		
+		
+		
 		
 		JPanel pane1= new JPanel(new BorderLayout());
 		setContentPane(pane1);
@@ -1957,39 +2028,78 @@ public class SciFOAF extends JFrame
 			@Override
 			public void mouseClicked(MouseEvent e) {
 				if(e.getClickCount()<2) return;
-				int i=SciFOAF.this.instanceTable.rowAtPoint(e.getPoint());
-				if(i==-1) return;
-				i= SciFOAF.this.instanceTable.convertRowIndexToModel(i);
-				if(i==-1) return;
-				Instance t= SciFOAF.this.intancesTableModel.elementAt(i);
+				Instance t= getSelectedInstance(SciFOAF.this.instanceTable.rowAtPoint(e.getPoint()));
+				if(t==null) return;
 				doMenuEditInstance(SciFOAF.this, t,false);
 				}
 			});
 		
-		
+		Font bigFont = new Font("Dialog",Font.BOLD,32);
 		JPanel bot= new JPanel(new FlowLayout(FlowLayout.TRAILING));	
 		pane1.add(bot,BorderLayout.SOUTH);
-		bot.add(new JButton(new AbstractAction("New...")
+		
+		
+		bot.add(SwingUtils.withFont(new JButton(this.addPubmedReferenceAction = new AbstractAction("Add Pubmed Reference")
+			{
+			private static final long serialVersionUID = 1L;
+			@Override
+			public void actionPerformed(ActionEvent e)
+				{
+				Instance i= getSelectedInstance(SciFOAF.this.instanceTable.getSelectedRow());
+				if(i==null) return;
+				doMenuAddPubmedReference(SciFOAF.this,i);
+				}
+			}),bigFont));
+		
+		this.addPubmedReferenceAction.setEnabled(false);
+		
+		bot.add(SwingUtils.withFont(new JButton(new AbstractAction("New Instance")
 			{
 			private static final long serialVersionUID = 1L;
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				doMenuNewInstance(SciFOAF.this,SciFOAF.this.currentRDFType);
 				}
-			}));
+			}),bigFont));
+		
+		
+		
 		ConstrainedAction<JTable> action= new ConstrainedAction<JTable>(instanceTable,"Edit...")
 			{
 			private static final long serialVersionUID = 1L;
 			@Override
-			public void actionPerformed(ActionEvent e) {
-				doMenuEditInstance(SciFOAF.this,
-						intancesTableModel.elementAt(instanceTable.convertRowIndexToModel(instanceTable.getSelectedRow())),
-						false
-						);
+			public void actionPerformed(ActionEvent e)
+				{
+				Instance i= getSelectedInstance(instanceTable.getSelectedRow());
+				if(i==null) return;
+				doMenuEditInstance(SciFOAF.this,i,false);
 				}
 			};
 		
-		action.mustHaveOneRowSelected(instanceTable);
+		action.mustHaveOneRowSelected(this.instanceTable);
+		
+		this.instanceTable.getSelectionModel().addListSelectionListener(
+				new ListSelectionListener()
+			{
+			@Override
+			public void valueChanged(ListSelectionEvent e)
+				{
+				Instance i= getSelectedInstance(instanceTable.getSelectedRow());
+				if(i!=null)
+					{
+					if(URI.create(FOAF.NS+"Person").equals(i.getRDFType()))
+						{
+						if(i.hasPredicate(URI.create(NCBI.NS+NCBI.IsNCBIAuthor)))
+							{
+							SciFOAF.this.addPubmedReferenceAction.setEnabled(true);
+							}
+						return;
+						}
+					}
+				SciFOAF.this.addPubmedReferenceAction.setEnabled(false);
+				}
+			});
+		
 		bot.add(new JButton(action));
 		action= new ConstrainedAction<JTable>(instanceTable,"Remove...")
 			{
@@ -2015,6 +2125,16 @@ public class SciFOAF extends JFrame
 		setRDFType(URI.create(FOAF.NS+"Person"));
 		SwingUtils.center(this,50);
 		}
+	
+	private Instance getSelectedInstance(int rowIndex)
+		{
+		if(rowIndex==-1) return null;
+		rowIndex= SciFOAF.this.instanceTable.convertRowIndexToModel(rowIndex);
+		if(rowIndex==-1) return null;
+		Instance t= SciFOAF.this.intancesTableModel.elementAt(rowIndex);
+		return t;
+		}
+	
 	private void doMenuSave(File f)
 		{
 		if(f==null)
@@ -2177,8 +2297,300 @@ public class SciFOAF extends JFrame
 		updateInstancesTable();
 		}
 	
+	private void doMenuAddPubmedReference(Component owner,Instance i)
+		{
+		boolean found=false;
+		if(i==null) return;
+		URI IsNCBIAuthorURI=URI.create(NCBI.NS+NCBI.IsNCBIAuthor);
+		if(!i.hasPredicate(IsNCBIAuthorURI)) return;
+		StringBuilder terms= new StringBuilder();
+		for(Iterator<ObjectPredicate> iter=i.listObjectPredicates();
+			iter.hasNext();
+			)
+			{
+			ObjectPredicate p= iter.next();
+			if(!p.getPredicate().equals(IsNCBIAuthorURI)) continue;
+			Instance child= p.getValue();
+			if(!child.getRDFType().equals(URI.create(NCBI.NS+NCBI.Author))) continue;
+			String firstName= child.getDataProperty(URI.create( NCBI.NS+NCBI.firstName));
+			String lastName= child.getDataProperty(URI.create( NCBI.NS+NCBI.lastName));
+			if(lastName==null) continue;
+			if(terms.length()!=0) terms.append(" OR ");
+			terms.append("\"");
+			terms.append(lastName);
+			
+			if(firstName!=null)
+				{
+				if(firstName.length()>1) firstName=firstName.substring(0,1);
+				terms.append(" "+firstName);
+				}
+			
+			terms.append("\"[Author]");
+			found=true;
+			}
+		if(!found) return;
+		
+		class Param extends WindowAdapter
+			{
+			String term ;
+			JDialog dialog;
+			Document dom;
+			Throwable error=null;
+			
+			@Override
+			public void windowOpened(WindowEvent e)
+				{
+				Runnable runner= new Runnable()
+					{
+					@Override
+					public void run()
+						{
+						try {
+							 if(term.length()==0) return;
+				                URL url= new URL("http://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed"+
+				                        "&term="+ URLEncoder.encode(term,"UTF-8") +
+				                        "&tool=scifoaf"+
+				                        "&email=plindenbaum_at_yahoo.fr"+
+				                        "&retmode=xml&usehistory=y&retmax="+SciFOAF.this.pubmedCount+"&retstart="+SciFOAF.this.pubmedStart
+				                        ) ;
+				               Debug.debug(url);
+				               
+			                    InputStream in= url.openStream();
+			                   
+			                    XMLInputFactory xfactory = XMLInputFactory.newInstance();
+			                    xfactory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, Boolean.FALSE);
+			                    xfactory.setProperty(XMLInputFactory.IS_VALIDATING, Boolean.FALSE);
+			                    xfactory.setProperty(XMLInputFactory.IS_COALESCING, Boolean.TRUE);
+			           
+			                    XMLEventReader parser = xfactory.createXMLEventReader(in);
+			                   
+			                    String QueryKey=null;
+			                    String WebEnv= null;
+			                    int idCount=0;
+			                    /** loop over the events */
+			                    while(parser.hasNext())
+			                        {
+			                        XMLEvent event = parser.nextEvent();
+			                        if(event.isStartElement())
+			                            {
+			                            StartElement element = event.asStartElement();
+			                            if(element.getName().getLocalPart().equals("QueryKey"))
+			                                {
+			                                QueryKey= parser.getElementText().trim();
+			                                }
+			                            else if(element.getName().getLocalPart().equals("WebEnv"))
+			                                {
+			                                WebEnv = parser.getElementText().trim();
+			                                }
+			                            else  if(element.getName().getLocalPart().equals("Id"))
+			                            	{
+			                            	++idCount;
+			                            	}
+			                            }
+			                        }
+			                    in.close();
+			                    if(QueryKey==null || WebEnv==null)
+			                        {
+			                        throw new IOException("Cannot find QueryKey or WebEnv in "+url);
+			                        }
+				                   
+			                    url= new URL("http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed"+
+			                                "&rettype=full"+
+			                                "&tool=scifoaf"+
+			                                "&email=plindenbaum_at_yahoo.fr"+
+			                                "&retmode=xml"+
+			                                "&WebEnv="+ WebEnv +
+			                                "&query_key="+QueryKey+
+			                                "&retmode=xml&usehistory=y&retmax="+SciFOAF.this.pubmedCount+"&retstart="+SciFOAF.this.pubmedStart
+			                                ) ;
+			                    Debug.debug(url);
+			                    Debug.debug(idCount);
+			                    if(idCount>0)
+				                    {
+									DocumentBuilderFactory factory= DocumentBuilderFactory.newInstance();
+									factory.setCoalescing(true);
+									factory.setExpandEntityReferences(true);
+									factory.setValidating(false);
+									factory.setIgnoringComments(true);
+									factory.setIgnoringElementContentWhitespace(true);
+									factory.setXIncludeAware(false);
+									DocumentBuilder builder= factory.newDocumentBuilder();
+									Debug.debug(url);
+									Param.this.dom=builder.parse(url.toString());
+									Debug.debug("OK, downloaded dom==null ?"+(Param.this.dom==null));
+				                    }
+							}
+						catch (Exception e)
+							{
+							Debug.debug(e);
+							Param.this.error=e;
+							Param.this.dom=null;
+							}
+						Debug.debug("End Thread");
+						Param.this.dialog.setVisible(false);
+						Param.this.dialog.dispose();
+						}	
+					};
+				Thread t= new Thread(runner);
+				t.start();
+				}
+			}
+		Param param= new Param();
+		param.term=terms.toString();
+		
+		
+		
+		param.dialog= new JDialog(owner==null?null:SwingUtilities.getWindowAncestor(owner),"Fetching Paper",Dialog.ModalityType.APPLICATION_MODAL);
+		param.dialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+		JPanel pane= new JPanel(new BorderLayout());
+		pane.setBorder(new EmptyBorder(10,10,10,10));
+		param.dialog.setContentPane(pane);
+		pane.add(SwingUtils.withFont(new JLabel(" Fetching "+terms,JLabel.CENTER),new Font("Dialog",Font.BOLD,24)),BorderLayout.NORTH);
+		JProgressBar bar= new JProgressBar();
+		bar.setIndeterminate(true);
+		pane.add(bar,BorderLayout.CENTER);
+		SwingUtils.packAndCenter(param.dialog);
+		param.dialog.addWindowListener(param);
+		param.dialog.setVisible(true);
+		
+		if(param.dom!=null)
+			{
+			Element root=param.dom.getDocumentElement();
+			if(root!=null && !root.getNodeName().equals("PubmedArticleSet"))
+				{
+				param.error= new IOException(root.getNodeName()+":"+root.getTextContent());
+				param.dom=null;
+				}
+			}
+	
+		if(param.error!=null)
+			{
+			ThrowablePane.show(owner, param.error);
+			return;
+			}
+		
+		if(param.dom==null)
+			{
+			Debug.debug("dom==null");
+			return;
+			}
+		
+		class PaperShuttle
+			{
+			boolean selected=false;
+			Paper paper;
+			}
+		
+		GenericTableModel<PaperShuttle> selectPapersModel = new GenericTableModel<PaperShuttle>()
+			{
+			private static final long serialVersionUID = 1L;
+			
+			@Override
+			public Class<?> getColumnClass(int columnIndex) {
+				if(columnIndex==0) return Boolean.class;
+				return super.getColumnClass(columnIndex);
+				}
+			
+			@Override
+			public int getColumnCount() {
+				return 5;
+				}
+			@Override
+			public boolean isCellEditable(int rowIndex, int columnIndex) {
+				return columnIndex==0;
+				}
+			
+			@Override
+			public void setValueAt(Object value, int rowIndex,
+					int columnIndex) {
+				elementAt(rowIndex).selected= Boolean.class.cast(value);
+				fireTableCellUpdated(rowIndex, columnIndex);
+				}
+			
+			
+			@Override
+			public String getColumnName(int columnIndex) {
+				switch(columnIndex)
+					{
+					case 0: return "Select";
+					case 1: return "First Author";
+					case 2: return "Date";
+					case 3: return "Author";
+					case 4: return "Title";
+					}
+				return null;
+				}
+			
+			@Override
+			public Object getValueOf(PaperShuttle s, int columnIndex)
+				{
+				switch(columnIndex)
+					{
+					case 0: return s.selected;
+					case 1: return (s.paper.authors.isEmpty()?null:s.paper.authors.firstElement().toString());
+					case 2: return s.paper.PubDate;
+					case 3: return s.paper.JournalTitle;
+					case 4: return s.paper.ArticleTitle;
+					}
+				return null;
+				}
+			};
+		
+		Element root=param.dom.getDocumentElement();
+		for(Node n1=root.getFirstChild();n1!=null;n1=n1.getNextSibling())
+			{
+			if(n1.getNodeType()!=Node.ELEMENT_NODE) continue;
+			Paper paper= Paper.parse(Element.class.cast(n1));
+			if(paper==null || paper.PMID==null || containsPaperPMID(paper.PMID))
+				{
+				continue;
+				}
+			PaperShuttle s= new PaperShuttle();
+			s.paper=paper;
+			selectPapersModel.addElement(s);
+			}
+		
+		SimpleDialog d= new SimpleDialog(owner,"Select Papers");
+		pane= new JPanel(new BorderLayout());
+		d.getContentPane().add(pane);
+		pane.add(new JScrollPane(new JTable(selectPapersModel)));
+		if(d.showDialog()!=SimpleDialog.OK_OPTION) return;
+		
+		
+		for(Iterator<PaperShuttle> iter=selectPapersModel.listElements();
+			iter.hasNext();)
+			{
+			PaperShuttle s= iter.next();
+			Debug.debug();
+			if(!s.selected) continue;
+			Debug.debug(s.paper.PMID);
+			PaperEditor paperEditor= new PaperEditor(owner,s.paper);
+			Debug.debug();
+			if(paperEditor.showDialog()!=PaperEditor.OK_OPTION) continue;
+			//TODO
+			}
+		
+		
+		}
+	
+	private boolean containsPaperPMID(String pmid)
+		{
+		return false;
+		}
+	
+	
 	private void doMenuQuit()
 		{
+		Preferences prefs= Preferences.userNodeForPackage(SciFOAF.class);
+		prefs.putInt("pubmedStart", this.pubmedStart);
+		prefs.putInt("pubmedCount", this.pubmedCount);
+		try {
+			prefs.sync();
+		} catch (BackingStoreException e) {
+			Debug.debug(e);
+		}
+		
+		
 		this.setVisible(true);
 		this.dispose();
 		}
@@ -2190,11 +2602,13 @@ public class SciFOAF extends JFrame
 			{
 			ed= new PersonEditor(owner,readOnly);
 			}
-		else if(rdfType.equals(URI.create(NCBI.NS+"Author")))
+		else if(rdfType.equals(URI.create(NCBI.NS+NCBI.Author)))
 			{
 			TinyInstanceEditor te= new TinyInstanceEditor(owner,rdfType,readOnly);
-			te.addField(URI.create(NCBI.NS+"FirstName"), "First Name", null,Pattern.compile(".+"));
-			te.addField(URI.create(NCBI.NS+"LastName"), "Last Name", null,Pattern.compile(".+"));
+			te.addField(URI.create(NCBI.NS+"suffix"), "Suffix", null,Pattern.compile(".*"));
+			te.addField(URI.create(NCBI.NS+NCBI.firstName), "First Name", null,Pattern.compile(".+"));
+			te.addField(URI.create(NCBI.NS+NCBI.lastName), "Last Name", null,Pattern.compile(".+"));
+			te.addField(URI.create(NCBI.NS+"middleName"), "Middle Name", null,Pattern.compile(".*"));
 			ed=te;
 			}
 		
@@ -2292,7 +2706,7 @@ public class SciFOAF extends JFrame
 				}
 			
 			Debug.debug("Done");
-			Paper test=Paper.parse(param.dom);
+			Paper test=Paper.parse(param.dom.getDocumentElement());
 			PaperEditor ed= new PaperEditor(owner,test);
 			ed.showDialog();
 			
