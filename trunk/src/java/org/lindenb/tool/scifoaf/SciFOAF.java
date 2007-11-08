@@ -43,6 +43,8 @@ import java.util.regex.Pattern;
 import javax.swing.AbstractAction;
 import javax.swing.Box;
 import javax.swing.DefaultComboBoxModel;
+import javax.swing.ImageIcon;
+import javax.swing.JApplet;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
@@ -114,6 +116,8 @@ import org.lindenb.util.XObject;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
+
+import sun.misc.JavaLangAccess;
 
 /**
  * An author in a NCBI Pubmed paper
@@ -1982,6 +1986,26 @@ public class SciFOAF extends JFrame
 			}
 		}
 	
+	private class ImageEditor extends AgentEditor
+		{
+		private static final long serialVersionUID = 1L;
+		private JLabel iconLabel;
+		ImageEditor(Component owner,boolean readOnly)
+			{
+			super(owner,"Person",readOnly);
+			JPanel pane= new JPanel(new BorderLayout());
+			super.tabbedPane.addTab("Image", pane);
+			pane.add(new JScrollPane(this.iconLabel=new JLabel()));
+			}
+		
+		public void setURL(URL imageURL)
+			{
+			this.iconLabel.setIcon(new ImageIcon(imageURL));
+			}
+		
+		}
+	
+	
 	/** the rdf model holding all instanes */
 	private RDFModel model;
 	private AbstractAction addPubmedReferenceAction;
@@ -2714,17 +2738,86 @@ public class SciFOAF extends JFrame
 	private AbsractInstanceEditor getInstanceEditor(Component owner,URI rdfType,boolean readOnly)
 		{
 		AbsractInstanceEditor ed=null;
-		if(rdfType.equals(URI.create(FOAF.NS+"Person")))
+		if(rdfType.equals(_uri(FOAF.NS,"Person")))
 			{
 			ed= new PersonEditor(owner,readOnly);
 			}
-		else if(rdfType.equals(URI.create(NCBI.NS+NCBI.Author)))
+		else if(rdfType.equals(_uri(FOAF.NS,"Image")))
+			{
+			URL url=null;
+			String choices[]=new String[]{"From File","From URL"};
+			int choice;
+			if((choice=JOptionPane.showOptionDialog(owner, "Load Image...", "foaf:Image", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE,null, choices,choices[0]))==JOptionPane.CLOSED_OPTION)
+				{
+				return null;
+				}
+			switch(choice)
+				{
+				case 0:
+					{
+					JFileChooser chooser= new JFileChooser(PreferredDirectory.getPreferredDirectory());
+					chooser.setFileFilter(new FileFilter()
+						{
+						@Override
+						public boolean accept(File f)
+							{
+							if(f.isDirectory()) return true;
+							String name=f.getName().toLowerCase();
+							return name.endsWith(".gif") ||
+									name.endsWith(".png") ||
+									name.endsWith(".jpg") ||
+									name.endsWith(".jpeg");
+							}
+						@Override
+						public String getDescription() {
+							return "Images";
+							}
+						});
+					if(chooser.showOpenDialog(owner)!=JFileChooser.APPROVE_OPTION) return null;
+					File f= chooser.getSelectedFile();
+					PreferredDirectory.setPreferredDirectory(f);
+					try {
+						url=f.toURI().toURL();
+					} catch (MalformedURLException e) {
+						ThrowablePane.show(owner, e);
+						return null;
+						}
+					break;
+					}
+				case 1:
+					{
+					SimpleDialog d= new SimpleDialog(owner,"Choose URL");
+					JPanel pane= new JPanel(new InputLayout());
+					d.getContentPane().add(pane);
+					pane.add(new JLabel("Image URL:",JLabel.RIGHT));
+					JTextField tf= new JTextField(30);
+					pane.add(tf);
+					d.getOKAction().mustBeURL(tf);
+					if(d.showDialog()!=SimpleDialog.OK_OPTION) return null;
+					try {
+						url=new URL(tf.getText().trim());
+					} catch (MalformedURLException e) {
+						ThrowablePane.show(owner, e);
+						return null;
+						}
+					
+					break;
+					}
+				default:Assert.assertUnreachableStatement();break;
+				}
+			
+			ImageEditor ie= new ImageEditor(owner,readOnly);
+			ed=ie;
+			ie.setURL(url);
+			
+			}
+		else if(rdfType.equals(_uri(NCBI.NS,NCBI.Author)))
 			{
 			TinyInstanceEditor te= new TinyInstanceEditor(owner,rdfType,readOnly);
-			te.addField(URI.create(NCBI.NS+"suffix"), "Suffix", null,Pattern.compile(".*"));
-			te.addField(URI.create(NCBI.NS+NCBI.firstName), "First Name", null,Pattern.compile(".+"));
-			te.addField(URI.create(NCBI.NS+NCBI.lastName), "Last Name", null,Pattern.compile(".+"));
-			te.addField(URI.create(NCBI.NS+"middleName"), "Middle Name", null,Pattern.compile(".*"));
+			te.addField(_uri(NCBI.NS,"suffix"), "Suffix", null,Pattern.compile(".*"));
+			te.addField(_uri(NCBI.NS,NCBI.firstName), "First Name", null,Pattern.compile(".+"));
+			te.addField(_uri(NCBI.NS,NCBI.lastName), "Last Name", null,Pattern.compile(".+"));
+			te.addField(_uri(NCBI.NS,"middleName"), "Middle Name", null,Pattern.compile(".*"));
 			ed=te;
 			}
 		
@@ -2833,6 +2926,16 @@ public class SciFOAF extends JFrame
 			ThrowablePane.show(owner, e);
 			return null;
 			}
+		}
+	
+	private static URI _uri(String ns,String local)
+		{
+		return _uri(ns+local);
+		}
+	
+	private static URI _uri(String uri)
+		{
+		return URI.create(uri);
 		}
 	
 	/**
