@@ -32,7 +32,10 @@ protected static String getStackTraceElement(int depth)
 		}
 	catch (Exception e) {
 		StackTraceElement t= e.getStackTrace()[depth];
-		return t.getFileName()+":"+t.getLineNumber()+":"+t.getMethodName();
+		
+		return (t.getFileName()==null?"":t.getFileName()+":")+
+				(t.getLineNumber()==-1?"":t.getLineNumber()+":")+
+				t.getMethodName();
 		}
 	}
 
