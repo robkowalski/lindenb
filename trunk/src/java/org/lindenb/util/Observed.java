@@ -45,6 +45,11 @@ public class Observed<T> extends Observable {
 		notifyObservers(this.object);
 		clearChanged();
 		}
+	/** return the internal value is not null */
+	public synchronized boolean hasValue()
+		{
+		return getValue()!=null;
+		}
 	
 	public synchronized T getValue() {
 		return object;

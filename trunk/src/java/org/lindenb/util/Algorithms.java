@@ -1,6 +1,7 @@
 package org.lindenb.util;
 
 import java.util.Comparator;
+import java.util.List;
 import java.util.Vector;
 
 /**
@@ -12,7 +13,7 @@ import java.util.Vector;
  * @param <K> the key used for sorting to extract from T and to compare
  */
 public abstract class Algorithms<T,K>
-{
+	{
 	private Comparator<K> comparator;
 
 	/**
@@ -35,17 +36,17 @@ public abstract class Algorithms<T,K>
 	
 	
 	/** @return wether the vector is sorted */
-	public boolean isSorted(Vector<T> dataVector)
+	public boolean isSorted(List<T> dataVector)
 		{
 		return isSorted(dataVector,0,dataVector.size());
 		}
 	
 	/** @return wether the vector is sorted between begin and end*/
-	public boolean isSorted(Vector<T> dataVector,int begin,int end)
+	public boolean isSorted(List<T> dataVector,int begin,int end)
 		{
 		while(begin+1< end)
 			{
-			if(getComparator().compare(getKey(dataVector.elementAt(begin)),getKey(dataVector.elementAt(begin+1)))>0)
+			if(getComparator().compare(getKey(dataVector.get(begin)),getKey(dataVector.get(begin+1)))>0)
 				{
 				return false;
 				}
@@ -56,7 +57,7 @@ public abstract class Algorithms<T,K>
 	
 	/** C+ equals range */
 	public Pair<Integer, Integer> equal_range(
-			Vector<T> dataVector,
+			List<T> dataVector,
 	        K select
 	        )
 		{
@@ -69,7 +70,7 @@ public abstract class Algorithms<T,K>
 	 * @param select the value to search
 	 * */
 	public Pair<Integer, Integer> equal_range(
-			Vector<T> dataVector,
+			List<T> dataVector,
 			Pair<Integer,Integer> bounds,
 	        K select
 	        )
@@ -79,7 +80,7 @@ public abstract class Algorithms<T,K>
 	
 	/** C+ equals range */
 	public Pair<Integer, Integer> equal_range(
-			Vector<T> dataVector,
+			List<T> dataVector,
 			int first,
 			int last,
             K subject
@@ -92,7 +93,7 @@ public abstract class Algorithms<T,K>
 	
 /** C+ lower_bound */
 public int lower_bound(
-		Vector<T> dataVector,
+		List<T> dataVector,
         K select
         )
 	{
@@ -101,7 +102,7 @@ public int lower_bound(
 
 /** C+ lower_bound */
 public  int lower_bound(
-			Vector<T> dataVector,
+			List<T> dataVector,
 			int first, int last,
             K select
             )
@@ -111,7 +112,7 @@ public  int lower_bound(
             {
             int half = len / 2;
             int middle = first + half;
-            T x= dataVector.elementAt(middle);
+            T x= dataVector.get(middle);
             if (getComparator().compare(getKey(x),select)<0)
                     {
                     first = middle + 1;
@@ -137,7 +138,7 @@ public int upper_bound(
 
 /** C+ upper_bound */
 public  int upper_bound(
-		Vector<T> dataVector,
+		List<T> dataVector,
 		int first, int last,
         K select
         )
@@ -147,7 +148,7 @@ public  int upper_bound(
             {
             int half = len / 2;
             int middle = first + half;
-            T x= dataVector.elementAt(middle);
+            T x= dataVector.get(middle);
             if (getComparator().compare(select,getKey(x))<0)
                     {
                     len = half;

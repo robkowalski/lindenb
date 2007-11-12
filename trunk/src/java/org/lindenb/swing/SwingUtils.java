@@ -52,6 +52,34 @@ public static void packAndCenter(Window window)
 	center(window);
 	}
 
+
+public static void setFontDeep(Component root,Font font)
+	{
+	root.setFont(font);
+	if(root instanceof JComponent)
+		{
+		JComponent c=JComponent.class.cast(root);
+		for(int i=0;i< c.getComponentCount();++i)
+			{
+			setFontDeep(c.getComponent(i),font);
+			}
+		}
+	}
+
+public static void setFontSize(Component root,int fontSize)
+	{
+	Font f= root.getFont();
+	root.setFont(new Font(f.getName(),f.getStyle(),fontSize));
+	if(root instanceof JComponent)
+		{
+		JComponent c=JComponent.class.cast(root);
+		for(int i=0;i< c.getComponentCount();++i)
+			{
+			setFontSize(c.getComponent(i),fontSize);
+			}
+		}
+	}
+
 public static <T extends Component> T findComponentByName(Component root,String name,Class<T> clazz)
 	{
 	if(clazz.isInstance(root) && name.equals(root.getName()))

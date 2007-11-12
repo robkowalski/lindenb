@@ -17,6 +17,7 @@ import java.util.regex.PatternSyntaxException;
 import javax.swing.Icon;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
+import javax.swing.JList;
 import javax.swing.JTable;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.ListSelectionEvent;
@@ -332,6 +333,42 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 			});
 		}
 	
+	
+	
+	public void mustHaveOneRowSelected(JList list)
+		{
+		mustHaveRowsSelected(list,1);
+		}
+	
+	public void mustHaveRowsSelected(JList list,int rowCount)
+		{
+		mustHaveRowsSelected(list,rowCount,rowCount+1);
+		}
+	
+	public void mustHaveRowsSelected(JList list,int minInclusive,int maxExclusive)
+		{
+		list.getSelectionModel().addListSelectionListener(new ListSelectionListener()
+			{
+			@Override
+			public void valueChanged(ListSelectionEvent e){
+				validate();
+				}
+			});
+		
+		addValidator(new Validator2<JList,Pair<Integer, Integer>>(list,new Pair<Integer, Integer>(minInclusive,maxExclusive))
+			{
+			@Override
+			public String getErrorMessage()
+				{
+				int n= this.component.getSelectedIndices().length;
+				return n>= this.param.first() && n< this.param.second()?null:
+					name(this.component)+": Illegal Number of Selected Rows "+
+					this.param.first()+"<="+n+"<"+this.param.second();
+				}
+			});
+		}
+	
+	
 	public void mustHaveOneRowSelected(JTable table)
 		{
 		mustHaveRowsSelected(table,1);
@@ -391,7 +428,7 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 			public String getErrorMessage()
 				{
 				int n= this.component.getSelectedRowCount();
-				return n>= this.param.first() && n< this.param.second()?null:"Illegale Number of Selected Rows";
+				return n>= this.param.first() && n< this.param.second()?null:"Illegal Number of Selected Rows";
 				}
 			});
 		}
