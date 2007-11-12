@@ -10,6 +10,8 @@ import java.awt.Component;
 import java.awt.Dialog;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GridLayout;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
@@ -18,6 +20,8 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.geom.Point2D;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
@@ -34,6 +38,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Observable;
+import java.util.Observer;
 import java.util.Set;
 import java.util.Vector;
 import java.util.prefs.BackingStoreException;
@@ -122,203 +127,204 @@ import com.sun.org.apache.bcel.internal.generic.LALOAD;
 
 import sun.misc.JavaLangAccess;
 
+
 class GeoName
-{
-String name;
-String postalCode;
-String country;
-Double latitude;
-Double longitude;
-String adminCode1;
-String adminName1;
-String adminCode2;
-String adminName2;
-}
+	{
+	String name;
+	String postalCode;
+	String country;
+	Double latitude;
+	Double longitude;
+	String adminCode1;
+	String adminName1;
+	String adminCode2;
+	String adminName2;
+	}
 
 class GeoNamePane extends SimpleDialog
-{
-private static final long serialVersionUID = 1L;
-public static final String HEADERS[]={
-        "Postal Code","Name","Country","Lat","Long",
-        "Admin Code 1","Admin Name 1",
-        "Admin Code 2","Admin Name 2"
-        };
-private JTextField postCodeField;
-JTextField placeNameField;
-private JTextField countryField;
-private SpinnerNumberModel maxRows;
-private Thread thread=null;
-private JTable table=null;
-private GenericTableModel<GeoName> tableModel;
-private AbstractAction goAction;
-public GeoName geoNameSelected=null;
-private class SearchPlace implements Runnable
-        {
-        public void run() {
-                try {
-                        StringBuilder urlStr=new StringBuilder(
-                                        "http://ws.geonames.org/postalCodeSearch?style=FULL"
-                                        );
-                        String s= postCodeField.getText();
-                        if(s.trim().length()>0)
-                                {
-                                urlStr.append("&postalcode="+URLEncoder.encode(s, "UTF-8"));
-                                }
-                        s= placeNameField.getText();
-                        if(s.trim().length()>0)
-                                {
-                                urlStr.append("&placename="+URLEncoder.encode(s, "UTF-8"));
-                                }
-                        s= countryField.getText();
-                        if(s.trim().length()>0)
-                                {
-                                urlStr.append("&country="+URLEncoder.encode(s, "UTF-8"))
-;
-                                }
-                        urlStr.append("&maxRows="+maxRows.getNumber().intValue());
-                        Vector<GeoName> geoNames= new Vector<GeoName>(maxRows.getNumber().intValue(),1);
-                        
-                        DocumentBuilderFactory f= DocumentBuilderFactory.newInstance();
-                        DocumentBuilder b= f.newDocumentBuilder();
-                        Document doc= b.parse(urlStr.toString());
-                        Element root=doc.getDocumentElement();
-                        if(root==null) return;
-                        
-                        for(Node n1= root.getFirstChild();n1!=null;n1=n1.getNextSibling(
-))
-                                {
-                                if(n1.getNodeType()!=Node.ELEMENT_NODE) continue;
-                                if(!n1.getNodeName().equals("code")) continue;
-                                GeoName newRow= new GeoName();
-                                for(Node n2= n1.getFirstChild();n2!=null;n2=n2.getNextSibling())
-                                        {
-                                        if(n2.getNodeType()!=Node.ELEMENT_NODE) continue;
-                                        s= n2.getNodeName();
-                                        String txt=n2.getTextContent();
-                                       if(s.equals("postalcode")) newRow.postalCode=txt;
-                                        else if(s.equals("name")) newRow.name=txt;
-                                        else if(s.equals("countryCode")) newRow.country=txt;
-                                        else if(s.equals("lat")) newRow.latitude=new Double(txt);
-                                        else if(s.equals("lng")) newRow.longitude=new Double(txt);
-                                        else if(s.equals("adminCode1")) newRow.adminCode1=txt;
-                                        else if(s.equals("adminName1")) newRow.adminName1=txt;
-                                        else if(s.equals("adminCode2")) newRow.adminCode2=txt;
-                                        else if(s.equals("adminName2")) newRow.adminName2=txt;
-                                        }
-                                geoNames.addElement(newRow);
-                                }
-                        
-                        synchronized (tableModel)
-                        	{
-							tableModel.clear();
-							tableModel.addAll(geoNames);
-                        	}
-
-                        } catch (Exception e) {
-
-                        }
-                thread=null;
-                goAction.setEnabled(true);
-                }
-        }
-
-public GeoNamePane(Component owner)
-        {
-		super(owner,"GeoName");
-		this.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
-		
-		
-		
-        JPanel contentPane=new JPanel(new BorderLayout(5,5));
-        getContentPane().add(contentPane);
-        this.goAction=new ConstrainedAction<GeoNamePane>(this,"Go")
-                {
-                private static final long serialVersionUID = 1L;
-                public void actionPerformed(ActionEvent e)
-                        {
-                        searchPlace();
-                        }
-                };
-        JPanel top=new JPanel(new FlowLayout(FlowLayout.LEADING));
-        contentPane.add(top,BorderLayout.NORTH);
-        JLabel label=new JLabel("Postal Code:",JLabel.RIGHT);
-
-        top.add(label);
-        this.postCodeField= new JTextField("",10);
-        this.postCodeField.addActionListener(goAction);
-        top.add(this.postCodeField);
-        label=new JLabel("Place Name:",JLabel.RIGHT);
-        top.add(label);
-        this.placeNameField= new JTextField("",20);
-        this.placeNameField.addActionListener(goAction);
-        top.add(this.placeNameField);
-        label=new JLabel("Country:",JLabel.RIGHT);
-        top.add(label);
-        this.countryField= new JTextField("",3);
-        top.add(this.countryField);
-        label=new JLabel("Max Rows:",JLabel.RIGHT);
-        top.add(label);
-        top.add(new JSpinner(this.maxRows=new SpinnerNumberModel(10,1,50,1)));
-        top.add(new JButton(goAction));
-
-        this.table= new JTable( this.tableModel= new GenericTableModel<GeoName>()
-        	{
-            private static final long serialVersionUID = 1L;
-            @Override
-            public int getColumnCount() {
-            	return HEADERS.length;
-            	}
-            @Override
-            public String getColumnName(int column) {
-            	return HEADERS[column];
-            	}
-            @Override
-            public Object getValueOf(GeoName geo, int columnIndex)
-            	{
-            	switch(columnIndex)
-	            	{
-	            	case 0: return  geo.postalCode;
-	            	case 1: return  geo.name;
-	            	case 2: return  geo.country;
-	            	case 3: return  geo.latitude;
-	            	case 4: return  geo.longitude;
-	            	case 5: return  geo.adminCode1;
-	            	case 6: return  geo.adminName1;
-	            	case 7: return  geo.adminCode2;
-	            	case 8: return geo.adminName2;
+	{
+	private static final long serialVersionUID = 1L;
+	public static final String HEADERS[]={
+	        "Postal Code","Name","Country","Lat","Long",
+	        "Admin Code 1","Admin Name 1",
+	        "Admin Code 2","Admin Name 2"
+	        };
+	private JTextField postCodeField;
+	JTextField placeNameField;
+	private JTextField countryField;
+	private SpinnerNumberModel maxRows;
+	private Thread thread=null;
+	private JTable table=null;
+	private GenericTableModel<GeoName> tableModel;
+	private AbstractAction goAction;
+	public GeoName geoNameSelected=null;
+	private class SearchPlace implements Runnable
+	        {
+	        public void run() {
+	                try {
+	                        StringBuilder urlStr=new StringBuilder(
+	                                        "http://ws.geonames.org/postalCodeSearch?style=FULL"
+	                                        );
+	                        String s= postCodeField.getText();
+	                        if(s.trim().length()>0)
+	                                {
+	                                urlStr.append("&postalcode="+URLEncoder.encode(s, "UTF-8"));
+	                                }
+	                        s= placeNameField.getText();
+	                        if(s.trim().length()>0)
+	                                {
+	                                urlStr.append("&placename="+URLEncoder.encode(s, "UTF-8"));
+	                                }
+	                        s= countryField.getText();
+	                        if(s.trim().length()>0)
+	                                {
+	                                urlStr.append("&country="+URLEncoder.encode(s, "UTF-8"))
+	;
+	                                }
+	                        urlStr.append("&maxRows="+maxRows.getNumber().intValue());
+	                        Vector<GeoName> geoNames= new Vector<GeoName>(maxRows.getNumber().intValue(),1);
+	                        
+	                        DocumentBuilderFactory f= DocumentBuilderFactory.newInstance();
+	                        DocumentBuilder b= f.newDocumentBuilder();
+	                        Document doc= b.parse(urlStr.toString());
+	                        Element root=doc.getDocumentElement();
+	                        if(root==null) return;
+	                        
+	                        for(Node n1= root.getFirstChild();n1!=null;n1=n1.getNextSibling(
+	))
+	                                {
+	                                if(n1.getNodeType()!=Node.ELEMENT_NODE) continue;
+	                                if(!n1.getNodeName().equals("code")) continue;
+	                                GeoName newRow= new GeoName();
+	                                for(Node n2= n1.getFirstChild();n2!=null;n2=n2.getNextSibling())
+	                                        {
+	                                        if(n2.getNodeType()!=Node.ELEMENT_NODE) continue;
+	                                        s= n2.getNodeName();
+	                                        String txt=n2.getTextContent();
+	                                       if(s.equals("postalcode")) newRow.postalCode=txt;
+	                                        else if(s.equals("name")) newRow.name=txt;
+	                                        else if(s.equals("countryCode")) newRow.country=txt;
+	                                        else if(s.equals("lat")) newRow.latitude=new Double(txt);
+	                                        else if(s.equals("lng")) newRow.longitude=new Double(txt);
+	                                        else if(s.equals("adminCode1")) newRow.adminCode1=txt;
+	                                        else if(s.equals("adminName1")) newRow.adminName1=txt;
+	                                        else if(s.equals("adminCode2")) newRow.adminCode2=txt;
+	                                        else if(s.equals("adminName2")) newRow.adminName2=txt;
+	                                        }
+	                                geoNames.addElement(newRow);
+	                                }
+	                        
+	                        synchronized (tableModel)
+	                        	{
+								tableModel.clear();
+								tableModel.addAll(geoNames);
+	                        	}
+	
+	                        } catch (Exception e) {
+	
+	                        }
+	                thread=null;
+	                goAction.setEnabled(true);
+	                }
+	        }
+	
+	public GeoNamePane(Component owner)
+	        {
+			super(owner,"GeoName");
+			this.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+			
+			
+			
+	        JPanel contentPane=new JPanel(new BorderLayout(5,5));
+	        getContentPane().add(contentPane);
+	        this.goAction=new ConstrainedAction<GeoNamePane>(this,"Go")
+	                {
+	                private static final long serialVersionUID = 1L;
+	                public void actionPerformed(ActionEvent e)
+	                        {
+	                        searchPlace();
+	                        }
+	                };
+	        JPanel top=new JPanel(new FlowLayout(FlowLayout.LEADING));
+	        contentPane.add(top,BorderLayout.NORTH);
+	        JLabel label=new JLabel("Postal Code:",JLabel.RIGHT);
+	
+	        top.add(label);
+	        this.postCodeField= new JTextField("",10);
+	        this.postCodeField.addActionListener(goAction);
+	        top.add(this.postCodeField);
+	        label=new JLabel("Place Name:",JLabel.RIGHT);
+	        top.add(label);
+	        this.placeNameField= new JTextField("",20);
+	        this.placeNameField.addActionListener(goAction);
+	        top.add(this.placeNameField);
+	        label=new JLabel("Country:",JLabel.RIGHT);
+	        top.add(label);
+	        this.countryField= new JTextField("",3);
+	        top.add(this.countryField);
+	        label=new JLabel("Max Rows:",JLabel.RIGHT);
+	        top.add(label);
+	        top.add(new JSpinner(this.maxRows=new SpinnerNumberModel(10,1,50,1)));
+	        top.add(new JButton(goAction));
+	
+	        this.table= new JTable( this.tableModel= new GenericTableModel<GeoName>()
+	        	{
+	            private static final long serialVersionUID = 1L;
+	            @Override
+	            public int getColumnCount() {
+	            	return HEADERS.length;
 	            	}
-            	return null;
-            	}
-           
-            });
-        this.table.getSelectionModel().addListSelectionListener(new ListSelectionListener()
-        	{
-        	@Override
-        	public void valueChanged(ListSelectionEvent e) {
-        		int i= table.getSelectedRow();
-        		if(i==-1)
-        			{
-        			geoNameSelected=null;
-        			}
-        		else
-        			{
-        			geoNameSelected = tableModel.elementAt(i);
-        			}
-        		}
-        	});
-        contentPane.add(new JScrollPane(this.table),BorderLayout.CENTER);
-        getOKAction().mustHaveOneRowSelected(this.table);
-        }
-
-private void searchPlace()
-        {
-        if(this.thread!=null) return;
-        this.goAction.setEnabled(false);
-        SearchPlace run=new SearchPlace();
-        this.thread=new Thread(run);
-        this.thread.start();
-        }
-
+	            @Override
+	            public String getColumnName(int column) {
+	            	return HEADERS[column];
+	            	}
+	            @Override
+	            public Object getValueOf(GeoName geo, int columnIndex)
+	            	{
+	            	switch(columnIndex)
+		            	{
+		            	case 0: return  geo.postalCode;
+		            	case 1: return  geo.name;
+		            	case 2: return  geo.country;
+		            	case 3: return  geo.latitude;
+		            	case 4: return  geo.longitude;
+		            	case 5: return  geo.adminCode1;
+		            	case 6: return  geo.adminName1;
+		            	case 7: return  geo.adminCode2;
+		            	case 8: return geo.adminName2;
+		            	}
+	            	return null;
+	            	}
+	           
+	            });
+	        this.table.getSelectionModel().addListSelectionListener(new ListSelectionListener()
+	        	{
+	        	@Override
+	        	public void valueChanged(ListSelectionEvent e) {
+	        		int i= table.getSelectedRow();
+	        		if(i==-1)
+	        			{
+	        			geoNameSelected=null;
+	        			}
+	        		else
+	        			{
+	        			geoNameSelected = tableModel.elementAt(i);
+	        			}
+	        		}
+	        	});
+	        contentPane.add(new JScrollPane(this.table),BorderLayout.CENTER);
+	        getOKAction().mustHaveOneRowSelected(this.table);
+	        }
+	
+	private void searchPlace()
+	        {
+	        if(this.thread!=null) return;
+	        this.goAction.setEnabled(false);
+	        SearchPlace run=new SearchPlace();
+	        this.thread=new Thread(run);
+	        this.thread.start();
+	        }
+	
 }
 
 
@@ -541,6 +547,12 @@ public class SciFOAF extends JFrame
 		EXTERNAL_URL
 		}
 	
+	private enum RDF_EVENT
+		{
+		INSTANCE_ADDED,
+		INSTANCE_CHANGED
+		}
+	
 	private class PaperEditor extends SimpleDialog
 		{
 		/**
@@ -604,8 +616,10 @@ public class SciFOAF extends JFrame
 			URI person= URI.create(FOAF.NS+"Person");
 			URI isNCBIAuthor= URI.create(NCBI.NS+NCBI.IsNCBIAuthor);
 			URI lastNameURI= URI.create(NCBI.NS+NCBI.lastName);
-			for(Instance i: getModel().getInstanceVector())
+			for(Iterator<Instance> j= getModel().listInstances();
+				j.hasNext();)
 				{
+				Instance i= j.next();
 				if(!i.getRDFType().equals(person)) continue;
 				m.addElement(i);
 				
@@ -637,18 +651,18 @@ public class SciFOAF extends JFrame
 			if(SciFOAF.this.containsPaperPMID(paper.PMID)) return;
 			Instance instance= getModel().newInstance(URI.create(FOAF.NS+"Document"),false);
 			instance.setID(URI.create("http://view.ncbi.nlm.nih.gov/pubmed/"+paper.PMID));
-			getModel().getInstanceVector().add(instance);
-			instance.getPredicates().add(new DataPredicate(URI.create(NCBI.NS+"pmid"),paper.PMID));
-			if(paper.ArticleTitle!=null) instance.getPredicates().add(new DataPredicate(URI.create(DC.NS+"title"),paper.ArticleTitle));
-			if(paper.Issue!=null)  instance.getPredicates().add(new DataPredicate(URI.create(NCBI.NS+"issue"),paper.Issue));
-			if(paper.Volume!=null)  instance.getPredicates().add(new DataPredicate(URI.create(NCBI.NS+"volume"),paper.Volume));
-			if(paper.MedlinePgn!=null)  instance.getPredicates().add(new DataPredicate(URI.create(NCBI.NS+"medlinePgn"),paper.MedlinePgn));
-			if(paper.PubDate!=null)  instance.getPredicates().add(new DataPredicate(URI.create(DC.NS+"date"),paper.PubDate));
-			if(paper.JournalTitle!=null)  instance.getPredicates().add(new DataPredicate(URI.create(NCBI.NS+"journalTitle"),paper.JournalTitle));
+			getModel().addInstance(instance);
+			instance.addPredicate(new DataPredicate(URI.create(NCBI.NS+"pmid"),paper.PMID));
+			if(paper.ArticleTitle!=null) instance.addPredicate(new DataPredicate(URI.create(DC.NS+"title"),paper.ArticleTitle));
+			if(paper.Issue!=null)  instance.addPredicate(new DataPredicate(URI.create(NCBI.NS+"issue"),paper.Issue));
+			if(paper.Volume!=null)  instance.addPredicate(new DataPredicate(URI.create(NCBI.NS+"volume"),paper.Volume));
+			if(paper.MedlinePgn!=null)  instance.addPredicate(new DataPredicate(URI.create(NCBI.NS+"medlinePgn"),paper.MedlinePgn));
+			if(paper.PubDate!=null)  instance.addPredicate(new DataPredicate(URI.create(DC.NS+"date"),paper.PubDate));
+			if(paper.JournalTitle!=null)  instance.addPredicate(new DataPredicate(URI.create(NCBI.NS+"journalTitle"),paper.JournalTitle));
 			if(paper.DOI!=null)
 				{
 				try {
-					instance.getPredicates().add(new ExternalURLPredicate(URI.create(NCBI.NS+"doi"),new URL("http://dx.doi.org/"+paper.DOI)));
+					instance.addPredicate(new ExternalURLPredicate(URI.create(NCBI.NS+"doi"),new URL("http://dx.doi.org/"+paper.DOI)));
 				} catch (MalformedURLException e) {
 					Debug.debug(e);
 				}
@@ -657,7 +671,7 @@ public class SciFOAF extends JFrame
 			for(Pair<JCheckBox,String> p:this.meshes)
 				{
 				if(!p.first().isSelected()) continue;
-				instance.getPredicates().add(new DataPredicate(URI.create(DC.NS+"title"),p.second()));
+				instance.addPredicate(new DataPredicate(URI.create(DC.NS+"title"),p.second()));
 				}
 			
 			for(Pair<JComboBox,Author> p:this.joinAuthor2Instance)
@@ -676,7 +690,7 @@ public class SciFOAF extends JFrame
 					}
 				else if(index==2)//literal
 					{
-					instance.getPredicates().add(new DataPredicate(URI.create(FOAF.NS+"maker"),p.second().toString()));
+					instance.addPredicate(new DataPredicate(URI.create(FOAF.NS+"maker"),p.second().toString()));
 					}
 				else// 
 					{
@@ -694,15 +708,9 @@ public class SciFOAF extends JFrame
 		private void linkAuthorAndPaper(Instance paper,Instance author)
 			{
 			LinkPredicate link= new LinkPredicate(URI.create(FOAF.NS+"maker"),author);
-			if(!paper.getPredicates().contains(link))
-				{
-				paper.getPredicates().addElement(link);
-				}
+			paper.addPredicate(link);
 			link= new LinkPredicate(URI.create(FOAF.NS+"made"),paper);
-			if(!author.getPredicates().contains(link))
-				{
-				author.getPredicates().addElement(link);
-				}
+			author.addPredicate(link);
 			}
 		
 		private Instance createAuthor(Author o)
@@ -715,7 +723,7 @@ public class SciFOAF extends JFrame
 				uri=getModel().createAnonymousURI();
 				}
 			author.setID(uri);
-			getModel().getInstanceVector().addElement(author);
+			getModel().addInstance(author);
 			_addpredicate(author,FOAF.NS,"name",(o.LastName+" "+o.FirstName).trim());
 			_addpredicate(author,FOAF.NS,"firstName",o.FirstName);
 			_addpredicate(author,FOAF.NS,"family_name",o.LastName);
@@ -723,7 +731,7 @@ public class SciFOAF extends JFrame
 			Instance ncbiName= createNCBIAuthor(o);
 			if(ncbiName!=null)
 				{
-				author.getPredicates().add(new ObjectPredicate(URI.create(NCBI.NS+NCBI.IsNCBIAuthor),ncbiName));
+				author.addPredicate(new ObjectPredicate(URI.create(NCBI.NS+NCBI.IsNCBIAuthor),ncbiName));
 				}
 			return author;
 			}
@@ -742,7 +750,7 @@ public class SciFOAF extends JFrame
 		private void _addpredicate(Instance instance,String ns,String local,String value)
 			{
 			if(value==null || value.trim().length()==0) return;
-			instance.getPredicates().add(new DataPredicate(URI.create(ns+local),value.trim()));
+			instance.addPredicate(new DataPredicate(URI.create(ns+local),value.trim()));
 			}
 		}
 	
@@ -949,7 +957,7 @@ public class SciFOAF extends JFrame
 		private static final long serialVersionUID = 1L;
 		private URI uri=null;
 		private URI rdfType;
-		private Vector<Predicate<?>> _predicates = new Vector<Predicate<?>>(1,1);
+		private Vector<Predicate<?>> predicates = new Vector<Predicate<?>>(1,1);
 		private boolean anonymous;
 		Instance(URI rdfType,boolean anonymous)
 			{
@@ -961,6 +969,31 @@ public class SciFOAF extends JFrame
 				}
 			}
 		
+		public void fireInstanceChanged()
+			{	
+			if(getModel().findInstanceByTypeAndURI(getRDFType(),getID())!=null)
+				{
+				getModel().fireModelChanged(RDF_EVENT.INSTANCE_CHANGED);
+				}
+			}
+		
+		public boolean addPredicate(Predicate<?> p)
+			{
+			if(contains(p)) return false;
+			this.predicates.addElement(p);
+			fireInstanceChanged();
+			return true;
+			}
+		
+		public boolean contains(Predicate<?> p)
+			{
+			return this.predicates.contains(p);
+			}
+		
+		public void clear()
+			{
+			fireInstanceChanged();
+			}
 		
 		public boolean isAnonymous() {
 			return anonymous;
@@ -975,14 +1008,11 @@ public class SciFOAF extends JFrame
 			this.uri=uri;
 			}
 		
-		public Vector<Predicate<?>> getPredicates()
-			{
-			return this._predicates;
-			}
+		
 		
 		public boolean hasPredicate(URI uri)
 			{
-			for(Predicate<?> p: getPredicates())
+			for(Predicate<?> p: this.predicates)
 				{
 				if(p.getPredicate().equals(uri)) return true;
 				}
@@ -996,11 +1026,16 @@ public class SciFOAF extends JFrame
 			return this.getID().compareTo(o.getID());
 			}
 		
+		public Iterator<Predicate<?>> listPredicates()
+			{
+			return this.predicates.iterator();
+			}
+		
 		//TODO ugly change this
 		private <C extends Predicate<?>> Iterator<C> listPredicatesOfClass(Class<C> clazz)
 			{
 			Vector<C> v= new Vector<C>();
-			for(Predicate<?> p: getPredicates())
+			for(Predicate<?> p:  this.predicates)
 				{
 				if(clazz.isInstance(p)) v.addElement(clazz.cast(p));
 				}
@@ -1091,7 +1126,7 @@ public class SciFOAF extends JFrame
 			if(depth==0 || isAnonymous()) w.writeAttribute(RDF.NS, "ID", getID().toString());
 			w.writeCharacters("\n");
 			
-			for(Predicate<?> pred:getPredicates())
+			for(Predicate<?> pred: this.predicates)
 				{
 				pred.write(w,this,depth);
 				}
@@ -1128,17 +1163,50 @@ public class SciFOAF extends JFrame
 	 *
 	 */
 	private static class RDFModel
-		extends PrefixMapping
+		extends Observable
 		{
-		private Vector<Instance> instances= new Vector<Instance>(1000,100);
-		
-		
+		private PrefixMapping prefixMapping= new PrefixMapping();
+		private Vector<Instance> _instances= new Vector<Instance>(1000,100);
+		private Vector<Observer> observers= new Vector<Observer>();
 		public RDFModel()
 			{
-			super(true);
-			setNsPrefix("ncbi", NCBI.NS);
-			setNsPrefix("geo", Geo.NS);
+			prefixMapping.setNsPrefix("ncbi", NCBI.NS);
+			prefixMapping.setNsPrefix("geo", Geo.NS);
 			}
+		
+		
+		public String getNsURIPrefix(String uri)
+			{
+			return this.prefixMapping.getNsURIPrefix(uri);
+			}
+		
+		public String getNsPrefixURI(String prefix)
+			{
+			return this.prefixMapping.getNsPrefixURI(prefix);
+			}
+		
+		public String shortForm(URI uri)
+			{
+			return shortForm(uri.toString());
+			}
+		
+		public String shortForm(String uri)
+			{
+			return this.prefixMapping.shortForm(uri);
+			}
+		
+		public Iterator<Instance> listInstances()
+			{
+			return this._instances.iterator();
+			}
+		
+		public void fireModelChanged(RDF_EVENT event)
+			{
+			setChanged();
+			notifyObservers(event);
+			clearChanged();
+			}
+		
 		
 		public URI reverse(URI uri)
 			{
@@ -1165,7 +1233,7 @@ public class SciFOAF extends JFrame
 				w.writeStartDocument();
 				
 				w.writeStartElement("rdf", "RDF", RDF.NS);
-				for(String prefix: this.getPrefixes())
+				for(String prefix: this.prefixMapping.getPrefixes())
 					{
 					w.setPrefix(prefix, getNsPrefixURI(prefix));
 					w.writeAttribute("xmlns:"+prefix, getNsPrefixURI(prefix));
@@ -1175,7 +1243,7 @@ public class SciFOAF extends JFrame
 				w.writeCharacters("\n");
 				
 				
-				for(Instance instance: getInstanceVector())
+				for(Instance instance: this._instances)
 					{
 					instance.write(w,0);
 					}
@@ -1227,7 +1295,7 @@ public class SciFOAF extends JFrame
 						else
 							{
 							Instance i= parseInstance(parser, event.asStartElement(),links,0);
-							getInstanceVector().addElement(i);
+							_instances.addElement(i);
 							}
 						}
 					}
@@ -1246,10 +1314,9 @@ public class SciFOAF extends JFrame
 	            		try {
 	            			url=link.to.toURL();
 	            			ExternalURLPredicate p= new ExternalURLPredicate(link.predicate,url);
-	            			if(!from.getPredicates().contains(p))
-		            			{
-		            			from.getPredicates().addElement(p);
-								}
+	            			
+		            		from.addPredicate(p);
+								
 	            			}	
 	            		catch (Exception e) {
 							Debug.debug("Cannot find instance URI="+link.to);
@@ -1262,10 +1329,9 @@ public class SciFOAF extends JFrame
 	            		to
 	            		);
 	            	
-	            	if(!from.getPredicates().contains(p))
-	            		{
-	            		from.getPredicates().addElement(p);
-	            		}
+	            	
+	            	from.addPredicate(p);
+	            	
 	            	
 	            	
 	            	if(reverse(link.predicate)!=null)
@@ -1274,10 +1340,9 @@ public class SciFOAF extends JFrame
 		    	            		reverse(link.predicate),
 		    	            		from
 		    	            		);
-		            	if(!to.getPredicates().contains(p))
-		            		{
-		            		to.getPredicates().addElement(p);
-		            		}
+		            	
+		            	to.addPredicate(p);
+		            		
 		            	}
 	            	}
 	            }
@@ -1285,6 +1350,7 @@ public class SciFOAF extends JFrame
             	{
             	throw new XMLStreamException(err);
             	}
+            fireModelChanged(RDF_EVENT.INSTANCE_ADDED);
 			}
 		
 		public URI createAnonymousURI()
@@ -1298,6 +1364,12 @@ public class SciFOAF extends JFrame
 				}
 			}
 		
+		public void addInstance(Instance instance)
+			{
+			this._instances.addElement(instance);
+			fireModelChanged(RDF_EVENT.INSTANCE_ADDED);
+			}
+		
 		public Instance newInstance(URI rdfType,boolean anonymous)
 			{
 			return new Instance(rdfType,anonymous)
@@ -1309,14 +1381,10 @@ public class SciFOAF extends JFrame
 				};
 			}
 		
-		protected Vector<Instance> getInstanceVector()
-			{	
-			return this.instances;
-			}
 		
 		public Instance findInstanceByURI(URI uri)
 			{
-			for(Instance i:getInstanceVector())
+			for(Instance i:this._instances)
 				{
 				if(i.getID().equals(uri)) return i;
 				}
@@ -1325,7 +1393,7 @@ public class SciFOAF extends JFrame
 		
 		public Instance findInstanceByTypeAndURI(URI rdfType,URI uri)
 			{
-			for(Instance i:getInstanceVector())
+			for(Instance i:this._instances)
 				{
 				if( i.getRDFType().equals(rdfType) &&
 					i.getID().equals(uri)) return i;
@@ -1336,7 +1404,7 @@ public class SciFOAF extends JFrame
 		public Collection<Instance> findInstancesByType(URI rdfType)
 			{
 			Vector<Instance> v= new Vector<Instance>();
-			for(Instance i:getInstanceVector())
+			for(Instance i:this._instances)
 				{
 				if(i.getRDFType().equals(rdfType)) v.addElement(i);
 				}
@@ -1405,10 +1473,9 @@ public class SciFOAF extends JFrame
 												predicateURI,textContent.toString()
 												);
 										
-										if(!instance.getPredicates().contains(dataPred))
-											{
-											instance.getPredicates().addElement(dataPred);
-											}
+										
+										instance.addPredicate(dataPred);
+											
 										}
 									break;
 									}
@@ -1420,10 +1487,9 @@ public class SciFOAF extends JFrame
 										}
 									textContent=null;
 									ObjectPredicate op= new ObjectPredicate(predicateURI,parseInstance(parser, event.asStartElement(),links,depth+1));
-									if(!instance.getPredicates().contains(op))
-										{
-										instance.getPredicates().addElement(op);
-										}
+									
+									instance.addPredicate(op);
+										
 									}
 								else if(event.isCharacters() && textContent!=null)
 									{
@@ -1640,7 +1706,7 @@ public class SciFOAF extends JFrame
 		public void updateInstance(Instance instance)
 			{
 			if(isReadOnly()) return;
-			instance.getPredicates().clear();
+			instance.clear();
 			for(Pair<URI,JComponent> p:fields)
 				{
 				if(JTextComponent.class.isInstance(p.second()))
@@ -1648,7 +1714,7 @@ public class SciFOAF extends JFrame
 					JTextComponent tc= JTextComponent.class.cast(p.second());
 					String s= tc.getText().trim();
 					if(s.length()==0) continue;
-					instance.getPredicates().addElement(new DataPredicate(p.first(),s));
+					instance.addPredicate(new DataPredicate(p.first(),s));
 					}
 				}
 			}
@@ -1850,8 +1916,10 @@ public class SciFOAF extends JFrame
 								DefaultComboBoxModel m= DefaultComboBoxModel.class.cast(linkInstanceCombo.getModel());
 								m.removeAllElements();
 								Vector<Instance> v= new Vector<Instance>();
-								for(Instance i:getModel().instances)
+								for(Iterator<Instance> iter= getModel().listInstances();
+									iter.hasNext();)
 									{
+									Instance i= iter.next();
 									if(lkopt.range.contains(i.getRDFType()))
 										{
 										v.addElement(i);
@@ -2065,7 +2133,12 @@ public class SciFOAF extends JFrame
 			setInstanceURI(instance.getID());
 			this.idLabel.setText(instance.getID().toString());
 			this.titleLabel.setText(instance.getName());
-			this.predicateModel.addAll(instance.getPredicates());
+			
+			for(Iterator<Predicate<?>> iter= instance.listPredicates();
+				iter.hasNext();)
+				{
+				this.predicateModel.addElement(iter.next());
+				}
 			}
 		
 		public void setInstanceURI(URI instanceID)
@@ -2181,12 +2254,12 @@ public class SciFOAF extends JFrame
 		
 		@Override
 		public void updateInstance(Instance instance) {
-			instance.getPredicates().clear();
+			instance.clear();
 			for(Iterator<Predicate<?>> iter=this.predicateModel.listElements();
 				iter.hasNext();
 				)
 				{ 
-				instance.getPredicates().addElement( iter.next() );
+				instance.addPredicate( iter.next() );
 				}
 			}
 		
@@ -2198,7 +2271,7 @@ public class SciFOAF extends JFrame
 				{
 				instance= getModel().newInstance(getRDFType(),false);
 				instance.setID(this.instanceID);
-				getModel().getInstanceVector().addElement(instance);
+				getModel().addInstance(instance);
 				}
 			updateInstance(instance);
 			return instance;
@@ -2379,6 +2452,65 @@ public class SciFOAF extends JFrame
 		public void setURL(URL imageURL)
 			{
 			this.iconLabel.setIcon(new ImageIcon(imageURL));
+			}
+		
+		}
+	
+	private class Thumb
+		{
+		Instance instance;
+		Point2D.Double current;
+		Point2D.Double goal;
+		void paint(Graphics2D g)
+			{
+			
+			}
+		}
+	
+	private class AnimatedPane extends JPanel
+		{
+		private static final long serialVersionUID = 1L;
+		private BufferedImage offscreen=null;
+		private Vector<Thumb> thumbs= new Vector<Thumb>(100);
+		private Observer rdfModelObserver;
+		
+		AnimatedPane()
+			{
+			super(null);
+			setOpaque(true);
+			setBackground(Color.BLACK);
+			this.rdfModelObserver= new Observer()
+				{
+				@Override
+				public void update(Observable o, Object arg)
+					{
+					for(Iterator<Instance> iter= getModel().listInstances();
+						iter.hasNext();
+						)
+						{
+						
+						}
+					}
+				};
+			}
+		
+		@Override
+		protected void paintComponent(Graphics g1) {
+			if(offscreen==null ||
+				offscreen.getWidth()!=this.getWidth() ||
+				offscreen.getHeight()!=this.getHeight())
+				{
+				this.offscreen= new BufferedImage(this.getWidth(),this.getHeight(),BufferedImage.TYPE_INT_RGB);
+				}
+			Graphics2D g=this.offscreen.createGraphics();
+			g.setColor(this.getBackground());
+			g.fillRect(0, 0, this.getWidth(), this.getHeight());
+			for(Thumb thumb:this.thumbs)
+				{
+				thumb.paint(g);
+				}
+			g1.drawImage(this.offscreen, 0, 0, this);
+			g.dispose();
 			}
 		
 		}
@@ -2722,8 +2854,10 @@ public class SciFOAF extends JFrame
 	private void updateInstancesTable()
 		{
 		this.intancesTableModel.clear();
-		for(Instance i:getModel().getInstanceVector())
+		for(Iterator<Instance> j= getModel().listInstances();
+			j.hasNext();)
 			{
+			Instance i= j.next();
 			if(i.getRDFType().equals(this.currentRDFType))
 				{
 				this.intancesTableModel.addElement(i);

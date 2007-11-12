@@ -55,9 +55,11 @@ public class ThrowablePane extends JPanel
      * Constructor with a throwable
      * @param throwable
      */
-    public ThrowablePane(Throwable throwable)
+    public ThrowablePane(Throwable throwable,String message)
         {
         super(new BorderLayout());
+        if(message==null) message=throwable.getLocalizedMessage();
+        if(message==null) message=throwable.getMessage();
         Dimension screen= Toolkit.getDefaultToolkit().getScreenSize();
         setPreferredSize(new Dimension(screen.width/2,screen.height/2));
         setBorder(BorderFactory.createLineBorder(Color.RED,2));
@@ -121,7 +123,7 @@ public class ThrowablePane extends JPanel
         
         JTabbedPane tabbedPane=new JTabbedPane(JTabbedPane.SCROLL_TAB_LAYOUT);
         this.add(tabbedPane,BorderLayout.CENTER);
-        JTextField tf= new JTextField(throwable.getClass()+" : "+throwable.getLocalizedMessage());
+        JTextField tf= new JTextField(throwable.getClass()+" : "+message);
         tf.setToolTipText(tf.getText());
         tf.setEditable(false);
         tf.setCaretPosition(0);
@@ -231,15 +233,21 @@ public class ThrowablePane extends JPanel
         }
 
     /** display an alert via OptionPane.showMessageDialog */
-    static public void show(Component owner, Throwable t)
+    static public void show(Component owner, String message,Throwable t)
         {
         try {
-			JOptionPane.showMessageDialog(owner,new ThrowablePane(t),"Error",JOptionPane.ERROR_MESSAGE,null);
+			JOptionPane.showMessageDialog(owner,new ThrowablePane(t,message),"Error",JOptionPane.ERROR_MESSAGE,null);
 			}
         catch (HeadlessException e)
 			{
 			t.printStackTrace(System.err);
 			}
+        }
+    
+    /** display an alert via OptionPane.showMessageDialog */
+    static public void show(Component owner, Throwable t)
+        {
+    	show(owner,null,t);
         }
     
 
