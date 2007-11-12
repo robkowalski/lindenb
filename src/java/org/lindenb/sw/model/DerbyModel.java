@@ -351,9 +351,17 @@ public abstract class Resource
 		}
 	
 	
-	public void addProperty(Resource predicate,RDFNode value) throws SQLException
+	public Resource setProperty(Resource predicate,RDFNode value) throws SQLException
+		{
+		removeAll(predicate);
+		addProperty(predicate,value);
+		return this;
+		}
+	
+	public Resource addProperty(Resource predicate,RDFNode value) throws SQLException
 		{
 		addStatement(createStatement(this, predicate, value));
+		return this;
 		}
 	
 	
@@ -400,6 +408,18 @@ public abstract class Resource
 		}
 	
 	
+	public String getString(Resource predicate,String defaultValue) throws SQLException
+		{
+		CloseableIterator<Statement> iter= getModel().listStatements(this,predicate, DerbyModel.VALUE_IS_LITERAL, null);
+		Statement value=(iter.hasNext()?iter.next():null);
+		iter.close();
+		return value==null?defaultValue:value.getValue().asLiteral().getString();
+		}
+	
+	public String getString(Resource predicate) throws SQLException
+		{
+		return getString(predicate,null);
+		}
 	
 	
 	public Statement getRequiredProperty(Resource predicate) throws SQLException
@@ -413,6 +433,15 @@ public abstract class Resource
 		{
 		return getProperty(predicate)!=null;
 		}
+	
+	public boolean hasProperty(Resource predicate,RDFNode value) throws SQLException
+		{
+		CloseableIterator<Statement> iter= getModel().listStatements(this,predicate , value);
+		boolean b= iter.hasNext();
+		iter.close();
+		return b;
+		}
+	
 	
 	public int removeProperties() throws SQLException
 		{
@@ -430,6 +459,10 @@ public abstract class Resource
 		}
 	}
 
+/**
+ * Literal
+ *
+ */
 public abstract  class Literal
 	extends RDFNode
 	implements Comparable<Literal>
@@ -910,6 +943,17 @@ public boolean contains(Statement stmt) throws SQLException
 	return contains(stmt.getSubject(),stmt.getPredicate(),stmt.getValue());
 	}
 
+/** Determine if a subject is present in this model.*/
+public boolean containsSubject(Resource subject) throws SQLException
+	{
+	CloseableIterator<Statement> iter= listStatements(
+			subject, null,null
+			);
+	boolean found=iter.hasNext();
+	iter.close();
+	return found;
+	}
+
 private Connection getConnection() throws SQLException
 	{
 	while(!this.connections.isEmpty())
@@ -927,6 +971,7 @@ private Connection getConnection() throws SQLException
 private void recycleConnection(Connection con) throws SQLException
 	{
 	if(con.isClosed()) return;
+	con.clearWarnings();
 	this.connections.push(con);
 	}
 
@@ -1037,17 +1082,9 @@ private RDFNode readValue(ResultSet row)  throws SQLException
 
 private Literal readLiteral(ResultSet row)  throws SQLException
 	{
-	String uri= row.getString(COLUMN_VALUE);
-	if(isParanoid())
-		{
-		try {
-			new URI(uri);
-		} catch (URISyntaxException e) {
-			throw new SQLException("Cannot parse "+uri+" to java.net.URI ",e);
-			}
-		}
-	return createLiteral(uri);
-}
+	String text= row.getString(COLUMN_VALUE);
+	return createLiteral(text);
+	}
 
 
 private Resource readResource(ResultSet row,String columnLabel)  throws SQLException
