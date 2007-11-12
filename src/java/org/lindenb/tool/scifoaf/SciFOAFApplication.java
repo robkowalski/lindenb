@@ -8,9 +8,7 @@ import java.awt.Dialog;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.GraphicsConfiguration;
 import java.awt.GridLayout;
-import java.awt.HeadlessException;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -25,9 +23,9 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.sql.SQLException;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Observable;
 import java.util.Observer;
 import java.util.Vector;
@@ -41,6 +39,7 @@ import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
+import javax.swing.JComponent;
 import javax.swing.JDesktopPane;
 import javax.swing.JDialog;
 import javax.swing.JEditorPane;
@@ -62,10 +61,8 @@ import javax.swing.JSpinner;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
-import javax.swing.SpinnerModel;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
-import javax.swing.JInternalFrame.JDesktopIcon;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.border.TitledBorder;
@@ -74,7 +71,6 @@ import javax.swing.event.InternalFrameAdapter;
 import javax.swing.event.InternalFrameEvent;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
-import javax.swing.filechooser.FileFilter;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -89,6 +85,7 @@ import org.lindenb.sw.model.DerbyModel.Resource;
 import org.lindenb.sw.model.DerbyModel.Statement;
 import org.lindenb.sw.vocabulary.DC;
 import org.lindenb.sw.vocabulary.FOAF;
+import org.lindenb.sw.vocabulary.Geo;
 import org.lindenb.sw.vocabulary.Namespace;
 import org.lindenb.sw.vocabulary.RDF;
 import org.lindenb.swing.ConstrainedAction;
@@ -106,6 +103,261 @@ import org.lindenb.util.Pair;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
+
+class GeoName
+	{
+	String name;
+	String postalCode;
+	String country;
+	Double latitude;
+	Double longitude;
+	String adminCode1;
+	String adminName1;
+	String adminCode2;
+	String adminName2;
+	}
+
+class GeoNamePane extends SimpleDialog
+	{
+	private static final long serialVersionUID = 1L;
+	public static final String HEADERS[]={
+	        "Postal Code","Name","Country","Lat","Long",
+	        "Admin Code 1","Admin Name 1",
+	        "Admin Code 2","Admin Name 2"
+	        };
+	private JTextField postCodeField;
+	JTextField placeNameField;
+	private JTextField countryField;
+	private SpinnerNumberModel maxRows;
+	private Thread thread=null;
+	private JTable table=null;
+	private GenericTableModel<GeoName> tableModel;
+	private AbstractAction goAction;
+	public GeoName geoNameSelected=null;
+	private class SearchPlace implements Runnable
+	        {
+	        public void run() {
+	                try {
+	                        StringBuilder urlStr=new StringBuilder(
+	                                        "http://ws.geonames.org/postalCodeSearch?style=FULL"
+	                                        );
+	                        String s= postCodeField.getText();
+	                        if(s.trim().length()>0)
+	                                {
+	                                urlStr.append("&postalcode="+URLEncoder.encode(s, "UTF-8"));
+	                                }
+	                        s= placeNameField.getText();
+	                        if(s.trim().length()>0)
+	                                {
+	                                urlStr.append("&placename="+URLEncoder.encode(s, "UTF-8"));
+	                                }
+	                        s= countryField.getText();
+	                        if(s.trim().length()>0)
+	                                {
+	                                urlStr.append("&country="+URLEncoder.encode(s, "UTF-8"))
+	;
+	                                }
+	                        urlStr.append("&maxRows="+maxRows.getNumber().intValue());
+	                        Vector<GeoName> geoNames= new Vector<GeoName>(maxRows.getNumber().intValue(),1);
+	                        
+	                        DocumentBuilderFactory f= DocumentBuilderFactory.newInstance();
+	                        DocumentBuilder b= f.newDocumentBuilder();
+	                        Document doc= b.parse(urlStr.toString());
+	                        Element root=doc.getDocumentElement();
+	                        if(root==null) return;
+	                        
+	                        for(Node n1= root.getFirstChild();n1!=null;n1=n1.getNextSibling(
+	))
+	                                {
+	                                if(n1.getNodeType()!=Node.ELEMENT_NODE) continue;
+	                                if(!n1.getNodeName().equals("code")) continue;
+	                                GeoName newRow= new GeoName();
+	                                for(Node n2= n1.getFirstChild();n2!=null;n2=n2.getNextSibling())
+	                                        {
+	                                        if(n2.getNodeType()!=Node.ELEMENT_NODE) continue;
+	                                        s= n2.getNodeName();
+	                                        String txt=n2.getTextContent();
+	                                       if(s.equals("postalcode")) newRow.postalCode=txt;
+	                                        else if(s.equals("name")) newRow.name=txt;
+	                                        else if(s.equals("countryCode")) newRow.country=txt;
+	                                        else if(s.equals("lat")) newRow.latitude=new Double(txt);
+	                                        else if(s.equals("lng")) newRow.longitude=new Double(txt);
+	                                        else if(s.equals("adminCode1")) newRow.adminCode1=txt;
+	                                        else if(s.equals("adminName1")) newRow.adminName1=txt;
+	                                        else if(s.equals("adminCode2")) newRow.adminCode2=txt;
+	                                        else if(s.equals("adminName2")) newRow.adminName2=txt;
+	                                        }
+	                                geoNames.addElement(newRow);
+	                                }
+	                        
+	                        synchronized (tableModel)
+	                        	{
+								tableModel.clear();
+								tableModel.addAll(geoNames);
+	                        	}
+	
+	                        } catch (Exception e) {
+	
+	                        }
+	                thread=null;
+	                goAction.setEnabled(true);
+	                }
+	        }
+	
+	public GeoNamePane(Component owner)
+	        {
+			super(owner,"GeoName");
+			this.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+			
+			
+			
+	        JPanel contentPane=new JPanel(new BorderLayout(5,5));
+	        getContentPane().add(contentPane);
+	        this.goAction=new ConstrainedAction<GeoNamePane>(this,"Go")
+	                {
+	                private static final long serialVersionUID = 1L;
+	                public void actionPerformed(ActionEvent e)
+	                        {
+	                        searchPlace();
+	                        }
+	                };
+	        JPanel top=new JPanel(new FlowLayout(FlowLayout.LEADING));
+	        contentPane.add(top,BorderLayout.NORTH);
+	        JLabel label=new JLabel("Postal Code:",JLabel.RIGHT);
+	
+	        top.add(label);
+	        this.postCodeField= new JTextField("",10);
+	        this.postCodeField.addActionListener(goAction);
+	        top.add(this.postCodeField);
+	        label=new JLabel("Place Name:",JLabel.RIGHT);
+	        top.add(label);
+	        this.placeNameField= new JTextField("",20);
+	        this.placeNameField.addActionListener(goAction);
+	        top.add(this.placeNameField);
+	        label=new JLabel("Country:",JLabel.RIGHT);
+	        top.add(label);
+	        this.countryField= new JTextField("",3);
+	        top.add(this.countryField);
+	        label=new JLabel("Max Rows:",JLabel.RIGHT);
+	        top.add(label);
+	        top.add(new JSpinner(this.maxRows=new SpinnerNumberModel(10,1,50,1)));
+	        top.add(new JButton(goAction));
+	
+	        this.table= new JTable( this.tableModel= new GenericTableModel<GeoName>()
+	        	{
+	            private static final long serialVersionUID = 1L;
+	            @Override
+	            public int getColumnCount() {
+	            	return HEADERS.length;
+	            	}
+	            @Override
+	            public String getColumnName(int column) {
+	            	return HEADERS[column];
+	            	}
+	            @Override
+	            public Object getValueOf(GeoName geo, int columnIndex)
+	            	{
+	            	switch(columnIndex)
+		            	{
+		            	case 0: return  geo.postalCode;
+		            	case 1: return  geo.name;
+		            	case 2: return  geo.country;
+		            	case 3: return  geo.latitude;
+		            	case 4: return  geo.longitude;
+		            	case 5: return  geo.adminCode1;
+		            	case 6: return  geo.adminName1;
+		            	case 7: return  geo.adminCode2;
+		            	case 8: return geo.adminName2;
+		            	}
+	            	return null;
+	            	}
+	           
+	            });
+	        this.table.getSelectionModel().addListSelectionListener(new ListSelectionListener()
+	        	{
+	        	@Override
+	        	public void valueChanged(ListSelectionEvent e) {
+	        		int i= table.getSelectedRow();
+	        		if(i==-1)
+	        			{
+	        			geoNameSelected=null;
+	        			}
+	        		else
+	        			{
+	        			geoNameSelected = tableModel.elementAt(i);
+	        			}
+	        		}
+	        	});
+	        contentPane.add(new JScrollPane(this.table),BorderLayout.CENTER);
+	        getOKAction().mustHaveOneRowSelected(this.table);
+	        }
+	
+	private void searchPlace()
+	        {
+	        if(this.thread!=null) return;
+	        this.goAction.setEnabled(false);
+	        SearchPlace run=new SearchPlace();
+	        this.thread=new Thread(run);
+	        this.thread.start();
+	        }
+		}
+
+
+/**
+ * 
+ * SpatialThingEditor
+ *
+ */
+abstract class SpatialThingEditor extends SimpleDialog
+	{
+	private static final long serialVersionUID = 1L;
+	Vector<Pair<FoafModel.Resource,JComponent>> fields= new Vector<Pair<Resource,JComponent>>();
+	
+	JTextField placeName;
+	JTextField latitude;
+	JTextField longitude;
+	public SpatialThingEditor(Component owner)
+		{
+		super(owner,Geo.NS+"SpatialThing");
+		JPanel main= new JPanel(new BorderLayout(2,2));
+		getContentPane().add(main);
+		JPanel inputPane= new JPanel(new InputLayout());
+		main.add(inputPane,BorderLayout.CENTER);
+		
+		inputPane.add(new JLabel("Place Name:",JLabel.RIGHT));
+		inputPane.add(this.placeName= new JTextField(20));
+		fields.add(new Pair<FoafModel.Resource, JComponent>(getModel().createResource(DC.NS+"title"),this.placeName));
+		
+		inputPane.add(new JLabel("Latitude:",JLabel.RIGHT));
+		inputPane.add(this.latitude= new JTextField(20));
+		getOKAction().mustBeInRange(this.latitude, -90.0, 90.0);
+		fields.add(new Pair<FoafModel.Resource, JComponent>(getModel().createResource(Geo.NS+"lat"),this.latitude));
+		
+		inputPane.add(new JLabel("Longitude:",JLabel.RIGHT));
+		inputPane.add(this.longitude= new JTextField(20));
+		getOKAction().mustBeInRange(this.longitude, -180.0, 180.0);
+		fields.add(new Pair<FoafModel.Resource, JComponent>(getModel().createResource(Geo.NS+"long"),this.longitude));
+		
+		inputPane.add(new JButton(new AbstractAction("Search GeoNames")
+			{
+			private static final long serialVersionUID = 1L;
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				GeoNamePane ed= new GeoNamePane(SpatialThingEditor.this);
+				ed.placeNameField.setText(placeName.getText());
+				if(ed.showDialog()!=GeoNamePane.OK_OPTION) return;
+				if(ed.geoNameSelected==null) return;
+				placeName.setText(""+ed.geoNameSelected.name);
+				latitude.setText(""+ed.geoNameSelected.latitude);
+				longitude.setText(""+ed.geoNameSelected.longitude);
+				}
+			}));
+		inputPane.add(new JLabel());
+		}
+	
+	abstract FoafModel getModel();
+	}
 
 
 
@@ -545,6 +797,7 @@ class FoafModel extends DerbyModel
 		{
 		super(file);
 		getPrefixMapping().setNsPrefix("ncbi", NCBI.NS);
+		getPrefixMapping().setNsPrefix("geo", Geo.NS);
 		}
 	}
 
@@ -886,11 +1139,11 @@ public class SciFOAFApplication extends JFrame {
 			bar.add(menu);
 			this.exploreMenu= new JMenu("Browse");
 			bar.add(exploreMenu);
+			JMenu toolMenu= new JMenu("Tool");
+			bar.add(toolMenu);
 			if(subject==null && predicate==null && subject==null)
 				{
-				menu = new JMenu("Tool");
-				bar.add(menu);
-				menu.add(new JMenuItem(new AbstractAction("New Article")
+				toolMenu.add(new JMenuItem(new AbstractAction("New Article")
 					{
 					@Override
 					public void actionPerformed(ActionEvent e) {
@@ -899,6 +1152,28 @@ public class SciFOAFApplication extends JFrame {
 						}
 					}));
 				}	
+			
+			if(subject!=null)
+				{
+				toolMenu.add(new JMenuItem(new AbstractAction("Add Location")
+					{
+					@Override
+					public void actionPerformed(ActionEvent e)
+						{
+						SpatialThingEditor ed= new SpatialThingEditor(StatementsFrame.this)
+							{
+							@Override
+							FoafModel getModel() {
+								return SciFOAFApplication.this.getRDFModel();
+								}
+							};
+						if(ed.showDialog()!=SpatialThingEditor.OK_OPTION) return;
+						
+						}
+					}));
+				}
+			
+			
 			
 			addInternalFrameListener(new InternalFrameAdapter()
 				{
