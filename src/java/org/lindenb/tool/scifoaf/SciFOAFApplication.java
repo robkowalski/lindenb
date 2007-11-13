@@ -40,10 +40,12 @@ import java.util.Vector;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
+import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
@@ -79,6 +81,7 @@ import javax.swing.event.InternalFrameAdapter;
 import javax.swing.event.InternalFrameEvent;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
+import javax.swing.filechooser.FileFilter;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -104,6 +107,7 @@ import org.lindenb.swing.SwingUtils;
 import org.lindenb.swing.layout.InputLayout;
 import org.lindenb.swing.table.GenericTableModel;
 
+import org.lindenb.util.Assert;
 import org.lindenb.util.Compilation;
 import org.lindenb.util.Debug;
 import org.lindenb.util.Observed;
@@ -659,10 +663,11 @@ abstract class PaperEditor extends SimpleDialog
 		}
 	
 	
-	public void create() throws SQLException
+	public DerbyModel.Resource create() throws SQLException
 		{
-		if(getModel().containsSubject(getModel().createResource(paper.getURI()))) return;
 		DerbyModel.Resource instance= getModel().createResource(paper.getURI());
+		if(getModel().containsSubject(instance)) return instance;
+		
 		instance.addProperty(getModel().RDF_TYPE, getModel().createResource(FOAF.NS+"Document"));
 		
 		_addpredicate(instance,NCBI.NS,"pmid",paper.PMID);
@@ -720,7 +725,7 @@ abstract class PaperEditor extends SimpleDialog
 				}
 			}
 		
-		
+		return instance;
 		}
 	
 	private void linkAuthorAndPaper(DerbyModel.Resource paper,DerbyModel.Resource author) throws SQLException
@@ -812,6 +817,7 @@ class FoafModel extends DerbyModel
 		super(file);
 		getPrefixMapping().setNsPrefix("ncbi", NCBI.NS);
 		getPrefixMapping().setNsPrefix("geo", Geo.NS);
+		getPrefixMapping().setNsPrefix("pict", Picture.NS);
 		}
 	}
 
@@ -827,6 +833,13 @@ class NCBI extends Namespace
 	public static final String Author="Author";
 	}
 
+/**
+ * Picture
+ */
+class Picture extends Namespace
+	{
+	public static final String NS="http://picture.xmlns.org/picture/0.1/";
+	}
 
 class StmtWrapper extends XObject
 	implements Comparable<StmtWrapper>
@@ -1171,42 +1184,17 @@ public class SciFOAFApplication extends JFrame {
 				}
 		
 		
-			private boolean _same(RDFNode n1,RDFNode n2)
-				{
-				if(n1==null && n2==null) return true;
-				if(n1==null && n2!=null) return false;
-				if(n1!=null && n2==null) return false;
-				return n1.equals(n2);
-				}
+			
 			
 			@Override
 			public void actionPerformed(ActionEvent e)
 				{
-				for(JInternalFrame frames: desktopPane.getAllFrames())
-					{
-					if(!(frames instanceof StatementsFrame)) continue;
-					StatementsFrame cp=StatementsFrame.class.cast(frames);
-					if( _same(getObject()[0],cp.subject) &&
-						_same(getObject()[1],cp.predicate) &&
-						_same(getObject()[2],cp.value)
-						)
-						{
-						cp.moveToFront();
-						return;
-						}
-					
-					
-					}
-				StatementsFrame f= new StatementsFrame(
+				StatementsFrame f=showStatementFrame(
 					DerbyModel.Resource.class.cast(getObject()[0]),
 					DerbyModel.Resource.class.cast(getObject()[1]),
 					getObject()[2]
 					);
-				f.setClosable(true);
 				f.setTitle(this.getValue(AbstractAction.NAME).toString());
-				SciFOAFApplication.this.desktopPane.add(f);
-				
-				f.setVisible(true);
 				}
 			}
 		
@@ -1261,8 +1249,7 @@ public class SciFOAFApplication extends JFrame {
 					private static final long serialVersionUID = 1L;
 					@Override
 					public void actionPerformed(ActionEvent e) {
-						SciFOAFApplication.this.doMenuNewPaper(StatementsFrame.this);
-						
+						doMenuNewPaper(StatementsFrame.this);
 						}
 					}));
 				
@@ -1271,8 +1258,15 @@ public class SciFOAFApplication extends JFrame {
 					private static final long serialVersionUID = 1L;
 					@Override
 					public void actionPerformed(ActionEvent e) {
-						
-						
+						doMenuImageNew(StatementsFrame.this);
+						}
+					}));
+				toolMenu.add(new JMenuItem(new AbstractAction("New Place")
+					{
+					private static final long serialVersionUID = 1L;
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						doMenuPlaceNew(StatementsFrame.this);
 						}
 					}));
 				}	
@@ -1803,15 +1797,7 @@ public class SciFOAFApplication extends JFrame {
 							private static final long serialVersionUID = 1L;
 							@Override
 							public void actionPerformed(ActionEvent e) {
-								SpatialThingEditor ed= new SpatialThingEditor(StatementsFrame.this)
-									{
-									private static final long serialVersionUID = 1L;
-									@Override
-									FoafModel getModel() {
-										return SciFOAFApplication.this.getRDFModel();
-										}
-									};
-								if(ed.showDialog()!=SpatialThingEditor.OK_OPTION) return;
+								
 									}
 								
 							}));
@@ -2416,10 +2402,164 @@ public class SciFOAFApplication extends JFrame {
 			{
 			ThrowablePane.show(owner, err);
 			}
-		loadPubmedPapersByPMID(this,pmid);
+		DerbyModel.Resource r=loadPubmedPapersByPMID(this,pmid);
+		showStatementFrame(r,null,null);
 		}
 	
-	private void loadPubmedPapersByPMID(Component owner, int pmid)
+	private void doMenuPlaceNew(Component owner)
+		{
+		SpatialThingEditor ed= new SpatialThingEditor(owner)
+			{
+			private static final long serialVersionUID = 1L;
+			@Override
+			FoafModel getModel() {
+				return SciFOAFApplication.this.getRDFModel();
+				}
+			};
+		if(ed.showDialog()!=SpatialThingEditor.OK_OPTION) return;
+		try {
+			DerbyModel.Resource r= getRDFModel().createResource();
+			r.addProperty(
+				getRDFModel().RDF_TYPE,
+				getRDFModel().createResource(Geo.NS, "SpatialThing")
+				);
+			r.addProperty(
+					getRDFModel().createResource(DC.NS, "title"),
+					getRDFModel().createLiteral(ed.placeName.getText().trim())
+					);
+			r.addProperty(
+					getRDFModel().createResource(Geo.NS, "longitude"),
+					getRDFModel().createLiteral(ed.longitude.getText().trim())
+					);
+			r.addProperty(
+					getRDFModel().createResource(Geo.NS, "latitude"),
+					getRDFModel().createLiteral(ed.latitude.getText().trim())
+					);
+			showStatementFrame(r,null,null);
+			}
+		catch (SQLException err) {
+			ThrowablePane.show(owner, err);
+			}
+		}
+	
+	private DerbyModel.Resource doMenuImageNew(Component owner)
+		{
+		URL url=null;
+		String choices[]=new String[]{"From File","From URL"};
+		int choice;
+		if((choice=JOptionPane.showOptionDialog(owner, "Load Image...", "foaf:Image", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE,null, choices,choices[0]))==JOptionPane.CLOSED_OPTION)
+			{
+			return null;
+			}
+		switch(choice)
+			{
+			case 0:
+				{
+				JFileChooser chooser= new JFileChooser(PreferredDirectory.getPreferredDirectory());
+				chooser.setFileFilter(new FileFilter()
+					{
+					@Override
+					public boolean accept(File f)
+						{
+						if(f.isDirectory()) return true;
+						String name=f.getName().toLowerCase();
+						return name.endsWith(".gif") ||
+								name.endsWith(".png") ||
+								name.endsWith(".jpg") ||
+								name.endsWith(".jpeg");
+						}
+					@Override
+					public String getDescription() {
+						return "Images";
+						}
+					});
+				if(chooser.showOpenDialog(owner)!=JFileChooser.APPROVE_OPTION) return null;
+				File f= chooser.getSelectedFile();
+				PreferredDirectory.setPreferredDirectory(f);
+				try {
+					url=f.toURI().toURL();
+				} catch (MalformedURLException e) {
+					ThrowablePane.show(owner, e);
+					return null;
+					}
+				break;
+				}
+			case 1:
+				{
+				SimpleDialog d= new SimpleDialog(owner,"Choose URL");
+				JPanel pane= new JPanel(new InputLayout());
+				d.getContentPane().add(pane);
+				pane.add(new JLabel("Image URL:",JLabel.RIGHT));
+				JTextField tf= new JTextField(30);
+				pane.add(tf);
+				d.getOKAction().mustBeURL(tf);
+				if(d.showDialog()!=SimpleDialog.OK_OPTION) return null;
+				try {
+					url=new URL(tf.getText().trim());
+				} catch (MalformedURLException e) {
+					ThrowablePane.show(owner, e);
+					return null;
+					}
+				
+				break;
+				}
+			default:Assert.assertUnreachableStatement();break;
+			}
+		
+		try
+			{
+			if(url==null) return null;
+			DerbyModel.Resource imgRsrc= getRDFModel().createResource(url);
+			
+			if(getRDFModel().containsSubject(imgRsrc))
+				{
+				JOptionPane.showMessageDialog(owner, "Image "+url+" already in database");
+				return null ;
+				}
+			
+			
+			JPanel pane= new JPanel(new BorderLayout());
+			pane.setPreferredSize(new Dimension(500,500));
+			ImageIcon icn=new ImageIcon(url);
+			JLabel label= new JLabel(icn);
+			label.setOpaque(true);
+			label.setBackground(Color.BLACK);
+			label.setHorizontalAlignment(JLabel.CENTER);
+			label.setVerticalAlignment(JLabel.CENTER);
+			pane.add(new JScrollPane(label));
+			
+			if(JOptionPane.showConfirmDialog(owner, pane,url.toString(),JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE,null)!=JOptionPane.OK_OPTION)
+				{
+				return null;
+				}
+			imgRsrc.setProperty(getRDFModel().RDF_TYPE, getRDFModel().createResource(FOAF.NS, "Image"));
+			imgRsrc.setProperty(getRDFModel().createResource(DC.NS, "title"), getRDFModel().createLiteral(url.getPath()));
+			if(icn.getImage()!=null &&
+			   icn.getImage().getWidth(null)!=-1 &&
+			   icn.getImage().getHeight(null)!=-1)
+				{
+				imgRsrc.setProperty(
+					getRDFModel().createResource(Picture.NS, "width"),
+					getRDFModel().createLiteral(String.valueOf(icn.getImage().getWidth(null)))
+					);
+				imgRsrc.setProperty(
+					getRDFModel().createResource(Picture.NS, "height"),
+					getRDFModel().createLiteral(String.valueOf(icn.getImage().getHeight(null)))
+					);
+				}
+			showStatementFrame(imgRsrc, null, null);
+			return imgRsrc;
+			}
+		catch(SQLException err)
+			{
+			ThrowablePane.show(owner, err);
+			return null;
+			}
+		
+		}
+	
+	
+	private DerbyModel.Resource loadPubmedPapersByPMID(Component owner, int pmid)
 		{
 		try {
 			class Param extends WindowAdapter
@@ -2502,7 +2642,7 @@ public class SciFOAFApplication extends JFrame {
 			if(param.error!=null)
 				{
 				ThrowablePane.show(owner, param.error);
-				return;
+				return null;
 				}
 			
 			Debug.debug("Done");
@@ -2516,13 +2656,14 @@ public class SciFOAFApplication extends JFrame {
 					return SciFOAFApplication.this.getRDFModel();
 					}
 				};
-			if(ed.showDialog()!=PaperEditor.OK_OPTION) return;
-			ed.create();
+			if(ed.showDialog()!=PaperEditor.OK_OPTION) return null;
+			DerbyModel.Resource r=ed.create();
 			fireRDFModelUpdated();
+			return r;
 			}
 		catch (Exception e) {
 			ThrowablePane.show(owner, e);
-			return;
+			return null;
 			}
 		}
 	
@@ -2543,21 +2684,65 @@ public class SciFOAFApplication extends JFrame {
 			if(!imgrsrc.hasProperty(
 				getRDFModel().RDF_TYPE,
 				getRDFModel().createResource(FOAF.NS, "Image")	
-				)) continue;
-			String filetype= imgrsrc.getURI().toLowerCase();
-			
+				)) continue;			
 			
 			if(!imgrsrc.isURL()) continue;
 			URL url= imgrsrc.asURL();
 			if(url==null) continue;
-			
-			
+			try
+				{
+				img = ImageIO.read(url);
+				break;
+				}
+			catch (IOException e)
+				{
+				Debug.debug(e);
+				}
 			}
 		
 		iter1.close();
 		return img;
 		}
 	
+	private StatementsFrame showStatementFrame(
+		DerbyModel.Resource S,
+		DerbyModel.Resource P,
+		DerbyModel.RDFNode V
+		)
+		{
+		for(JInternalFrame frames: desktopPane.getAllFrames())
+			{
+			if(!(frames instanceof StatementsFrame)) continue;
+			StatementsFrame cp=StatementsFrame.class.cast(frames);
+			if( _same(S,cp.subject) &&
+				_same(P,cp.predicate) &&
+				_same(V,cp.value)
+				)
+				{
+				cp.moveToFront();
+				return cp;
+				}
+
+			}
+		StatementsFrame f= new StatementsFrame(
+			S,P,V
+			);
+		f.setClosable(true);
+		SciFOAFApplication.this.desktopPane.add(f);
+		
+		f.setVisible(true);
+		fireRDFModelUpdated();
+		return f;
+		}
+	
+	
+	private boolean _same(RDFNode n1,RDFNode n2)
+		{
+		if(n1==null && n2==null) return true;
+		if(n1==null && n2!=null) return false;
+		if(n1!=null && n2==null) return false;
+		return n1.equals(n2);
+		}
 	
 	/**
 	 * main
