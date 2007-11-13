@@ -1210,18 +1210,34 @@ private Resource readResource(ResultSet row,String columnLabel)  throws SQLExcep
 	return createResource(uri);
 	}
 
+/** creates an anonymous resource */
 public Resource createResource() throws SQLException
 	{
 	return createResource(createAnonymousURI());
 	}
 
+/** creates resource from a namespace and a localName */
 public Resource createResource(String namespaceURI,String localName)
 	{
 	return createResource(namespaceURI+localName);
 	}
 
+/** creates resource from an URL */
+public Resource createResource(URL url)
+	{
+	return createResource(url.toString());
+	}
+
+/** creates resource from an URI */
+public Resource createResource(URI uri)
+	{
+	return createResource(uri.toString());
+	}
+
+/** creates resource from a String URI */
 public Resource createResource(String uri)
 	{
+	if(uri==null) throw new NullPointerException("createResource(null)");
 	return new Resource(uri)
 		{
 		@Override
@@ -1231,8 +1247,10 @@ public Resource createResource(String uri)
 		};
 	}
 
+/** creates a literal from a text */
 public Literal createLiteral(String text)
 	{
+	if(text==null) throw new NullPointerException("createLiteral(null)");
 	return new Literal(text)
 		{
 		@Override
