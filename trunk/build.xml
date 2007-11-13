@@ -111,7 +111,7 @@
 		destdir="build/compile"
 		source="1.6"
 		target="1.6">
-		 <include name="**/scifoaf/SciFOAF.java"/>
+		 <include name="**/scifoaf/SciFOAFApplication.java"/>
 	 </javac>
 	 
 	 <delete includeEmptyDirs="true">
@@ -120,7 +120,7 @@
 	 <jar destfile="build/scifoaf.jar"
 	      basedir="build/compile">
 		 <manifest>
-			 <attribute name="Main-Class" value="org.lindenb.tool.scifoaf.SciFOAF"/>
+			 <attribute name="Main-Class" value="org.lindenb.tool.scifoaf.SciFOAFApplication"/>
 			 <attribute name="SplashScreen-Image" value="images/splash.jpeg"/>
 		 </manifest>
 	 </jar>
