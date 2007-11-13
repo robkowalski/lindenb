@@ -1,21 +1,28 @@
 package org.lindenb.tool.scifoaf;
 
+import java.awt.AWTException;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
+import java.awt.Desktop;
 import java.awt.Dialog;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.awt.MenuItem;
+import java.awt.PopupMenu;
+import java.awt.SystemTray;
 import java.awt.Toolkit;
+import java.awt.TrayIcon;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.image.BufferedImage;
 import java.beans.PropertyVetoException;
 import java.io.File;
 import java.io.IOException;
@@ -28,6 +35,7 @@ import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.Observable;
 import java.util.Observer;
+import java.util.Random;
 import java.util.Vector;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -100,6 +108,7 @@ import org.lindenb.util.Compilation;
 import org.lindenb.util.Debug;
 import org.lindenb.util.Observed;
 import org.lindenb.util.Pair;
+import org.lindenb.util.XObject;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -779,7 +788,8 @@ abstract class PaperEditor extends SimpleDialog
 	
 	private void _addpredicate(DerbyModel.Resource instance,String ns,String local,String value) throws SQLException
 		{
-		if(value==null || value.trim().length()==0 || value.length()> getModel().getLiteralMaxLength()) return;
+		if(value==null || value.trim().length()==0 ) return;
+		if(value.length()> getModel().getLiteralMaxLength()) value=value.substring(0,getModel().getLiteralMaxLength());
 		getModel().addStatement(
 			instance,
 			getModel().createResource(ns+local),
@@ -788,7 +798,11 @@ abstract class PaperEditor extends SimpleDialog
 		}
 }
 
-
+/**
+ * FoafModel
+ * @author lindenb
+ *
+ */
 class FoafModel extends DerbyModel
 	{
 	public final Resource RDF_TYPE= createResource(RDF.NS+"type");
@@ -813,6 +827,117 @@ class NCBI extends Namespace
 	public static final String Author="Author";
 	}
 
+
+class StmtWrapper extends XObject
+	implements Comparable<StmtWrapper>
+	{
+	private DerbyModel.Statement stmt;
+	private DerbyModel.Resource rdfType;
+	private DerbyModel.Literal title;
+	StmtWrapper(DerbyModel.Statement stmt) throws SQLException
+		{
+		this.stmt= stmt;
+		this.rdfType= this.stmt.getSubject().getPropertyAsResource(stmt.getModel().createResource(RDF.NS,"type"));
+		this.title = this.stmt.getSubject().getPropertyAsLiteral(stmt.getModel().createResource(FOAF.NS,"name"));
+		if(this.title==null || this.title.getString().trim().length()==0)
+			{
+			this.title= this.stmt.getSubject().getPropertyAsLiteral(stmt.getModel().createResource(DC.NS,"title"));
+			}
+		}
+	
+	public DerbyModel.Resource getType() {
+		return rdfType;
+		}
+	
+	
+	public DerbyModel.Literal getTitle() {
+		return title;
+		}
+	
+	@Override
+	public boolean equals(Object obj) {
+		if(obj==this) return true;
+		if(obj==null || (obj instanceof StmtWrapper)) return false;
+		return getStatement().equals(StmtWrapper.class.cast(obj).getStatement());
+		}
+	
+	public DerbyModel.Statement getStatement() {
+		return stmt;
+		}
+	
+	
+	
+	public DerbyModel getModel() {
+		return getStatement().getModel();
+	}
+
+	public Resource getPredicate() {
+		return getStatement().getPredicate();
+	}
+
+	public Resource getSubject() {
+		return getStatement().getSubject();
+	}
+
+	public RDFNode getValue() {
+		return getStatement().getValue();
+	}
+
+	@Override
+	public int hashCode() {
+		return getStatement().hashCode();
+		}
+	
+	@Override
+	public String toString() {
+		return getStatement().toString();
+		}
+	
+	@Override
+	public int compareTo(StmtWrapper o) {
+		return getStatement().compareTo(o.getStatement());
+		}
+	
+	}
+
+
+class RDFNodeRenderer extends DefaultTableCellRenderer
+	{
+	private static final long serialVersionUID = 1L;
+	RDFNodeRenderer()
+		{
+		
+		}
+	
+	@Override
+	public Component getTableCellRendererComponent(
+			JTable table, Object value, boolean isSelected,
+			boolean hasFocus, int row, int column)
+		{
+		
+		if(DerbyModel.RDFNode.class.isInstance(value))
+			{
+			DerbyModel.RDFNode rdfNode= DerbyModel.RDFNode.class.cast(value);
+			if(value!=null)
+				{
+				if(rdfNode.isLiteral())
+					{
+					value = rdfNode.asLiteral().getString();
+					setForeground(Color.GRAY);
+					}
+				else
+					{
+					value = rdfNode.asResource().getShortName();
+					setForeground(Color.BLUE);
+					}
+				}
+			}
+		
+		Component c= super.getTableCellRendererComponent(table, value, isSelected, hasFocus,
+				row, column);
+		return c;
+		}
+	}
 
 /**
  * SciFOAFApplication
@@ -855,15 +980,16 @@ public class SciFOAFApplication extends JFrame {
 				});
 			if(desktopPane!=null)
 				{
+				Random rand= new Random();
 				Dimension dim= desktopPane.getSize();
-				setBounds(10,10,
-						dim.width-20,
-						dim.height-20);
+				setBounds(rand.nextInt(20),rand.nextInt(20),
+						dim.width-40,
+						dim.height-40);
 				}
 			}
 		}
 	
-	private class StatementTableModel extends GenericTableModel<DerbyModel.Statement>
+	private class StatementTableModel extends GenericTableModel<StmtWrapper>
 		{
 		private static final long serialVersionUID = 1L;
 		
@@ -875,6 +1001,8 @@ public class SciFOAFApplication extends JFrame {
 				case 0: return DerbyModel.Resource.class;
 				case 1: return DerbyModel.Resource.class;
 				case 2: return DerbyModel.RDFNode.class;
+				case 3: return DerbyModel.Resource.class;
+				case 4: return DerbyModel.Literal.class;
 				default:return null;
 				}
 			}
@@ -887,26 +1015,35 @@ public class SciFOAFApplication extends JFrame {
 				case 0: return "Subject";
 				case 1: return "Predicate";
 				case 2: return "Value";
+				case 3: return "rdf:type";
+				case 4: return "Title";
 				default:return null;
 				}
 			}
 		
 		@Override
 		public int getColumnCount() {
-			return 3;
+			return 5;
 			}
 		@Override
-		public Object getValueOf(Statement object, int columnIndex) {
+		public Object getValueOf(StmtWrapper object, int columnIndex) {
 			switch(columnIndex)
 				{
 				case 0: return object.getSubject();
 				case 1: return object.getPredicate();
 				case 2: return object.getValue();
+				case 3: return object.getType();
+				case 4: return object.getTitle();
 				default:return null;
 				}
 			}
 		}
 	
+	/**
+	 * 
+	 * @author lindenb
+	 *
+	 */
 	private class StatementTable extends JTable
 		{
 		private static final long serialVersionUID = 1L;
@@ -917,46 +1054,11 @@ public class SciFOAFApplication extends JFrame {
 			setRowHeight(22);
 			setFont(new Font("Dialog",Font.BOLD,18));
 			
-			DefaultTableCellRenderer cr= new DefaultTableCellRenderer()
+			RDFNodeRenderer cr= new RDFNodeRenderer();
+			for(int i=0;i< getColumnModel().getColumnCount();++i)
 				{
-				private static final long serialVersionUID = 1L;
-				@Override
-				public Component getTableCellRendererComponent(
-						JTable table, Object value, boolean isSelected,
-						boolean hasFocus, int row, int column)
-					{
-					value = DerbyModel.Resource.class.cast(value).getShortName();
-					Component c= super.getTableCellRendererComponent(table, value, isSelected, hasFocus,
-							row, column);
-					
-					return c;
-					}
-				};
-			cr.setForeground(Color.BLUE);
-			getColumnModel().getColumn(0).setCellRenderer(cr);
-			getColumnModel().getColumn(1).setCellRenderer(cr);
-			
-			cr= new DefaultTableCellRenderer()
-				{
-				private static final long serialVersionUID = 1L;
-				@Override
-				public Component getTableCellRendererComponent(
-						JTable table, Object value, boolean isSelected,
-						boolean hasFocus, int row, int column)
-					{
-					DerbyModel.RDFNode n = DerbyModel.RDFNode.class.cast(value);
-					value= (n.isLiteral()?
-							n.asLiteral().getString()
-							:n.asResource().getShortName()
-							);
-					setForeground(n.isLiteral()?Color.GRAY:Color.BLUE);
-					Component c= super.getTableCellRendererComponent(table, value, isSelected, hasFocus,
-							row, column);
-					
-					return c;
-					}
-				};
-			getColumnModel().getColumn(2).setCellRenderer(cr);
+				getColumnModel().getColumn(i).setCellRenderer(cr);
+				}
 			setToolTipText("");
 			}
 		
@@ -977,15 +1079,21 @@ public class SciFOAFApplication extends JFrame {
 			return StatementTableModel.class.cast(getModel());
 			}
 		
-		public Vector<Statement> getSelectedStatements()
+		public DerbyModel.Statement getStatementAt(int index)
+			{
+			if(index==-1) return null;
+			index= convertRowIndexToModel(index);
+			if(index==-1) return null;
+			return getStmtTable().elementAt(index).getStatement();
+			}
+		
+		public Vector<DerbyModel.Statement> getSelectedStatements()
 			{
 			int indexes[]=getSelectedRows();
 			 Vector<Statement> sel= new  Vector<Statement>(indexes.length);
 			 for(int i=0;i< indexes.length;++i)
 			 	{
-				indexes[i]= convertRowIndexToModel( indexes[i]);
-				if( indexes[i]==-1) continue;
-				Statement stmt= getStmtTable().elementAt(indexes[i]);
+				 DerbyModel.Statement stmt= getStatementAt(indexes[i]);
 				if(stmt==null) continue;
 				sel.addElement(stmt);
 			 	}
@@ -1094,7 +1202,7 @@ public class SciFOAFApplication extends JFrame {
 					DerbyModel.Resource.class.cast(getObject()[1]),
 					getObject()[2]
 					);
-				f.setClosable(false);
+				f.setClosable(true);
 				f.setTitle(this.getValue(AbstractAction.NAME).toString());
 				SciFOAFApplication.this.desktopPane.add(f);
 				
@@ -1110,7 +1218,6 @@ public class SciFOAFApplication extends JFrame {
 		protected StatementTable table;
 		private AbstractAction goPrevPageAction;
 		private AbstractAction goNextPageAction;
-		private Observed<Integer> startPage=new Observed<Integer>(0);
 		JTextField subjectTextField;
 		JTextField predicateTextField;
 		JTextField valueTextField;
@@ -1121,6 +1228,12 @@ public class SciFOAFApplication extends JFrame {
 		AbstractAction chooseValueAsResourceAction;
 		AbstractAction createStatementAction;
 		private JMenu exploreMenu;
+		private ConstrainedAction<StatementsFrame> reloadAction;
+		private JLabel pagerPageLabel;
+		private JSpinner pagerLimitSpinner;
+		private JSpinner pagerPageStart;
+		private JTextField pagerRegexFilter;
+		
 		StatementsFrame()
 			{
 			this(null,null,null);	
@@ -1145,33 +1258,25 @@ public class SciFOAFApplication extends JFrame {
 				{
 				toolMenu.add(new JMenuItem(new AbstractAction("New Article")
 					{
+					private static final long serialVersionUID = 1L;
 					@Override
 					public void actionPerformed(ActionEvent e) {
 						SciFOAFApplication.this.doMenuNewPaper(StatementsFrame.this);
 						
 						}
 					}));
-				}	
-			
-			if(subject!=null)
-				{
-				toolMenu.add(new JMenuItem(new AbstractAction("Add Location")
+				
+				toolMenu.add(new JMenuItem(new AbstractAction("New Image")
 					{
+					private static final long serialVersionUID = 1L;
 					@Override
-					public void actionPerformed(ActionEvent e)
-						{
-						SpatialThingEditor ed= new SpatialThingEditor(StatementsFrame.this)
-							{
-							@Override
-							FoafModel getModel() {
-								return SciFOAFApplication.this.getRDFModel();
-								}
-							};
-						if(ed.showDialog()!=SpatialThingEditor.OK_OPTION) return;
+					public void actionPerformed(ActionEvent e) {
+						
 						
 						}
 					}));
-				}
+				}	
+			
 			
 			
 			
@@ -1185,6 +1290,7 @@ public class SciFOAFApplication extends JFrame {
 			
 			
 			JPanel contentPane= new JPanel(new BorderLayout(5,5));
+			contentPane.setBorder(new EmptyBorder(5,5,5,5));
 			setContentPane(contentPane);
 			contentPane.add(new JScrollPane(this.table= new StatementTable()));
 			this.table.addMouseListener(new MouseAdapter()
@@ -1193,15 +1299,12 @@ public class SciFOAFApplication extends JFrame {
 				public void mousePressed(MouseEvent e) {
 					if(!e.isPopupTrigger()) return;
 					int i=table.rowAtPoint(e.getPoint());
-					if(i==-1) return;
-					i= table.convertRowIndexToModel(i);
-					if(i==-1) return;
 					JPopupMenu menu= new JPopupMenu();
-					DerbyModel.Statement stmt= table.getStmtTable().elementAt(i);
-					for(DeployStatementAction action :getDeployStatementAction(stmt))
-						{
-						menu.add(new JMenuItem(action));
-						}
+					DerbyModel.Statement stmt= table.getStatementAt(i);
+					if(stmt==null) return;
+					fillMenuOnSelect(menu,stmt);
+				
+
 					menu.show(e.getComponent(), e.getX(), e.getY());
 					}
 				});
@@ -1222,41 +1325,78 @@ public class SciFOAFApplication extends JFrame {
 			SwingUtils.setFontSize(pane2,9);
 			pane2.setBorder(new LineBorder(Color.GRAY,1));
 			
-			pane2= new JPanel(new FlowLayout(FlowLayout.LEADING));
+			pane2= new JPanel(new FlowLayout(FlowLayout.CENTER));
 			pane1.add(pane2);
-			pane2.add(new JLabel("Row Count:",JLabel.RIGHT));
-			pane2.add(new JSpinner(new SpinnerNumberModel(100,0,Integer.MAX_VALUE,1)));
-			pane2.add(new JButton(new AbstractAction("Reload")
-				{
-				private static final long serialVersionUID = 1L;
-				@Override
-				public void actionPerformed(ActionEvent e) {
-					fireRDFModelUpdated();
-					}
-				}));
-			
-			this.goPrevPageAction= new AbstractAction("Prev")
-				{
-				private static final long serialVersionUID = 1L;
-				@Override
-				public void actionPerformed(ActionEvent e) {
-					
-					}
-				};
-			pane2.add(new JButton(this.goPrevPageAction));
-			this.goPrevPageAction.setEnabled(false);
 			
 			
-			this.goNextPageAction= new AbstractAction("Next")
 				{
-				private static final long serialVersionUID = 1L;
-				@Override
-				public void actionPerformed(ActionEvent e) {
-					
-					}
-				};
-			pane2.add(new JButton(this.goNextPageAction));
-			this.goNextPageAction.setEnabled(false);
+				JPanel pager= new JPanel(new BorderLayout());
+				pane2.add(pager);
+				
+				this.goPrevPageAction= new AbstractAction("Prev")
+					{
+					private static final long serialVersionUID = 1L;
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						int pageToReach = Number.class.cast(pagerPageStart.getValue()).intValue();
+						if(pageToReach==1)
+							{
+							Toolkit.getDefaultToolkit().beep();
+							return;
+							}
+						pagerPageStart.setValue(pageToReach-1);
+						fireRDFModelUpdated();
+						}
+					};
+				pager.add(new JButton(this.goPrevPageAction),BorderLayout.WEST);
+				
+				
+				
+				this.goNextPageAction= new AbstractAction("Next")
+					{
+					private static final long serialVersionUID = 1L;
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						int pageToReach = Number.class.cast(pagerPageStart.getValue()).intValue();
+						pagerPageStart.setValue(pageToReach+1);
+						fireRDFModelUpdated();
+						}
+					};
+				pager.add(new JButton(this.goNextPageAction),BorderLayout.EAST);
+				
+				
+				pager.add(this.pagerPageLabel=new JLabel("Page 1",JLabel.CENTER),BorderLayout.NORTH);
+				
+				JPanel pane3= new JPanel(new FlowLayout(FlowLayout.CENTER));
+				pager.add(pane3,BorderLayout.SOUTH);
+				pane3.add(new JButton(this.reloadAction=new ConstrainedAction<StatementsFrame>(this,"Reload")
+					{
+					private static final long serialVersionUID = 1L;
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						fireRDFModelUpdated();
+						}
+					}));
+				
+				pane3= new JPanel(new GridLayout(0,1));
+				pager.add(pane3,BorderLayout.CENTER);
+				
+				JPanel pane4= new JPanel(new InputLayout());
+				pane3.add(pane4);
+				pane4.add(new JLabel("Page Start:",JLabel.RIGHT));
+				pane4.add(this.pagerPageStart=new JSpinner(new SpinnerNumberModel(1,1,Integer.MAX_VALUE,1)));
+				pane4.add(new JLabel("Limit:",JLabel.RIGHT));
+				pane4.add(this.pagerLimitSpinner=new JSpinner(new SpinnerNumberModel(100,1,Integer.MAX_VALUE,1)));
+				pane4.add(new JLabel("Filter:",JLabel.RIGHT));
+				pane4.add(this.pagerRegexFilter=new JTextField(".*",15));
+				
+				this.reloadAction.mustBeARegexPattern(this.pagerRegexFilter);
+				SwingUtils.setFontSize(pager,9);
+				}
+			
+			
+			
+			
 			
 			this.removeStatementAction= new ConstrainedAction<StatementTable>(this.table,"Remove")
 				{
@@ -1276,7 +1416,7 @@ public class SciFOAFApplication extends JFrame {
 				};
 			this.removeStatementAction.setEnabled(false);
 			this.removeStatementAction.mustBeSelected(this.table);
-			pane2.add(new JButton(removeStatementAction));
+			
 			menu.add(new JMenuItem(removeStatementAction));
 			
 			
@@ -1479,10 +1619,7 @@ public class SciFOAFApplication extends JFrame {
 						{
 						for(DerbyModel.Statement stmt:table.getSelectedStatements())
 							{
-							for(DeployStatementAction a:getDeployStatementAction(stmt))
-								{
-								exploreMenu.add(new JMenuItem(a));
-								}
+							fillMenuOnSelect(exploreMenu,stmt);
 							if(subjectTextField!=null)
 								{
 								subjectTextField.setText(stmt.getSubject().getURI());
@@ -1564,32 +1701,140 @@ public class SciFOAFApplication extends JFrame {
 			}
 		
 		
-		private Vector<DeployStatementAction> getDeployStatementAction(DerbyModel.Statement stmt)
+		private void fillMenuOnSelect(JComponent menu,DerbyModel.Statement stmt)
 			{
-			Vector<DeployStatementAction> x= new Vector<DeployStatementAction>(10);
+			
 			for(int i=0;i<2;++i)
 				for(int j=0;j<2;++j)
 					for(int k=0;k<2;++k)
 						{
 						if(i==0 && j==0 && k==0) continue;
-						x.addElement(new DeployStatementAction(
+						menu.add(new JMenuItem(new DeployStatementAction(
 							i==0?null:stmt.getSubject(),
 							j==0?null:stmt.getPredicate(),
 							k==0?null:stmt.getValue()
-							));
+							)));
 						}
 			if(stmt.getValue().isResource())
 				{
-				x.addElement(new DeployStatementAction(
+				menu.add(new JMenuItem(new DeployStatementAction(
 					stmt.getValue().asResource(),
 					null,null
-					));
+					)));
 				}
-			x.addElement(new DeployStatementAction(
+			menu.add(new JMenuItem(new DeployStatementAction(
 					null,null,
 					stmt.getSubject().asResource()
-					));
-			return x;
+					)));
+			
+			
+			
+			
+			/** add HyperLink handler opening a web browser if desktop API is supported */
+			 if (Desktop.isDesktopSupported())
+				 {
+				 menu.add(new JSeparator());
+				/* if subject is URL */
+				if(stmt.getSubject().isURL())
+					{
+					menu.add(new JMenuItem(new ObjectAction<URL>(stmt.getSubject().asURL(),"Open "+stmt.getSubject().getURI())
+						{
+						private static final long serialVersionUID = 1L;
+						@Override
+						public void actionPerformed(ActionEvent e) {
+							try {
+								Desktop.getDesktop().browse(getObject().toURI());
+							} catch (Exception e1) {
+								ThrowablePane.show(StatementsFrame.this, e1);
+								}
+							}
+						}));
+					}
+				/* if value is URL */
+				if(stmt.getValue().isResource() &&
+					stmt.getValue().asResource().isURL())
+					{
+					menu.add(new JMenuItem(new ObjectAction<URL>(stmt.getValue().asResource().asURL(),"Open "+stmt.getSubject().getURI())
+						{
+						private static final long serialVersionUID = 1L;
+						@Override
+						public void actionPerformed(ActionEvent e) {
+							try {
+								Desktop.getDesktop().browse(getObject().toURI());
+							} catch (Exception e1) {
+								ThrowablePane.show(StatementsFrame.this, e1);
+								}
+							}
+						}));
+					}
+				 }
+			 else
+			 	{
+				Debug.debug("Desktop API not supported"); 
+			 	}
+			
+		    menu.add(new JSeparator());
+			try
+				{
+				if(stmt.getSubject().hasProperty(
+					getRDFModel().RDF_TYPE,
+					getRDFModel().createResource(FOAF.NS, "Person")))
+					{
+					menu.add(new JMenuItem(new ObjectAction<DerbyModel.Resource>(stmt.getSubject(),"Add NCBI Name")
+							{
+							private static final long serialVersionUID = 1L;
+							@Override
+							public void actionPerformed(ActionEvent e) {
+								//
+								}
+							}));
+					
+					
+					}
+					
+				
+				
+				if(
+				   stmt.getSubject().hasProperty( getRDFModel().RDF_TYPE, getRDFModel().createResource(FOAF.NS, "Person"))
+				   )
+					{
+					menu.add(new JMenuItem(new ObjectAction<DerbyModel.Resource>(stmt.getSubject(),"Add Location")
+							{
+							private static final long serialVersionUID = 1L;
+							@Override
+							public void actionPerformed(ActionEvent e) {
+								SpatialThingEditor ed= new SpatialThingEditor(StatementsFrame.this)
+									{
+									private static final long serialVersionUID = 1L;
+									@Override
+									FoafModel getModel() {
+										return SciFOAFApplication.this.getRDFModel();
+										}
+									};
+								if(ed.showDialog()!=SpatialThingEditor.OK_OPTION) return;
+									}
+								
+							}));
+					
+					menu.add(new JMenuItem(new ObjectAction<DerbyModel.Resource>(stmt.getSubject(),"Add NCBI Name")
+							{
+							private static final long serialVersionUID = 1L;
+							@Override
+							public void actionPerformed(ActionEvent e) {
+								//
+								}
+							}));
+					}
+				
+				}
+			catch(SQLException err)
+				{
+				ThrowablePane.show(StatementsFrame.this, err);
+				}
+			
+			
+			
+			
 			}
 		
 		
@@ -1645,16 +1890,27 @@ public class SciFOAFApplication extends JFrame {
 			createStatementAction.setEnabled(isActionCreateShouldBeEnabled());
 			}
 		
-		int getStatementPerPageCount()
-			{
-			return 100;
-			}
 		
 		public void fireRDFModelUpdated()
 			{
 			Cursor oldCursor= this.getCursor();
 			this.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
-			Vector<DerbyModel.Statement> stmts= new Vector<Statement>();
+			Vector<StmtWrapper> stmts= new Vector<StmtWrapper>();
+			HashSet<DerbyModel.Statement> wereSeleted= new HashSet<Statement>(table.getSelectedStatements());
+			HashSet<Integer> rowsToSelect= new HashSet<Integer>();
+			int pageToReach = Number.class.cast(this.pagerPageStart.getValue()).intValue()-1;
+			int maxStatementPerPage= Number.class.cast(this.pagerLimitSpinner.getValue()).intValue();
+			Pattern pattern=null;
+			
+			try {
+				pattern= Pattern.compile(this.pagerRegexFilter.getText(),Pattern.CASE_INSENSITIVE);
+				}
+			catch (PatternSyntaxException e) {
+				pattern=null;
+				}
+			
+			int currentPage=0;
+			
 			try
 				{
 				
@@ -1664,9 +1920,30 @@ public class SciFOAFApplication extends JFrame {
 							this.predicate,
 							this.value
 							);
-				while(iter.hasNext() && stmts.size()< getStatementPerPageCount())
+				while(iter.hasNext() && stmts.size()< maxStatementPerPage)
 					{
-					stmts.add(iter.next());
+					DerbyModel.Statement x= iter.next();
+					
+					if(pattern!=null && !matches(x,pattern))
+						{
+						continue;
+						}
+					
+					stmts.add(new StmtWrapper(x));
+
+					if(wereSeleted.contains(x))
+						{
+						rowsToSelect.add(stmts.size()-1);
+						}
+					
+					if(stmts.size()>= maxStatementPerPage )
+						{
+						if(currentPage==pageToReach) break;
+						++currentPage;
+						stmts.clear();
+						rowsToSelect.clear();
+						}
+					
 					}
 				iter.close();
 				}
@@ -1674,9 +1951,40 @@ public class SciFOAFApplication extends JFrame {
 				{
 				ThrowablePane.show(this, err);
 				}
+			
+			if(currentPage!=pageToReach)
+				{
+				stmts.clear();
+				rowsToSelect.clear();
+				}
+			
 			this.table.getStmtTable().clear();
 			this.table.getStmtTable().addAll(stmts);
+			for(Integer n:rowsToSelect)
+				{
+				this.table.getSelectionModel().addSelectionInterval(n, n);
+				}
+			this.pagerPageLabel.setText("Page "+(pageToReach+1));
 			setCursor(oldCursor);
+			}
+		
+		private boolean matches(DerbyModel.Statement stmt,Pattern pat)
+			{
+			return	matches(stmt.getSubject(),pat) ||
+					matches(stmt.getPredicate(),pat) ||
+					matches(stmt.getValue(),pat)
+					;
+			}
+		
+		private boolean matches(DerbyModel.RDFNode x,Pattern pat)
+			{
+			if(x.isLiteral())
+				{
+				return pat.matcher(x.asLiteral().getString()).find();
+				}
+			return  pat.matcher(x.asResource().getURI()).find() ||
+			 		pat.matcher(x.asResource().getShortName()).find()
+			 		;
 			}
 		}
 	
@@ -1813,8 +2121,8 @@ public class SciFOAFApplication extends JFrame {
 					
 					if(pattern!=null)
 						{
-						if( !pattern.matcher(r.getURI()).matches() &&
-							!pattern.matcher(r.getShortName()).matches())
+						if( !pattern.matcher(r.getURI()).find() &&
+							!pattern.matcher(r.getShortName()).find())
 							{
 							continue;
 							}
@@ -1845,42 +2153,91 @@ public class SciFOAFApplication extends JFrame {
 	
 	public SciFOAFApplication() {
 		super("SciFOAF");
-		this.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+		this.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+		
+		
+		TrayIcon trayIcon = null;
+		if(SystemTray.isSupported())
+			{
+			SystemTray tray = SystemTray.getSystemTray();
+			PopupMenu popup= new PopupMenu("SciFOAF");
+			popup.add(new MenuItem("Menu1"));
+			BufferedImage image= new BufferedImage(64,64,BufferedImage.TYPE_INT_RGB);
+			 trayIcon = new TrayIcon(image, "SciFOAF", popup);
+			 try {
+	             tray.add(trayIcon);
+	         } catch (AWTException e) {
+	             Debug.debug(e);
+	         }
+			}
+		else
+			{
+			Debug.debug();
+			}
+		
 		this.addWindowListener(new WindowAdapter()
 			{
 			@Override
-			public void windowClosed(WindowEvent e) {
-				doMenuClose();
+			public void windowClosing(WindowEvent e) {
+				doMenuQuit();
 				}
 			});
 		JMenuBar bar= new JMenuBar();
 		setJMenuBar(bar);
 		JMenu menu= new JMenu("File");
 		bar.add(menu);
-		menu.add(this.menuNewAction=new AbstractAction("New")
+		
+		
+		menu.add(new JMenuItem(new AbstractAction("About")
+				{
+				private static final long serialVersionUID = 1L;
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					JOptionPane.showMessageDialog(SciFOAFApplication.this,
+							new JLabel("<html><body>"+
+							"<h1 align=\"center\">SciFOAF 2.0</h1>"+
+							"<h2 align=\"center\">Pierre Lindenbaum PhD 2007</h2>"+
+							"<h3 align=\"center\">"+Compilation.getLabel()+"</h3>"+
+							"</body></html>"),"About..",JOptionPane.PLAIN_MESSAGE,null);
+					}
+				}));
+		
+		menu.add(new JSeparator());	
+				
+		menu.add(new JMenuItem(this.menuNewAction=new AbstractAction("New")
 			{
 			private static final long serialVersionUID = 1L;
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				doMenuNew();
 				}
-			});
-		menu.add(this.menuOpenAction=new AbstractAction("Open")
+			}));
+		menu.add(new JMenuItem(this.menuOpenAction=new AbstractAction("Open")
 			{
 			private static final long serialVersionUID = 1L;
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				doMenuOpen();
 				}
-			});
-		menu.add(this.menuCloseAction=new AbstractAction("Close")
+			}));
+		menu.add(new JMenuItem(this.menuCloseAction=new AbstractAction("Close")
 			{
 			private static final long serialVersionUID = 1L;
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				doMenuClose();
 				}
-			});
+			}));
+		menu.add(new JSeparator());
+		menu.add(new JMenuItem(new AbstractAction("Quit")
+			{
+			private static final long serialVersionUID = 1L;
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				doMenuQuit();	
+				}
+			}));
+		
 		this.windowsMenu= new JMenu("Windows");
 		bar.add(this.windowsMenu);
 		
@@ -1944,8 +2301,15 @@ public class SciFOAFApplication extends JFrame {
 		JFileChooser chooser=new JFileChooser(PreferredDirectory.getPreferredDirectory());
 		if(chooser.showSaveDialog(this)!=JFileChooser.APPROVE_OPTION) return;
 		File f= chooser.getSelectedFile();
-		if(f==null || (f.exists() || JOptionPane.showConfirmDialog(this, f.toString()+" exist. Overwrite.", "Overwrite?", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE, null)!=JOptionPane.OK_OPTION)) return;
+		if(f==null) return;
+		if(f.exists())
+			{
+			JOptionPane.showMessageDialog(this, f.toString()+" exist.", "Exsts", JOptionPane.WARNING_MESSAGE, null);
+			return;
+			}
+		
 		PreferredDirectory.setPreferredDirectory(f);
+		
 		try {
 			FoafModel model= new FoafModel(f);
 			
@@ -1983,6 +2347,13 @@ public class SciFOAFApplication extends JFrame {
 		catch (Exception e2) {
 			ThrowablePane.show(this, e2);
 			}
+		}
+	
+	private void doMenuQuit()
+		{
+		doMenuClose();
+		this.setVisible(false);
+		this.dispose();
 		}
 	
 	private void doMenuClose()
@@ -2025,8 +2396,8 @@ public class SciFOAFApplication extends JFrame {
 		JPanel pane= new JPanel(new InputLayout());
 		dialog.getContentPane().add(pane);
 		pane.add(new JLabel("Enter a Pubmed Identifier (PMID)",JLabel.RIGHT));
-		JTextField f= new JTextField(20);
-		if(Debug.isDebugging()) f.setText("23123");
+		JTextField f= new JTextField(10);
+		if(Debug.isDebugging()) f.setText("9682060");
 		f.setName("PMID");
 		dialog.getOKAction().mustBeInRange(f,1,Integer.MAX_VALUE);
 		pane.add(f);
@@ -2155,6 +2526,42 @@ public class SciFOAFApplication extends JFrame {
 			}
 		}
 	
+	
+	private BufferedImage loadDepiction(DerbyModel.Resource foafAgent) throws IOException,SQLException
+		{
+		BufferedImage img=null;
+		CloseableIterator<DerbyModel.Statement> iter1= getRDFModel().listStatements(
+			foafAgent,
+			getRDFModel().createResource(FOAF.NS,"depicted")
+			, null);
+		
+		while(iter1.hasNext())
+			{
+			DerbyModel.Statement stmt1= iter1.next();
+			if(!stmt1.getValue().isResource()) continue;
+			DerbyModel.Resource imgrsrc= stmt1.getValue().asResource();
+			if(!imgrsrc.hasProperty(
+				getRDFModel().RDF_TYPE,
+				getRDFModel().createResource(FOAF.NS, "Image")	
+				)) continue;
+			String filetype= imgrsrc.getURI().toLowerCase();
+			
+			
+			if(!imgrsrc.isURL()) continue;
+			URL url= imgrsrc.asURL();
+			if(url==null) continue;
+			
+			
+			}
+		
+		iter1.close();
+		return img;
+		}
+	
+	
+	/**
+	 * main
+	 */
 	public static void main(String[] args) {
 		try {
 			Debug.setDebugging(true);
@@ -2207,7 +2614,10 @@ public class SciFOAFApplication extends JFrame {
 	    	catch (ClassNotFoundException e)
 	    		{
 	    		JOptionPane.showMessageDialog(null,
-	    				"Cannot find "+DerbyModel.JDBC_DRIVER_NAME+" in the java $CLASSPATH",
+	    				"<html><body><h1>Cannot find the SQL Driver "+DerbyModel.JDBC_DRIVER_NAME+
+	    				" in the java $CLASSPATH</h1>"+
+	    				"<p>See <a href='http://developers.sun.com/javadb/'>http://developers.sun.com/javadb/</a></p>"+
+	    				"</body></html>",
 	    				e.getClass().getName(),
 	    				JOptionPane.ERROR_MESSAGE,
 	    				null

@@ -1,8 +1,14 @@
 package org.lindenb.sw.model;
 
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.lang.reflect.Constructor;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -269,8 +275,15 @@ public abstract class RDFNode
 				isResource()?asResource().getURI():asLiteral().getString()
 				);
 		}
+	
+	
+	
 	}
 	
+/**
+ * Resource
+ *
+ */
 public abstract class Resource
 	extends RDFNode
 	implements Comparable<Resource>
@@ -336,6 +349,29 @@ public abstract class Resource
 		return getURI().hashCode();
 		}
 	
+	public boolean isURL()
+		{
+		try {
+			new URL(getURI());
+			return true;
+			}
+		catch (MalformedURLException e)
+			{
+			return false;
+			}
+		}
+	
+	public URL asURL()
+		{
+		try {
+			return new URL(getURI());
+			}
+		catch (MalformedURLException e)
+			{
+			return null;
+			}
+		}
+	
 	@Override
 	public boolean equals(Object obj) {
 		if(this==obj) return true;
@@ -348,6 +384,37 @@ public abstract class Resource
 	@Override
 	public int compareTo(Resource o) {
 		return getURI().compareTo(o.getURI());
+		}
+	
+	
+	
+	public Resource getPropertyAsResource(Resource predicate,Resource defaultValue) throws SQLException
+		{
+		CloseableIterator<Statement> iter= getModel().listStatements(this, predicate, VALUE_IS_RESOURCE,null);
+		Resource value=(iter.hasNext()?iter.next().getValue().asResource():defaultValue);
+		iter.close();
+		return value;
+		}
+	
+	
+	public Resource getPropertyAsResource(Resource predicate) throws SQLException
+		{
+		return getPropertyAsResource(predicate,null);
+		}
+	
+	
+	public Literal getPropertyAsLiteral(Resource predicate,Literal defaultValue) throws SQLException
+		{
+		CloseableIterator<Statement> iter= getModel().listStatements(this, predicate, VALUE_IS_LITERAL,null);
+		Literal value=(iter.hasNext()?iter.next().getValue().asLiteral():defaultValue);
+		iter.close();
+		return value;
+		}
+
+
+	public Literal getPropertyAsLiteral(Resource predicate) throws SQLException
+		{
+		return getPropertyAsLiteral(predicate,null);
 		}
 	
 	
@@ -505,6 +572,30 @@ public abstract  class Literal
 	public String toString() {
 		return getString();
 		}
+	
+	
+	public <T> T castTo(Class<T> clazz)
+		{
+		try {
+			Constructor<T> cst=clazz.getConstructor(String.class);
+			return cst.newInstance(this.getString());
+			}
+		catch (Exception e) {
+			return null;
+			}
+		}
+
+	public boolean canAs(Class<?> clazz)
+		{
+		try {
+			return castTo(clazz)!=null;
+			} 
+		catch (Exception e) {
+			return false;
+			}
+		}
+	
+	
 	}
 
 public abstract class Statement
@@ -595,6 +686,24 @@ public abstract class Statement
 	public String toString() {
 		return getSubject().toString()+" "+getPredicate()+" "+getValue();
 		}
+	
+	public void printAsN3(PrintWriter out)
+		{
+		out.print("<"+this.getSubject().getURI()+">\t");
+		out.print("<"+this.getPredicate().getURI()+">\t");
+		if(this.getValue().isResource())
+			{
+			out.print("<"+this.getValue().asResource().getURI()+">");
+			}
+		else
+			{
+			String s= this.getValue().asLiteral().getString();
+			s=s.replaceAll("[\"]", "\\\"");
+			out.print("\"<"+s+"\"");
+			}
+		out.println(".");
+		}
+	
 	}
 
 
@@ -1106,6 +1215,10 @@ public Resource createResource() throws SQLException
 	return createResource(createAnonymousURI());
 	}
 
+public Resource createResource(String namespaceURI,String localName)
+	{
+	return createResource(namespaceURI+localName);
+	}
 
 public Resource createResource(String uri)
 	{
@@ -1340,6 +1453,27 @@ private int _removeStatements(
 		recycleConnection(con);
 		return n;
 		}
+
+public void saveAsN3(File n3file) throws SQLException,IOException
+	{
+	PrintWriter out= new PrintWriter(new FileWriter(n3file));
+	saveAsN3(out);
+	out.flush();
+	out.close();
+	}
+
+public void saveAsN3(PrintWriter out) throws SQLException,IOException
+	{
+	CloseableIterator<Statement> iter= listStatements();
+	while(iter.hasNext())
+		{
+		Statement stmt= iter.next();
+		stmt.printAsN3(out);
+		}
+	iter.close();
+	out.flush();
+	}
+
 
 
 
