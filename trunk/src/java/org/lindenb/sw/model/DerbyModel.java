@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.Writer;
 import java.lang.reflect.Constructor;
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -21,9 +22,14 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.Stack;
 
+import javax.xml.stream.XMLOutputFactory;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamWriter;
+
 
 import org.lindenb.sql.SQLUtilities;
 import org.lindenb.sw.PrefixMapping;
+import org.lindenb.sw.vocabulary.RDF;
 import org.lindenb.util.XObject;
 
 
@@ -595,7 +601,7 @@ public abstract  class Literal
 			}
 		}
 	
-	
+
 	}
 
 public abstract class Statement
@@ -702,6 +708,38 @@ public abstract class Statement
 			out.print("\"<"+s+"\"");
 			}
 		out.println(".");
+		}
+	
+	private void write(XMLStreamWriter w) throws XMLStreamException
+		{
+		w.writeStartElement("rdf", "Statement", RDF.NS);
+		w.writeCharacters("\n ");
+		
+		w.writeEmptyElement("rdf", "subject", RDF.NS);
+		w.writeAttribute("rdf","resource",RDF.NS,getSubject().getURI());
+		w.writeCharacters("\n ");
+		
+		w.writeEmptyElement("rdf", "predicate", RDF.NS);
+		w.writeAttribute("rdf","resource",RDF.NS,getPredicate().getURI());
+		w.writeCharacters("\n ");
+		
+		
+		if(getValue().isResource())
+			{
+			w.writeEmptyElement("rdf", "object", RDF.NS);
+			w.writeAttribute("rdf","resource",RDF.NS,getValue().asResource().getURI());
+			}
+		else
+			{
+			w.writeStartElement("rdf", "object", RDF.NS);
+			w.writeCharacters(getValue().asLiteral().getString());
+			w.writeEndElement();
+			}
+		
+		
+		w.writeCharacters("\n");
+		w.writeEndElement();
+		w.writeCharacters("\n");
 		}
 	
 	}
@@ -1544,8 +1582,34 @@ public void saveAsN3(PrintWriter out) throws SQLException,IOException
 	out.flush();
 	}
 
+public void saveAsRDF(File rdfFile) throws XMLStreamException,SQLException,IOException
+	{
+	FileWriter out= new FileWriter(rdfFile);
+	saveAsRDF(out);
+	out.flush();
+	out.close();
+	}
 
-
+public void saveAsRDF(Writer out) throws XMLStreamException,SQLException
+	{
+	XMLOutputFactory factory= XMLOutputFactory.newInstance();
+	XMLStreamWriter w= factory.createXMLStreamWriter(out);
+	w.setPrefix("rdf", RDF.NS);
+	w.writeStartDocument("UTF-8","1.0");
+	w.writeStartElement("rdf", "RDF", RDF.NS);
+	w.writeAttribute("xmlns:rdf", RDF.NS);
+	
+	CloseableIterator<Statement> iter= listStatements();
+	while(iter.hasNext())
+		{
+		iter.next().write(w);
+		}
+	iter.close();
+	
+	w.writeEndElement();
+	w.writeEndDocument();
+	w.flush();
+	}
 
 public static void main(String[] args) {
 	try {

@@ -29,7 +29,14 @@
  
  <target name="all" depends="pubmed2wikipedia,scifoaf,pivot">
  </target>
- 
+
+<target name="tango" depends="declare-ant-tasks">
+  <mkdir dir="build/tango"/>
+  <wget url="http://tango-project.org/releases/tango-icon-theme-0.8.1.tar.gz"
+	todir="build/tango" />
+  <gunzip src="build/tango/tango-icon-theme-0.8.1.tar.gz"/>
+  <untar src="build/tango/tango-icon-theme-0.8.1.tar" dest="build/tango"/>
+</target> 
  
  <target name="pubmed2wikipedia" depends="declare-ant-tasks">
 	 <mkdir dir="build/compile"/>
