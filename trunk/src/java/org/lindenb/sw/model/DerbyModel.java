@@ -1121,7 +1121,37 @@ private String createAnonymousURI() throws SQLException
 	return id;
 	}
 
-
+private String createAnonymousURI(String template) throws SQLException
+	{
+	if(template==null || template.trim().length()==0) return createAnonymousURI();
+	template=template.trim().replaceAll("[^a-zA-Z0-9_]", "").trim();
+	if(template.length()==0) return createAnonymousURI();
+	if(!template.startsWith("_")) template="_"+template;
+	
+	Connection con= getConnection();
+	PreparedStatement pstmt= con.prepareStatement(
+			"select count(*) from "+getTable()+" where "+
+			COLUMN_SUBJECT_URI+"=?");
+	String id=null;
+	for(int tries=0;tries<10;++tries)
+		{
+		id= template+"_"+(++ID_GENERATOR);
+		try {
+			new URI(id);
+			}
+		catch (URISyntaxException e) {
+			id=null;
+			continue;
+			}
+		pstmt.setString(1, id);
+		if(SQLUtilities.selectOneValue(pstmt.executeQuery(), Number.class).intValue()==0) break;
+		id=null;
+		}
+	pstmt.close();
+	recycleConnection(con);
+	if(id==null) return createAnonymousURI();
+	return id;
+	}
 
 
 public boolean addStatement(Resource subject,Resource predicate,RDFNode value)    throws SQLException
@@ -1208,6 +1238,12 @@ private Resource readResource(ResultSet row,String columnLabel)  throws SQLExcep
 			}
 		}
 	return createResource(uri);
+	}
+
+/** creates an anonymous resource using template as a template for the uri*/
+public Resource createAnonymousResource(String template) throws SQLException
+	{
+	return createResource(createAnonymousURI(template));
 	}
 
 /** creates an anonymous resource */

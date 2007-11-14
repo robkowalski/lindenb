@@ -117,6 +117,11 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
+/**
+ * GeoName
+ * storage class to get the results from geoname.org
+ *
+ */
 class GeoName
 	{
 	String name;
@@ -130,6 +135,11 @@ class GeoName
 	String adminName2;
 	}
 
+/**
+ * 
+ * Simple dialog fetch lat/long of a place on geoname.org
+ *
+ */
 class GeoNamePane extends SimpleDialog
 	{
 	private static final long serialVersionUID = 1L;
@@ -810,7 +820,8 @@ abstract class PaperEditor extends SimpleDialog
  */
 class FoafModel extends DerbyModel
 	{
-	public final Resource RDF_TYPE= createResource(RDF.NS+"type");
+	public final Resource RDF_TYPE= createResource(RDF.NS,"type");
+	public final Resource FOAF_PERSON= createResource(FOAF.NS,"Person");
 	
 	public FoafModel(File file) throws SQLException
 		{
@@ -841,6 +852,11 @@ class Picture extends Namespace
 	public static final String NS="http://picture.xmlns.org/picture/0.1/";
 	}
 
+
+/**
+ * StmtWrapper
+ *
+ */
 class StmtWrapper extends XObject
 	implements Comparable<StmtWrapper>
 	{
@@ -913,7 +929,10 @@ class StmtWrapper extends XObject
 	
 	}
 
-
+/**
+ * RDFNodeRenderer
+ *
+ */
 class RDFNodeRenderer extends DefaultTableCellRenderer
 	{
 	private static final long serialVersionUID = 1L;
@@ -967,6 +986,56 @@ public class SciFOAFApplication extends JFrame {
 	private AbstractAction menuCloseAction;
 
 	
+	private class LinkAction extends ObjectAction<DerbyModel.Resource>
+		{
+		private Component owner;
+		private DerbyModel.Resource rdfType;
+		private DerbyModel.Resource predicate;
+		private DerbyModel.Resource reversePredicate;
+		LinkAction(DerbyModel.Resource subject,
+				String name,
+				Component owner,
+				DerbyModel.Resource rdfType,
+				DerbyModel.Resource predicate,
+				DerbyModel.Resource reversePredicate
+				)
+			{
+			super(subject,name);
+			this.owner=owner;
+			this.rdfType=rdfType;
+			this.predicate=predicate;
+			this.reversePredicate=reversePredicate;
+			}
+		
+		public void actionPerformed(ActionEvent e)
+			{
+			SubjectSelector dialog= new SubjectSelector(owner,
+				getRDFModel().RDF_TYPE,
+				this.rdfType,
+				true
+				);
+			
+			if(dialog.showDialog()!=SimpleDialog.OK_OPTION) return;
+			try {
+				for(DerbyModel.Resource S:dialog.getSelectedResource())
+					{
+					getObject().addProperty(this.predicate, S);
+					}
+				if(this.reversePredicate!=null)
+					{
+					for(DerbyModel.Resource S:dialog.getSelectedResource())
+						{
+						S.addProperty(this.reversePredicate, getObject());
+						}
+					}
+				}
+			catch (Exception err) {
+				ThrowablePane.show(this.owner, err);
+				}
+			SciFOAFApplication.this.fireRDFModelUpdated();
+			}
+		}
+	
 	/**
 	 * any internal frame in the this.desktopPane
 	 * @author pierre
@@ -999,6 +1068,10 @@ public class SciFOAFApplication extends JFrame {
 						dim.width-40,
 						dim.height-40);
 				}
+			}
+		DerbyModel.Resource _rsrc(String ns,String local)
+			{
+			return SciFOAFApplication.this._rsrc(ns, local);
 			}
 		}
 	
@@ -1054,7 +1127,7 @@ public class SciFOAFApplication extends JFrame {
 	
 	/**
 	 * 
-	 * @author lindenb
+	 * StatementTable
 	 *
 	 */
 	private class StatementTable extends JTable
@@ -1117,16 +1190,15 @@ public class SciFOAFApplication extends JFrame {
 	
 	
 	private static String _shortName(RDFNode r)
-	{
-	if(r==null) return "*";
-	String s=r.isLiteral()?r.asLiteral().getString():r.asResource().getShortName();
-	s=(s.length()>20?s.substring(0,20)+"...":s);
-	return r.isLiteral()?"\""+s+"\"":"<"+s+">";
-	}
+		{
+		if(r==null) return "*";
+		String s=r.isLiteral()?r.asLiteral().getString():r.asResource().getShortName();
+		s=(s.length()>20?s.substring(0,20)+"...":s);
+		return r.isLiteral()?"\""+s+"\"":"<"+s+">";
+		}
 	
 	/**
-	 * 
-	 * @author pierre
+	 * StatementsFrame
 	 *
 	 */
 	private class StatementsFrame extends MyInternalFrame
@@ -1463,10 +1535,10 @@ public class SciFOAFApplication extends JFrame {
 					private static final long serialVersionUID = 1L;
 					@Override
 					public void actionPerformed(ActionEvent e) {
-						ResourceSelector sel= new ResourceSelector(StatementsFrame.this,0);
+						SubjectSelector sel= new SubjectSelector(StatementsFrame.this,null,null,false);
 						sel.reloadModel();
-						if(sel.showDialog()!=ResourceSelector.OK_OPTION|| sel.getSelectedResource()==null) return;
-						subjectTextField.setText(sel.getSelectedResource().getURI());
+						if(sel.showDialog()!=SubjectSelector.OK_OPTION|| sel.getSelectedResource().isEmpty()) return;
+						subjectTextField.setText(sel.getSelectedResource().iterator().next().getURI());
 						subjectTextField.setCaretPosition(0);
 						}
 					}),smallFont));
@@ -1505,9 +1577,9 @@ public class SciFOAFApplication extends JFrame {
 					private static final long serialVersionUID = 1L;
 					@Override
 					public void actionPerformed(ActionEvent e) {
-						ResourceSelector sel= new ResourceSelector(StatementsFrame.this,1);
+						PropertySelector sel= new PropertySelector(StatementsFrame.this);
 						sel.reloadModel();
-						if(sel.showDialog()!=ResourceSelector.OK_OPTION|| sel.getSelectedResource()==null) return;
+						if(sel.showDialog()!=PropertySelector.OK_OPTION|| sel.getSelectedResource()==null) return;
 						predicateTextField.setText(sel.getSelectedResource().getURI());
 						predicateTextField.setCaretPosition(0);
 						}
@@ -1547,10 +1619,10 @@ public class SciFOAFApplication extends JFrame {
 					@Override
 					public void actionPerformed(ActionEvent e)
 						{
-						ResourceSelector sel= new ResourceSelector(StatementsFrame.this,0);
+						SubjectSelector sel= new SubjectSelector(StatementsFrame.this,null,null,false);
 						sel.reloadModel();
-						if(sel.showDialog()!=ResourceSelector.OK_OPTION|| sel.getSelectedResource()==null) return;
-						valueTextField.setText(sel.getSelectedResource().getURI());
+						if(sel.showDialog()!=SubjectSelector.OK_OPTION|| sel.getSelectedResource().isEmpty()) return;
+						valueTextField.setText(sel.getSelectedResource().iterator().next().getURI());
 						valueTextField.setCaretPosition(0);
 						}
 					}),smallFont),BorderLayout.EAST);
@@ -1772,42 +1844,62 @@ public class SciFOAFApplication extends JFrame {
 				{
 				if(stmt.getSubject().hasProperty(
 					getRDFModel().RDF_TYPE,
-					getRDFModel().createResource(FOAF.NS, "Person")))
+					getRDFModel().FOAF_PERSON))
 					{
-					menu.add(new JMenuItem(new ObjectAction<DerbyModel.Resource>(stmt.getSubject(),"Add NCBI Name")
+					menu.add(new JMenuItem(new ObjectAction<DerbyModel.Resource>(stmt.getSubject(),"Add NCBI Name...")
 							{
 							private static final long serialVersionUID = 1L;
 							@Override
-							public void actionPerformed(ActionEvent e) {
-								//
+							public void actionPerformed(ActionEvent e)
+								{
+								SimpleDialog dialog= new SimpleDialog(StatementsFrame.this,"New NCBI Name");
+								JPanel pane= new JPanel(new InputLayout());
+								dialog.getContentPane().add(pane);
+								pane.add( new JLabel("First Name",JLabel.RIGHT));
+								JTextField first= new JTextField(20); first.setName("First Name");
+								pane.add(first);
+								pane.add( new JLabel("Last Name",JLabel.RIGHT));
+								JTextField last= new JTextField(20); first.setName("Last Name");
+								pane.add(last);
+								dialog.getOKAction().mustNotEmpty(first, true);
+								dialog.getOKAction().mustNotEmpty(last, true);
+								if(dialog.showDialog()!=SimpleDialog.OK_OPTION) return;
+								try {
+									DerbyModel.Resource subject = getRDFModel().createAnonymousResource(last.getText()+first.getText());
+									subject.addProperty(getRDFModel().RDF_TYPE, _rsrc(NCBI.NS, NCBI.Author));
+									subject.addProperty(_rsrc(NCBI.NS,NCBI.firstName),getRDFModel().createLiteral(first.getText().trim()));
+									subject.addProperty(_rsrc(NCBI.NS,NCBI.lastName),getRDFModel().createLiteral(last.getText().trim()));
+									getObject().addProperty(_rsrc(NCBI.NS, NCBI.IsNCBIAuthor), subject);
+									}
+								catch (Exception err) {
+									ThrowablePane.show(StatementsFrame.this, err);
+									}
+								SciFOAFApplication.this.fireRDFModelUpdated();
 								}
 							}));
-					
+					menu.add(new JMenuItem(new LinkAction(
+							stmt.getSubject(),
+							"Add foaf:knows",
+							StatementsFrame.this,
+							getRDFModel().FOAF_PERSON,
+							_rsrc(FOAF.NS, "knows"),
+							_rsrc(FOAF.NS, "knows")
+							)));
 					
 					}
 					
 				
 				
 				if(
-				   stmt.getSubject().hasProperty( getRDFModel().RDF_TYPE, getRDFModel().createResource(FOAF.NS, "Person"))
+				   stmt.getSubject().hasProperty( getRDFModel().RDF_TYPE, _rsrc(FOAF.NS, "Person"))
 				   )
 					{
-					menu.add(new JMenuItem(new ObjectAction<DerbyModel.Resource>(stmt.getSubject(),"Add Location")
+					menu.add(new JMenuItem(new ObjectAction<DerbyModel.Resource>(stmt.getSubject(),"Add foaf:based_near")
 							{
 							private static final long serialVersionUID = 1L;
 							@Override
 							public void actionPerformed(ActionEvent e) {
-								
-									}
-								
-							}));
-					
-					menu.add(new JMenuItem(new ObjectAction<DerbyModel.Resource>(stmt.getSubject(),"Add NCBI Name")
-							{
-							private static final long serialVersionUID = 1L;
-							@Override
-							public void actionPerformed(ActionEvent e) {
-								//
+								//TODO
 								}
 							}));
 					}
@@ -1975,36 +2067,30 @@ public class SciFOAFApplication extends JFrame {
 		}
 	
 	/**
-	 * ResourceSelector
-	 * @author pierre
+	 * SubjectSelector
 	 *
 	 */
-	private class ResourceSelector extends SimpleDialog
+	private class SubjectSelector extends SimpleDialog
 		{
 		private static final long serialVersionUID = 1L;
-		private JList list;
+		private StatementTable table;
 		private JTextField regexTextField;
-		private ConstrainedAction<ResourceSelector> filterAction;
+		private ConstrainedAction<SubjectSelector> filterAction;
 		private JSpinner spinLimit;
-		private DerbyModel.Resource selected=null;
+		private HashSet<DerbyModel.Resource> selected=new HashSet<Resource>();
 		private DerbyModel.Resource withProperty=null;
 		private DerbyModel.RDFNode withValue=null;
-		private int resourceType;
+
 		
-		ResourceSelector(Component owner,
+		SubjectSelector(Component owner,
 				DerbyModel.Resource withProperty,
-				DerbyModel.RDFNode withValue)
-			{
-			this(owner,0);
-			this.withProperty=withProperty;
-			this.withValue=withValue;
-			}
-		
-		
-		ResourceSelector(Component owner,int resourceType)
+				DerbyModel.RDFNode withValue,
+				boolean multiple
+				)
 			{
 			super(owner,"Resource Selector");
-			this.resourceType=resourceType;
+			this.withProperty=withProperty;
+			this.withValue=withValue;
 			JPanel contentPane= new JPanel(new BorderLayout());
 			getContentPane().add(contentPane);
 			
@@ -2017,7 +2103,7 @@ public class SciFOAFApplication extends JFrame {
 			top.add(SwingUtils.withFont(new JLabel("Limit:",JLabel.RIGHT),small));
 			top.add(this.spinLimit= new JSpinner(new SpinnerNumberModel(10,1,Integer.MAX_VALUE,1)));
 			this.spinLimit.setFont(small);
-			top.add(SwingUtils.withFont(new JButton(this.filterAction= new ConstrainedAction<ResourceSelector>(this,"Filter")
+			top.add(SwingUtils.withFont(new JButton(this.filterAction= new ConstrainedAction<SubjectSelector>(this,"Filter")
 				{
 				private static final long serialVersionUID = 1L;
 				@Override
@@ -2025,6 +2111,129 @@ public class SciFOAFApplication extends JFrame {
 					reloadModel();
 					}
 				}),small));
+			this.filterAction.mustBeARegexPattern(this.regexTextField);
+			contentPane.add(new JScrollPane(this.table=new StatementTable()),BorderLayout.CENTER);
+			
+			this.table.getSelectionModel().addListSelectionListener(new ListSelectionListener()
+				{
+				@Override
+				public void valueChanged(ListSelectionEvent e) {
+					selected.clear();
+					for(DerbyModel.Statement stmt:table.getSelectedStatements())
+						{
+						selected.add(stmt.getSubject());
+						}
+					}
+				});
+			if(multiple)
+				{
+				getOKAction().mustHaveAtLeastOneRowSelected(this.table);
+				}
+			else
+				{
+				getOKAction().mustHaveOneRowSelected(this.table);
+				}
+			
+			}
+		
+				
+		public HashSet<DerbyModel.Resource> getSelectedResource()
+			{
+			return this.selected;
+			}
+		
+		public void reloadModel()
+			{
+			try {
+				int limit= Number.class.cast(this.spinLimit.getValue()).intValue();
+				Vector<DerbyModel.Statement> resources= new Vector<DerbyModel.Statement>();
+				Pattern pattern= null;
+				String regex = this.regexTextField.getText().trim();
+				if(regex.length()>0)
+					{
+					try {
+						pattern=Pattern.compile(this.regexTextField.getText(),Pattern.CASE_INSENSITIVE);
+					} catch (PatternSyntaxException e)
+						{
+						Toolkit.getDefaultToolkit().beep();
+						pattern=null;
+						}
+					}
+				
+				
+				CloseableIterator<DerbyModel.Resource> iter= getRDFModel().listSubjects();
+				while(iter.hasNext())
+					{
+					DerbyModel.Resource r= iter.next();
+					
+					if(pattern!=null)
+						{
+						if( !pattern.matcher(r.getURI()).find() &&
+							!pattern.matcher(r.getShortName()).find())
+							{
+							continue;
+							}
+						}
+					
+					if(this.withProperty!=null && this.withValue!=null)
+						{
+						if(!r.hasProperty(this.withProperty, this.withValue)) continue;
+						}
+					DerbyModel.Statement newstmt= r.getProperty(getRDFModel().RDF_TYPE);
+					if(newstmt==null) continue;
+					resources.addElement(newstmt);
+					if(resources.size()>=limit) break;
+					}
+				iter.close();
+				
+				for(DerbyModel.Statement r:resources)
+					{
+					//TODO
+					}
+				} 
+			catch (SQLException err)
+				{
+				}
+			}
+		
+		}
+
+	/**
+	 * PropertySelector
+	 *
+	 */
+	private class PropertySelector extends SimpleDialog
+		{
+		private static final long serialVersionUID = 1L;
+		private JList list;
+		private JTextField regexTextField;
+		private ConstrainedAction<PropertySelector> filterAction;
+		private JSpinner spinLimit;
+		private DerbyModel.Resource selected=null;
+	
+		
+		PropertySelector(Component owner)
+			{
+			super(owner,"Property Selector");
+			JPanel contentPane= new JPanel(new BorderLayout());
+			getContentPane().add(contentPane);
+			
+			
+			JPanel top= new JPanel(new FlowLayout(FlowLayout.LEADING));
+			contentPane.add(top,BorderLayout.NORTH);
+			top.add(new JLabel("Filter:",JLabel.RIGHT));
+			top.add(this.regexTextField=new JTextField(".*",15));
+			top.add(new JLabel("Limit:",JLabel.RIGHT));
+			top.add(this.spinLimit= new JSpinner(new SpinnerNumberModel(10,1,Integer.MAX_VALUE,1)));
+			
+			top.add(new JButton(this.filterAction= new ConstrainedAction<PropertySelector>(this,"Filter")
+				{
+				private static final long serialVersionUID = 1L;
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					reloadModel();
+					}
+				}));
 			this.filterAction.mustBeARegexPattern(this.regexTextField);
 			contentPane.add(new JScrollPane(this.list=new JList(new DefaultListModel())
 				{
@@ -2040,7 +2249,7 @@ public class SciFOAFApplication extends JFrame {
 			this.list.setToolTipText("");
 			this.list.setFont(new Font("Dialog",Font.BOLD,18));
 			this.list.setFixedCellHeight(22);
-			this.list.setName("Resources List");
+			this.list.setName("Property List");
 			this.list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 			this.list.setCellRenderer(new DefaultListCellRenderer()
 				{
@@ -2092,15 +2301,8 @@ public class SciFOAFApplication extends JFrame {
 					}
 				
 				
-				CloseableIterator<DerbyModel.Resource> iter;
-				if(this.resourceType==0)
-					{
-					iter= getRDFModel().listSubjects();
-					}
-				else
-					{
-					iter = getRDFModel().listProperties();
-					}
+				CloseableIterator<DerbyModel.Resource> iter = getRDFModel().listProperties();
+					
 				while(iter.hasNext())
 					{
 					DerbyModel.Resource r= iter.next();
@@ -2112,11 +2314,6 @@ public class SciFOAFApplication extends JFrame {
 							{
 							continue;
 							}
-						}
-					if(this.withProperty!=null)
-						{
-						DerbyModel.Statement stmt =r.getProperty(this.withProperty);
-						if(stmt==null || !withValue.equals(stmt.getValue())) continue;
 						}
 					resources.addElement(r);
 					if(resources.size()>=limit) break;
@@ -2137,6 +2334,9 @@ public class SciFOAFApplication extends JFrame {
 		}
 	
 	
+	/**
+	 * SciFOAFApplication
+	 */
 	public SciFOAFApplication() {
 		super("SciFOAF");
 		this.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
@@ -2742,6 +2942,11 @@ public class SciFOAFApplication extends JFrame {
 		if(n1==null && n2!=null) return false;
 		if(n1!=null && n2==null) return false;
 		return n1.equals(n2);
+		}
+	
+	private DerbyModel.Resource _rsrc(String ns,String local)
+		{
+		return getRDFModel().createResource(ns, local);
 		}
 	
 	/**

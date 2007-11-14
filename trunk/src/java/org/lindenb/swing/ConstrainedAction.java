@@ -379,6 +379,11 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 		mustHaveRowsSelected(table,rowCount,rowCount+1);
 		}
 
+	public void mustHaveAtLeastOneRowSelected(JTable table)
+		{
+		mustHaveRowsSelected(table,1,Integer.MAX_VALUE);
+		}
+	
 	public void mustHaveRowsSelected(JTable table,int minInclusive,int maxExclusive)
 		{
 		table.getSelectionModel().addListSelectionListener(new ListSelectionListener()
@@ -395,7 +400,7 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 			public String getErrorMessage()
 				{
 				int n= this.component.getSelectedRowCount();
-				return n>= this.param.first() && n< this.param.second()?null:String.valueOf(this.component.getName())+": Illegale Number of Selected Rows";
+				return n>= this.param.first() && n< this.param.second()?null:name(this.component)+": Illegale Number of Selected Rows";
 				}
 			});
 		}
