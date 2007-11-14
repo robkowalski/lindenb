@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="lindenb" default="all">
+ <property environment="env"/><!-- prefix for environnement properties -->
+ <property name="derby.lib" value="${env.JAVA_HOME}/db/lib"/>
 
  <target name="build-ant-tasks">
 	<mkdir dir="build/ant"/>
@@ -101,8 +103,28 @@
  <target name="scifoaf" depends="declare-ant-tasks">
 	 <mkdir dir="build/compile"/>
 	 <mkdir dir="build/compile/images"/>
-	 <makeSplash title="SciFOAF" file="build/compile/images/splash.jpeg"/>
-	 
+	 <makeSplash title="SciFOAF 2.0" file="build/compile/images/splash.jpeg"/>
+	
+	 <wget  url="
+		toolbarButtonGraphics/navigation/Back24.gif
+		toolbarButtonGraphics/navigation/Forward24.gif
+		toolbarButtonGraphics/general/Refresh24.gif
+		toolbarButtonGraphics/development/WebComponent24.gif
+		toolbarButtonGraphics/general/Delete24.gif
+		toolbarButtonGraphics/general/Add24.gif
+		toolbarButtonGraphics/general/Open24.gif
+		"
+		base="http://java.sun.com/developer/techDocs/hi/repository/graphicsRepository/"
+		todir="build/compile/images"
+		/>
+
+	<wget 	url="http://www.w3.org/Icons/SW/Buttons/sw-rdf-blue.png"
+		todir="build/compile/images"
+                />
+	<unzip src="${derby.lib}/derby.jar" dest="build/compile"/>
+	<unzip src="${derby.lib}/derbyclient.jar" dest="build/compile"/>
+	<delete file="build/compile/META-INF/MANIFEST.MF"/>	
+ 
 	 <copy todir="build/compile" includeEmptyDirs="false">
 		 <fileset dir="src/java"/>
 	 </copy>

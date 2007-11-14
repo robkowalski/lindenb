@@ -1422,6 +1422,22 @@ public CloseableIterator<Statement> listStatements(
 			}
 		};
 	}
+/** remove ALL the statements from the RDF store
+ * @return number of statements deleted
+ * */
+public int clear()throws SQLException
+	{
+	Connection con = getConnection();
+	PreparedStatement pstmt= con.prepareStatement("delete from "+getTable());
+	int n=pstmt.executeUpdate();
+	pstmt.close();
+	recycleConnection(con);
+	return n;
+	}
+
+/** remove the given statement from the RDF store
+ * @return true if a statement was deleted
+ * */
 public boolean remove(Statement stmt)throws SQLException
 	{
 	return _removeStatements(
