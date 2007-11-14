@@ -14,6 +14,7 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 
 import javax.swing.AbstractAction;
+import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JOptionPane;
@@ -56,8 +57,64 @@ public class SimpleDialog extends JDialog
 		this.errorMessageLabel.setBorder(new EmptyBorder(0,0,0,0));
 		this.errorMessageLabel.setFont(new Font("Dialog",Font.PLAIN,9));
 		this.bottomPane.add(new JSeparator(JSeparator.VERTICAL));
+		this.okAction= createOKAction();
+		this.bottomPane.add(button1=new JButton(this.okAction));
 		
-		this.bottomPane.add(button1=new JButton(this.okAction= new ConstrainedAction<SimpleDialog>(this,"OK")
+
+		
+		this.okAction.addPropertyChangeListener(new PropertyChangeListener()
+			{
+			@Override
+			public void propertyChange(PropertyChangeEvent evt)
+				{
+				if("enabled".equals(evt.getPropertyName()))
+					{
+					setErrorMessage(okAction.getErrorMessage());
+					}
+				}
+			});
+		
+		JButton button2;
+		this.bottomPane.add(button2=new JButton(new AbstractAction(getCancelLabel(),getCancelIcon())
+			{
+			private static final long serialVersionUID = 1L;
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				closeDialogWithStatus(CANCEL_OPTION);
+				}
+			}));
+		Dimension d1= button1.getPreferredSize();
+		Dimension d2= button2.getPreferredSize();
+		d1.setSize(Math.max(d1.width, d2.width), Math.max(d1.height, d2.height));
+		button1.setPreferredSize(d1);
+		button2.setPreferredSize(d2);
+		}
+	
+	protected String getCancelLabel()
+		{
+		return "Cancel";
+		}
+	
+	protected Icon getCancelIcon()
+		{
+		return null;
+		}
+	
+	protected String getOKLabel()
+		{
+		return "OK";
+		}
+	
+	protected Icon getOKIcon()
+		{
+		return null;
+		}
+	
+	protected ConstrainedAction<SimpleDialog> createOKAction()
+		{
+		return new ConstrainedAction<SimpleDialog>(this,
+				getOKLabel(),
+				this.getOKIcon())
 			{
 			private static final long serialVersionUID = 1L;
 			
@@ -79,36 +136,9 @@ public class SimpleDialog extends JDialog
 					}
 				closeDialogWithStatus(OK_OPTION);
 				}
-			}));
-		
-		this.okAction.addPropertyChangeListener(new PropertyChangeListener()
-			{
-			@Override
-			public void propertyChange(PropertyChangeEvent evt)
-				{
-				if("enabled".equals(evt.getPropertyName()))
-					{
-					setErrorMessage(okAction.getErrorMessage());
-					}
-				}
-			});
-		
-		JButton button2;
-		this.bottomPane.add(button2=new JButton(new AbstractAction("Cancel")
-			{
-			private static final long serialVersionUID = 1L;
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				closeDialogWithStatus(CANCEL_OPTION);
-				}
-			}));
-		Dimension d1= button1.getPreferredSize();
-		Dimension d2= button2.getPreferredSize();
-		d1.setSize(Math.max(d1.width, d2.width), Math.max(d1.height, d2.height));
-		button1.setPreferredSize(d1);
-		button2.setPreferredSize(d2);
+			};
 		}
-
+	
 	protected void setErrorMessage(String s)
 		{
 		this.errorMessageLabel.setText(s==null?"":s);

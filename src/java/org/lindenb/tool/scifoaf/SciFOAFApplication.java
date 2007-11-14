@@ -1,6 +1,5 @@
 package org.lindenb.tool.scifoaf;
 
-import java.awt.AWTException;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -11,9 +10,6 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
-import java.awt.MenuItem;
-import java.awt.PopupMenu;
-import java.awt.SystemTray;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -30,7 +26,6 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.net.URLClassLoader;
 import java.net.URLEncoder;
 import java.sql.SQLException;
 import java.util.HashSet;
@@ -39,7 +34,6 @@ import java.util.Observable;
 import java.util.Observer;
 import java.util.Random;
 import java.util.Vector;
-import java.util.jar.JarInputStream;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -748,7 +742,7 @@ abstract class PaperEditor extends SimpleDialog
 				}
 			case 2://literal
 				{Debug.debug();
-				_addpredicate(instance,FOAF.NS,"maker",p.second().toString());
+				_addpredicate(instance,DC.NS,"creator",p.second().toString());
 				break;
 				}
 			default:
@@ -791,7 +785,7 @@ abstract class PaperEditor extends SimpleDialog
 		DerbyModel.Resource author=getModel().createResource((o.FirstName+o.LastName).replaceAll("[^a-zA-Z]", ""));
 		if(getModel().containsSubject(author))
 			{
-			author =getModel().createResource();
+			author =getModel().createAnonymousResource(o.FirstName+o.LastName);
 			}
 		getModel().addStatement(
 				author,
@@ -817,7 +811,7 @@ abstract class PaperEditor extends SimpleDialog
 	
 	private DerbyModel.Resource createNCBIAuthor(Author o) throws SQLException
 		{
-		DerbyModel.Resource author= getModel().createResource();
+		DerbyModel.Resource author= getModel().createAnonymousResource(o.LastName);
 		getModel().addStatement(
 				author,
 				getModel().createResource(RDF.NS+"type"),
@@ -1026,11 +1020,90 @@ public class SciFOAFApplication extends JFrame {
 	private AbstractAction menuNewAction;
 	private AbstractAction menuOpenAction;
 	private AbstractAction menuCloseAction;
+	private AbstractAction menuSaveAsRDFAction;
+	private AbstractAction menuSaveAsN3Action;
+	private AbstractAction exportToSimileAction;
 	private int pubmedStart=0;
-	private int pubmedCount=50;
+	private int pubmedCount=200;
 	
+	
+	/**
+	 * CreatePredicateInstance
+	 */
+	private class CreatePredicateInstance  extends ObjectAction<DerbyModel.Resource>
+		{
+		private static final long serialVersionUID = 1L;
+		private Component owner;
+		private DerbyModel.Resource rdfType;
+		private DerbyModel.Resource predicate;
+		private DerbyModel.Resource reversePredicate;
+		private boolean promptURI;
+		
+		CreatePredicateInstance(DerbyModel.Resource subject,
+			String name,
+			Component owner,
+			DerbyModel.Resource rdfType,
+			DerbyModel.Resource predicate,
+			DerbyModel.Resource reversePredicate,
+			boolean promptURI
+			)
+			{
+			super(subject,name+" for "+ subject);
+			this.owner=owner;
+			this.rdfType=rdfType;
+			this.predicate=predicate;
+			this.reversePredicate=reversePredicate;
+			this.promptURI=promptURI;
+			}
+		
+		@Override
+		public void actionPerformed(ActionEvent e)
+			{
+			DerbyModel.Resource instance=null;
+			if(this.promptURI)
+				{
+				SimpleDialog d= new SimpleDialog(owner,"Choose URI");
+				JPanel pane= new JPanel(new InputLayout());
+				d.getContentPane().add(pane);
+				pane.add(new JLabel(rdfType.getShortName()+" URI:",JLabel.RIGHT));
+				JTextField tf= new JTextField(30);
+				pane.add(tf);
+				d.getOKAction().mustBeURI(tf);
+				if(d.showDialog()!=SimpleDialog.OK_OPTION) return;
+				try {
+					new URI(tf.getText().trim());
+					instance= getRDFModel().createResource(tf.getText().trim());
+				} catch (URISyntaxException err) {
+					ThrowablePane.show(owner, err);
+					instance=null;
+					}
+				}
+			try {
+				if(instance==null) instance= getRDFModel().createAnonymousResource(this.rdfType.getLocalName()); 
+				instance.addProperty(_rsrc(RDF.NS, "type"), this.rdfType);
+				getObject().addProperty(this.predicate, instance);
+				if(this.reversePredicate!=null)
+					{
+					instance.addProperty(this.reversePredicate, getObject());
+					}
+				SciFOAFApplication.this.showStatementFrame(instance, null, null);
+				SciFOAFApplication.this.fireRDFModelUpdated();
+				}
+			catch (SQLException err)
+				{
+				ThrowablePane.show(owner,err);
+				}
+			
+			
+			}
+		}
+	
+	/**
+	 * LinkAction
+	 */
 	private class LinkAction extends ObjectAction<DerbyModel.Resource>
 		{
+		private static final long serialVersionUID = 1L;
 		private Component owner;
 		private DerbyModel.Resource rdfType;
 		private DerbyModel.Resource predicate;
@@ -1050,6 +1123,7 @@ public class SciFOAFApplication extends JFrame {
 			this.reversePredicate=reversePredicate;
 			}
 		
+		@Override
 		public void actionPerformed(ActionEvent e)
 			{
 			SubjectSelector dialog= new SubjectSelector(owner,
@@ -1848,9 +1922,20 @@ public class SciFOAFApplication extends JFrame {
 				}
 			}
 		
-		
+		/**
+		 * fillMenuOnSelect fill a popupmenu called when a row is clicked
+		 * @param menu
+		 * @param stmt
+		 */
 		private void fillMenuOnSelect(JComponent menu,DerbyModel.Statement stmt)
 			{
+			if(stmt.getValue().isResource())
+				{
+				menu.add(new JMenuItem(new DeployStatementAction(
+					stmt.getValue().asResource(),
+					null,null
+					)));
+				}
 			
 			for(int i=0;i<2;++i)
 				for(int j=0;j<2;++j)
@@ -1863,13 +1948,7 @@ public class SciFOAFApplication extends JFrame {
 							k==0?null:stmt.getValue()
 							)));
 						}
-			if(stmt.getValue().isResource())
-				{
-				menu.add(new JMenuItem(new DeployStatementAction(
-					stmt.getValue().asResource(),
-					null,null
-					)));
-				}
+			
 			menu.add(new JMenuItem(new DeployStatementAction(
 					null,null,
 					stmt.getSubject().asResource()
@@ -1920,7 +1999,20 @@ public class SciFOAFApplication extends JFrame {
 			 	{
 				Debug.debug("Desktop API not supported"); 
 			 	}
-			
+			menu.add(new JSeparator());
+			menu.add(new JMenuItem(new ObjectAction<DerbyModel.Statement>(stmt,"Remove ",getIconByName("Delete24.gif"))
+					{
+					private static final long serialVersionUID = 1L;
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						try {
+							getRDFModel().remove(getObject());
+							SciFOAFApplication.this.fireRDFModelUpdated();
+						} catch (Exception e1) {
+							ThrowablePane.show(StatementsFrame.this, e1);
+							}
+						}
+					}));
 		    menu.add(new JSeparator());
 			try
 				{
@@ -2004,6 +2096,16 @@ public class SciFOAFApplication extends JFrame {
 							_rsrc(Geo.NS, "SpatialThing"),
 							_rsrc(DBPedia.NS, "deathPlace"),
 							null
+							)));
+					
+					menu.add(new JMenuItem(new CreatePredicateInstance(
+							stmt.getSubject(),
+							"Add foaf:OnlineAccount",
+							StatementsFrame.this,
+							_rsrc(FOAF.NS, "OnlineAccount"),
+							_rsrc(FOAF.NS, "holdsAccount"),
+							null,
+							true
 							)));
 					}
 					
@@ -2548,6 +2650,51 @@ public class SciFOAFApplication extends JFrame {
 				doMenuNew();
 				}
 			}));
+		
+		menu.add(new JMenuItem(this.menuSaveAsRDFAction=new AbstractAction("Export As RDF")
+			{
+			private static final long serialVersionUID = 1L;
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				try {
+					File f=chooseFileSaveAs();
+					if(f==null) return;
+					derbyModel.getValue().saveAsRDF(f);
+					PreferredDirectory.setPreferredDirectory(f);
+					} 
+				catch (Exception er) {
+					ThrowablePane.show(SciFOAFApplication.this, er);
+					}
+				}
+			}));
+		
+		menu.add(new JMenuItem(this.menuSaveAsN3Action=new AbstractAction("Export As RDF")
+			{
+			private static final long serialVersionUID = 1L;
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				try {
+					File f=chooseFileSaveAs();
+					if(f==null) return;
+					derbyModel.getValue().saveAsN3(f);
+					PreferredDirectory.setPreferredDirectory(f);
+					} 
+				catch (Exception er) {
+					ThrowablePane.show(SciFOAFApplication.this, er);
+					}
+				}
+			}));
+		menu.add(new JMenuItem(this.exportToSimileAction=new AbstractAction("Open",getIconByName("Open24.gif"))
+			{
+			private static final long serialVersionUID = 1L;
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				doMenuExportToSimile();
+				}
+			}));
+		
+		
+		
 		menu.add(new JMenuItem(this.menuOpenAction=new AbstractAction("Open",getIconByName("Open24.gif"))
 			{
 			private static final long serialVersionUID = 1L;
@@ -2635,7 +2782,9 @@ public class SciFOAFApplication extends JFrame {
 				menuNewAction.setEnabled(arg==null);
 				menuOpenAction.setEnabled(arg==null);
 				menuCloseAction.setEnabled(arg!=null);
-			
+				menuSaveAsN3Action.setEnabled(arg!=null);
+				menuSaveAsRDFAction.setEnabled(arg!=null);
+				exportToSimileAction.setEnabled(arg!=null);
 				if(arg!=null)
 					{
 					StatementsFrame f= new StatementsFrame();
@@ -2676,20 +2825,29 @@ public class SciFOAFApplication extends JFrame {
 			}
 		}
 	
-	private void doMenuNew()
+	private File chooseFileSaveAs()
 		{
 		JFileChooser chooser=new JFileChooser(PreferredDirectory.getPreferredDirectory());
-		if(chooser.showSaveDialog(this)!=JFileChooser.APPROVE_OPTION) return;
+		if(chooser.showSaveDialog(this)!=JFileChooser.APPROVE_OPTION) return null;
 		File f= chooser.getSelectedFile();
-		if(f==null) return;
+		if(f==null) return null;
 		if(f.exists())
 			{
 			JOptionPane.showMessageDialog(this, f.toString()+" exist.", "Exsts", JOptionPane.WARNING_MESSAGE, null);
-			return;
+			return  null;
 			}
 		
-		PreferredDirectory.setPreferredDirectory(f);
-		
+		PreferredDirectory.setPreferredDirectory(f);	
+		return f;
+		}
+	
+	/**
+	 * create a new DerbyModel
+	 */
+	private void doMenuNew()
+		{
+		File f=chooseFileSaveAs();
+		if(f==null) return;
 		try {
 			FoafModel model= new FoafModel(f);
 			
@@ -2727,6 +2885,19 @@ public class SciFOAFApplication extends JFrame {
 		catch (Exception e2) {
 			ThrowablePane.show(this, e2);
 			}
+		}
+	
+	private void doMenuExportToSimile()
+		{
+		File dir=chooseFileSaveAs();
+		if(dir==null) return;
+		/*
+		try {
+			
+			}
+		catch (SQLException err) {
+			ThrowablePane.show(this, err);
+			}*/
 		}
 	
 	private void doMenuQuit()
@@ -2812,7 +2983,7 @@ public class SciFOAFApplication extends JFrame {
 			};
 		if(ed.showDialog()!=SpatialThingEditor.OK_OPTION) return;
 		try {
-			DerbyModel.Resource r= getRDFModel().createResource();
+			DerbyModel.Resource r= getRDFModel().createAnonymousResource("SpatialThing");
 			r.addProperty(
 				getRDFModel().RDF_TYPE,
 				getRDFModel().createResource(Geo.NS, "SpatialThing")
