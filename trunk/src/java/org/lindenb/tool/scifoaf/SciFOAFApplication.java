@@ -15,7 +15,6 @@ import java.awt.MenuItem;
 import java.awt.PopupMenu;
 import java.awt.SystemTray;
 import java.awt.Toolkit;
-import java.awt.TrayIcon;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
@@ -26,17 +25,21 @@ import java.awt.image.BufferedImage;
 import java.beans.PropertyVetoException;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLClassLoader;
 import java.net.URLEncoder;
 import java.sql.SQLException;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Observable;
 import java.util.Observer;
 import java.util.Random;
 import java.util.Vector;
+import java.util.jar.JarInputStream;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -45,6 +48,7 @@ import javax.swing.AbstractAction;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
+import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -85,6 +89,10 @@ import javax.swing.filechooser.FileFilter;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.stream.XMLEventReader;
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.events.StartElement;
+import javax.xml.stream.events.XMLEvent;
 
 import org.lindenb.io.PreferredDirectory;
 import org.lindenb.lang.RunnableObject;
@@ -453,6 +461,7 @@ class Author
  */
 class Paper
 	{
+	private static final String MONTHES[]={"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
 	Vector<Author> authors= new Vector<Author>(10);
 	HashSet<String> meshes= new HashSet<String>();
 	String PMID=null;
@@ -517,7 +526,17 @@ class Paper
 			{
 			if(paper.PubDate==null) paper.PubDate="";
 			if(paper.PubDate.length()>0) paper.PubDate+="-";
-			paper.PubDate+=node.getTextContent().trim();
+			String s= node.getTextContent().trim();
+			
+			for(int i=0;i< Paper.MONTHES.length;++i)
+				{
+				if(Paper.MONTHES[i].equalsIgnoreCase(s))
+					{
+					s= ((i+1)<10?"0":"")+(i+1);
+					break;
+					}
+				}
+			paper.PubDate+=s;
 			}
 		else if(name.equals("ArticleTitle")) { paper.ArticleTitle= node.getTextContent().trim();}
 		else if(name.equals("Author"))
@@ -675,9 +694,10 @@ abstract class PaperEditor extends SimpleDialog
 	
 	public DerbyModel.Resource create() throws SQLException
 		{
+		Debug.debug(paper);
 		DerbyModel.Resource instance= getModel().createResource(paper.getURI());
 		if(getModel().containsSubject(instance)) return instance;
-		
+		Debug.debug();
 		instance.addProperty(getModel().RDF_TYPE, getModel().createResource(FOAF.NS+"Document"));
 		
 		_addpredicate(instance,NCBI.NS,"pmid",paper.PMID);
@@ -687,7 +707,7 @@ abstract class PaperEditor extends SimpleDialog
 		_addpredicate(instance,NCBI.NS,"medlinePgn",paper.MedlinePgn);
 		_addpredicate(instance,DC.NS,"date",paper.PubDate);
 		_addpredicate(instance,NCBI.NS,"journalTitle",paper.JournalTitle);
-
+		Debug.debug();
 		
 		if(paper.DOI!=null)
 			{
@@ -700,41 +720,52 @@ abstract class PaperEditor extends SimpleDialog
 				Debug.debug(e);
 			}
 			}
-		
+		Debug.debug();
 		for(Pair<JCheckBox,String> p:this.meshes)
 			{
 			if(!p.first().isSelected()) continue;
 			_addpredicate(instance,DC.NS,"subject",p.second());
 			}
-		
+		Debug.debug();
 		for(Pair<JComboBox,Author> p:this.joinAuthor2Instance)
 			{
+			Debug.debug(p.first().getModel().getClass());
 			DefaultComboBoxModel m= DefaultComboBoxModel.class.cast(p.first().getModel());
 			int index= p.first().getSelectedIndex();
-			if(index==-1) continue;
-			else if(index==0) continue;//ignore
-			else if(index==1)//new author
+			Debug.debug(index);
+			switch(index)
 				{
+				case -1: continue;
+				case 0: continue;//ignore
+				case 1:
+				{Debug.debug();
 				Resource author= createAuthor(p.second());
 				if(author!=null)
 					{
 					linkAuthorAndPaper(instance,author);
 					}
+				break;
 				}
-			else if(index==2)//literal
-				{
+			case 2://literal
+				{Debug.debug();
 				_addpredicate(instance,FOAF.NS,"maker",p.second().toString());
+				break;
 				}
-			else// 
+			default:
 				{
-				Resource author=Resource.class.cast(m.getElementAt(index));
+				Debug.debug(m.getElementAt(index));
+				Debug.debug(m.getElementAt(index).getClass());
+				Resource author=Statement.class.cast(m.getElementAt(index)).getSubject();
 				if(author!=null)
 					{
 					linkAuthorAndPaper(instance,author);
 					}
+				break;
 				}
 			}
-		
+			Debug.debug();
+			}
+		Debug.debug();
 		return instance;
 		}
 	
@@ -829,6 +860,8 @@ class FoafModel extends DerbyModel
 		getPrefixMapping().setNsPrefix("ncbi", NCBI.NS);
 		getPrefixMapping().setNsPrefix("geo", Geo.NS);
 		getPrefixMapping().setNsPrefix("pict", Picture.NS);
+		getPrefixMapping().setNsPrefix("doap", DOAP.NS);
+		getPrefixMapping().setNsPrefix("dbpedia", DBPedia.NS);
 		}
 	}
 
@@ -852,6 +885,15 @@ class Picture extends Namespace
 	public static final String NS="http://picture.xmlns.org/picture/0.1/";
 	}
 
+class DOAP extends Namespace
+	{
+	public static final String NS="http://usefulinc.com/ns/doap#";
+	}
+
+class DBPedia extends Namespace
+	{
+	public static final String NS="http://dbpedia.org/property/";
+	}
 
 /**
  * StmtWrapper
@@ -984,7 +1026,8 @@ public class SciFOAFApplication extends JFrame {
 	private AbstractAction menuNewAction;
 	private AbstractAction menuOpenAction;
 	private AbstractAction menuCloseAction;
-
+	private int pubmedStart=0;
+	private int pubmedCount=50;
 	
 	private class LinkAction extends ObjectAction<DerbyModel.Resource>
 		{
@@ -1000,7 +1043,7 @@ public class SciFOAFApplication extends JFrame {
 				DerbyModel.Resource reversePredicate
 				)
 			{
-			super(subject,name);
+			super(subject,name+" for "+ subject);
 			this.owner=owner;
 			this.rdfType=rdfType;
 			this.predicate=predicate;
@@ -1282,7 +1325,8 @@ public class SciFOAFApplication extends JFrame {
 		JTextField predicateTextField;
 		JTextField valueTextField;
 		JComboBox valueTypeCombo;
-		AbstractAction setAnonymouseNodeAction;
+		//AbstractAction setAnonymouseNodeAction4Subject;
+		AbstractAction setAnonymouseNodeAction4Value;
 		AbstractAction chooseSubjectAction;
 		AbstractAction choosePredicateAction;
 		AbstractAction chooseValueAsResourceAction;
@@ -1399,7 +1443,7 @@ public class SciFOAFApplication extends JFrame {
 				JPanel pager= new JPanel(new BorderLayout());
 				pane2.add(pager);
 				
-				this.goPrevPageAction= new AbstractAction("Prev")
+				this.goPrevPageAction= new AbstractAction("Prev",getIconByName("Back24.gif"))
 					{
 					private static final long serialVersionUID = 1L;
 					@Override
@@ -1418,7 +1462,7 @@ public class SciFOAFApplication extends JFrame {
 				
 				
 				
-				this.goNextPageAction= new AbstractAction("Next")
+				this.goNextPageAction= new AbstractAction("Next",getIconByName("Forward24.gif"))
 					{
 					private static final long serialVersionUID = 1L;
 					@Override
@@ -1435,7 +1479,7 @@ public class SciFOAFApplication extends JFrame {
 				
 				JPanel pane3= new JPanel(new FlowLayout(FlowLayout.CENTER));
 				pager.add(pane3,BorderLayout.SOUTH);
-				pane3.add(new JButton(this.reloadAction=new ConstrainedAction<StatementsFrame>(this,"Reload")
+				pane3.add(new JButton(this.reloadAction=new ConstrainedAction<StatementsFrame>(this,"Reload",getIconByName("Refresh24.gif"))
 					{
 					private static final long serialVersionUID = 1L;
 					@Override
@@ -1464,7 +1508,7 @@ public class SciFOAFApplication extends JFrame {
 			
 			
 			
-			this.removeStatementAction= new ConstrainedAction<StatementTable>(this.table,"Remove")
+			this.removeStatementAction= new ConstrainedAction<StatementTable>(this.table,"Remove",getIconByName("Delete24.gif"))
 				{
 				private static final long serialVersionUID = 1L;
 				@Override
@@ -1487,7 +1531,7 @@ public class SciFOAFApplication extends JFrame {
 			
 			
 			
-			this.createStatementAction=new AbstractAction("Create Statement")
+			this.createStatementAction=new AbstractAction("Create Statement",getIconByName("Add24.gif"))
 				{
 				private static final long serialVersionUID = 1L;
 				@Override
@@ -1513,7 +1557,7 @@ public class SciFOAFApplication extends JFrame {
 				
 				JPanel pane5= new JPanel(new FlowLayout(FlowLayout.LEADING));
 				pane4.add(pane5,BorderLayout.EAST);
-				pane5.add(SwingUtils.withFont(new JButton(setAnonymouseNodeAction=new AbstractAction("AnId")
+				pane5.add(SwingUtils.withFont(new JButton(new AbstractAction("AnId")
 					{
 					private static final long serialVersionUID = 1L;
 					@Override
@@ -1560,14 +1604,34 @@ public class SciFOAFApplication extends JFrame {
 					public void mousePressed(MouseEvent e)
 						{
 						if(!predicateTextField.isEnabled()) return;
-						JPopupMenu menu= new JPopupMenu();
+						JPopupMenu popup= new JPopupMenu();
+						JMenu menu= new JMenu("RDF"); popup.add(menu);
 						makeSuggestPredicateAction(menu,RDF.NS,"rdf","type");
+						menu= new JMenu("DC");  popup.add(menu);
 						makeSuggestPredicateAction(menu,DC.NS,"dc","title");
 						makeSuggestPredicateAction(menu,DC.NS,"dc","date");
-						makeSuggestPredicateAction(menu,FOAF.NS,"foaf","name");
-						makeSuggestPredicateAction(menu,FOAF.NS,"foaf","firstname");
-						makeSuggestPredicateAction(menu,FOAF.NS,"foaf","family_name");
-						menu.show(e.getComponent(), e.getX(), e.getY());
+						menu= new JMenu("FOAF");  popup.add(menu);
+						for(String local:new String[]{
+								"name", "nick", "title",
+								"homepage", "mbox", "mbox_sha1sum", "img", 
+								"depiction", "surname", "family_name",
+								"givenname", "firstName",
+								"weblog", "knows", "interest",
+								"currentProject", "pastProject", "plan",
+								"based_near", "workplaceHomepage",
+								"workInfoHomepage",
+								"schoolHomepage", "topic_interest",
+								"publications", "geekcode", "myersBriggs", "dnaChecksum"
+								})
+							{
+							makeSuggestPredicateAction(menu,FOAF.NS,"foaf",local);
+							}
+						menu= new JMenu("dbPedia");  popup.add(menu);
+						makeSuggestPredicateAction(menu,DBPedia.NS,"dbpedia","birthDate");
+						makeSuggestPredicateAction(menu,DBPedia.NS,"dbpedia","deathDate");
+						makeSuggestPredicateAction(menu,DBPedia.NS,"dbpedia","birthPlace");
+						makeSuggestPredicateAction(menu,DBPedia.NS,"dbpedia","deathPlace");
+						popup.show(e.getComponent(), e.getX(), e.getY());
 						}
 					});
 				pane5.add(SwingUtils.withFont(suggestPredicate,smallFont));
@@ -1597,6 +1661,23 @@ public class SciFOAFApplication extends JFrame {
 				JPanel pane5= new JPanel(new FlowLayout(FlowLayout.RIGHT));
 				pane4.add(pane5,BorderLayout.EAST);
 				
+				pane5.add(SwingUtils.withFont(new JButton(this.setAnonymouseNodeAction4Value=new AbstractAction("AnId")
+					{
+					private static final long serialVersionUID = 1L;
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						try {
+							DerbyModel.Resource r=getRDFModel().createResource();
+							valueTextField.setText(r.getURI());
+							valueTextField.setCaretPosition(0);
+							} 
+						catch (SQLException err)
+							{
+							ThrowablePane.show(StatementsFrame.this, err);
+							}
+						}
+					}),smallFont));
+				setAnonymouseNodeAction4Value.setEnabled(false);
 				JButton suggestValue= new JButton("[...]");
 				suggestValue.addMouseListener(new MouseAdapter()
 					{
@@ -1633,6 +1714,7 @@ public class SciFOAFApplication extends JFrame {
 					@Override
 					public void actionPerformed(ActionEvent e) {
 						chooseValueAsResourceAction.setEnabled(valueTypeCombo.getSelectedIndex()==0);
+						setAnonymouseNodeAction4Value.setEnabled(valueTypeCombo.getSelectedIndex()==0);
 						updateControls();	
 					}
 					});
@@ -1713,7 +1795,7 @@ public class SciFOAFApplication extends JFrame {
 			
 			}
 		
-		private void makeSuggestPredicateAction(JPopupMenu menu,String ns,String prefix,String local)
+		private void makeSuggestPredicateAction(JComponent menu,String ns,String prefix,String local)
 			{
 			menu.add(new JMenuItem(new SuggestPredicateAction(ns,prefix,local)));
 			}
@@ -1803,7 +1885,7 @@ public class SciFOAFApplication extends JFrame {
 				/* if subject is URL */
 				if(stmt.getSubject().isURL())
 					{
-					menu.add(new JMenuItem(new ObjectAction<URL>(stmt.getSubject().asURL(),"Open "+stmt.getSubject().getURI())
+					menu.add(new JMenuItem(new ObjectAction<URL>(stmt.getSubject().asURL(),"Open "+stmt.getSubject().getURI(),getIconByName("WebComponent24.gif"))
 						{
 						private static final long serialVersionUID = 1L;
 						@Override
@@ -1820,7 +1902,7 @@ public class SciFOAFApplication extends JFrame {
 				if(stmt.getValue().isResource() &&
 					stmt.getValue().asResource().isURL())
 					{
-					menu.add(new JMenuItem(new ObjectAction<URL>(stmt.getValue().asResource().asURL(),"Open "+stmt.getSubject().getURI())
+					menu.add(new JMenuItem(new ObjectAction<URL>(stmt.getValue().asResource().asURL(),"Open "+stmt.getValue().asResource().getURI(),getIconByName("WebComponent24.gif"))
 						{
 						private static final long serialVersionUID = 1L;
 						@Override
@@ -1846,6 +1928,27 @@ public class SciFOAFApplication extends JFrame {
 					getRDFModel().RDF_TYPE,
 					getRDFModel().FOAF_PERSON))
 					{
+					CloseableIterator<DerbyModel.Statement> iter= stmt.getSubject().listProperties(_rsrc(NCBI.NS, NCBI.IsNCBIAuthor));
+					while(iter.hasNext())
+						{
+						DerbyModel.Statement x= iter.next();
+						if(!x.getValue().isResource()) continue;
+						if(!x.getValue().asResource().hasProperty(_rsrc(RDF.NS,"type"), _rsrc(NCBI.NS,NCBI.Author))) continue;
+						menu.add(new JMenuItem(new ObjectAction<DerbyModel.Resource>(stmt.getSubject(),"Find Articles on NCBI Pubmed")
+								{
+								private static final long serialVersionUID = 1L;
+								@Override
+								public void actionPerformed(ActionEvent e) {
+									
+									doMenuAddPubmedReference(StatementsFrame.this,getObject());
+									}
+								}));
+						break;
+						
+						}
+					iter.close();
+					
+					
 					menu.add(new JMenuItem(new ObjectAction<DerbyModel.Resource>(stmt.getSubject(),"Add NCBI Name...")
 							{
 							private static final long serialVersionUID = 1L;
@@ -1886,33 +1989,91 @@ public class SciFOAFApplication extends JFrame {
 							_rsrc(FOAF.NS, "knows")
 							)));
 					
+					menu.add(new JMenuItem(new LinkAction(
+							stmt.getSubject(),
+							"Add dbpedia:birthPlace",
+							StatementsFrame.this,
+							_rsrc(Geo.NS, "SpatialThing"),
+							_rsrc(DBPedia.NS, "birthPlace"),
+							null
+							)));
+					menu.add(new JMenuItem(new LinkAction(
+							stmt.getSubject(),
+							"Add dbpedia:deathPlace",
+							StatementsFrame.this,
+							_rsrc(Geo.NS, "SpatialThing"),
+							_rsrc(DBPedia.NS, "deathPlace"),
+							null
+							)));
 					}
 					
-				
+				if(stmt.getSubject().hasProperty( getRDFModel().RDF_TYPE, _rsrc(FOAF.NS, "Image")))
+				   {
+					menu.add(new JMenuItem(new LinkAction(
+							stmt.getSubject(),
+							"Add foaf:depicts",
+							StatementsFrame.this,
+							_rsrc(FOAF.NS,"Person"),
+							_rsrc(FOAF.NS, "depicts"),
+							_rsrc(FOAF.NS, "depiction")
+							)));
+				   }
 				
 				if(
-				   stmt.getSubject().hasProperty( getRDFModel().RDF_TYPE, _rsrc(FOAF.NS, "Person"))
+				   stmt.getSubject().hasProperty( getRDFModel().RDF_TYPE, _rsrc(FOAF.NS, "Person")) ||
+				   stmt.getSubject().hasProperty( getRDFModel().RDF_TYPE, _rsrc(FOAF.NS, "Group")) ||
+				   stmt.getSubject().hasProperty( getRDFModel().RDF_TYPE, _rsrc(FOAF.NS, "Organization"))
 				   )
 					{
-					menu.add(new JMenuItem(new ObjectAction<DerbyModel.Resource>(stmt.getSubject(),"Add foaf:based_near")
-							{
-							private static final long serialVersionUID = 1L;
-							@Override
-							public void actionPerformed(ActionEvent e) {
-								//TODO
-								}
-							}));
+					menu.add(new JMenuItem(new LinkAction(
+							stmt.getSubject(),
+							"Add foaf:based_near",
+							StatementsFrame.this,
+							_rsrc(Geo.NS, "SpatialThing"),
+							_rsrc(FOAF.NS, "based_near"),
+							null
+							)));
+					menu.add(new JMenuItem(new LinkAction(
+							stmt.getSubject(),
+							"Add foaf:depiction",
+							StatementsFrame.this,
+							_rsrc(FOAF.NS,"Image"),
+							_rsrc(FOAF.NS, "depiction"),
+							_rsrc(FOAF.NS, "depicts")
+							)));
 					}
+				
+				
+				if(stmt.getSubject().hasProperty( getRDFModel().RDF_TYPE, _rsrc(FOAF.NS, "Group")) ||
+				   stmt.getSubject().hasProperty( getRDFModel().RDF_TYPE, _rsrc(FOAF.NS, "Organization"))
+				   )
+					{
+					menu.add(new JMenuItem(new LinkAction(
+							stmt.getSubject(),
+							"Add foaf:member",
+							StatementsFrame.this,
+							_rsrc(FOAF.NS, "Person"),
+							_rsrc(FOAF.NS, "member"),
+							null
+							)));
+					menu.add(new JMenuItem(new LinkAction(
+							stmt.getSubject(),
+							"Add foaf:fundedBy",
+							StatementsFrame.this,
+							_rsrc(FOAF.NS, "Person"),
+							_rsrc(FOAF.NS, "fundedBy"),
+							null
+							)));
+					}
+				
+				
 				
 				}
 			catch(SQLException err)
 				{
 				ThrowablePane.show(StatementsFrame.this, err);
 				}
-			
-			
-			
-			
+
 			}
 		
 		
@@ -2091,6 +2252,7 @@ public class SciFOAFApplication extends JFrame {
 			super(owner,"Resource Selector");
 			this.withProperty=withProperty;
 			this.withValue=withValue;
+			Debug.debug("open subject selector with "+withProperty+" "+withValue);
 			JPanel contentPane= new JPanel(new BorderLayout());
 			getContentPane().add(contentPane);
 			
@@ -2103,7 +2265,7 @@ public class SciFOAFApplication extends JFrame {
 			top.add(SwingUtils.withFont(new JLabel("Limit:",JLabel.RIGHT),small));
 			top.add(this.spinLimit= new JSpinner(new SpinnerNumberModel(10,1,Integer.MAX_VALUE,1)));
 			this.spinLimit.setFont(small);
-			top.add(SwingUtils.withFont(new JButton(this.filterAction= new ConstrainedAction<SubjectSelector>(this,"Filter")
+			top.add(SwingUtils.withFont(new JButton(this.filterAction= new ConstrainedAction<SubjectSelector>(this,"Filter",getIconByName("Refresh24.gif"))
 				{
 				private static final long serialVersionUID = 1L;
 				@Override
@@ -2133,7 +2295,7 @@ public class SciFOAFApplication extends JFrame {
 				{
 				getOKAction().mustHaveOneRowSelected(this.table);
 				}
-			
+			reloadModel();
 			}
 		
 				
@@ -2159,40 +2321,45 @@ public class SciFOAFApplication extends JFrame {
 						pattern=null;
 						}
 					}
-				
+				Debug.debug();
 				
 				CloseableIterator<DerbyModel.Resource> iter= getRDFModel().listSubjects();
 				while(iter.hasNext())
 					{
 					DerbyModel.Resource r= iter.next();
-					
+					Debug.debug(r);
 					if(pattern!=null)
 						{
 						if( !pattern.matcher(r.getURI()).find() &&
 							!pattern.matcher(r.getShortName()).find())
 							{
-							continue;
+							Debug.debug("no match for "+r);
 							}
 						}
-					
-					if(this.withProperty!=null && this.withValue!=null)
+					if(!r.hasProperty(this.withProperty, this.withValue))
 						{
-						if(!r.hasProperty(this.withProperty, this.withValue)) continue;
+						Debug.debug("no required property for "+r);
+						continue;
 						}
+					
 					DerbyModel.Statement newstmt= r.getProperty(getRDFModel().RDF_TYPE);
-					if(newstmt==null) continue;
+					if(newstmt==null) newstmt= getRDFModel().createStatement(
+						r,getRDFModel().RDF_TYPE,_rsrc(RDF.NS,"Description"));
+					Debug.debug(newstmt);
 					resources.addElement(newstmt);
+					
 					if(resources.size()>=limit) break;
 					}
 				iter.close();
-				
-				for(DerbyModel.Statement r:resources)
+				this.table.getStmtTable().clear();
+				for(DerbyModel.Statement x:resources)
 					{
-					//TODO
+					this.table.getStmtTable().addElement(new StmtWrapper(x));
 					}
 				} 
 			catch (SQLException err)
 				{
+				Debug.debug(err);
 				}
 			}
 		
@@ -2226,7 +2393,7 @@ public class SciFOAFApplication extends JFrame {
 			top.add(new JLabel("Limit:",JLabel.RIGHT));
 			top.add(this.spinLimit= new JSpinner(new SpinnerNumberModel(10,1,Integer.MAX_VALUE,1)));
 			
-			top.add(new JButton(this.filterAction= new ConstrainedAction<PropertySelector>(this,"Filter")
+			top.add(new JButton(this.filterAction= new ConstrainedAction<PropertySelector>(this,"Filter",getIconByName("Refresh24.gif"))
 				{
 				private static final long serialVersionUID = 1L;
 				@Override
@@ -2342,24 +2509,7 @@ public class SciFOAFApplication extends JFrame {
 		this.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 		
 		
-		TrayIcon trayIcon = null;
-		if(SystemTray.isSupported())
-			{
-			SystemTray tray = SystemTray.getSystemTray();
-			PopupMenu popup= new PopupMenu("SciFOAF");
-			popup.add(new MenuItem("Menu1"));
-			BufferedImage image= new BufferedImage(64,64,BufferedImage.TYPE_INT_RGB);
-			 trayIcon = new TrayIcon(image, "SciFOAF", popup);
-			 try {
-	             tray.add(trayIcon);
-	         } catch (AWTException e) {
-	             Debug.debug(e);
-	         }
-			}
-		else
-			{
-			Debug.debug();
-			}
+		
 		
 		this.addWindowListener(new WindowAdapter()
 			{
@@ -2398,7 +2548,7 @@ public class SciFOAFApplication extends JFrame {
 				doMenuNew();
 				}
 			}));
-		menu.add(new JMenuItem(this.menuOpenAction=new AbstractAction("Open")
+		menu.add(new JMenuItem(this.menuOpenAction=new AbstractAction("Open",getIconByName("Open24.gif"))
 			{
 			private static final long serialVersionUID = 1L;
 			@Override
@@ -2414,6 +2564,50 @@ public class SciFOAFApplication extends JFrame {
 				doMenuClose();
 				}
 			}));
+		if(Debug.isDebugging())
+			{
+			menu.add(new JMenuItem(new AbstractAction("**CLEAR ALL**")
+				{
+				private static final long serialVersionUID = 1L;
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					try {
+						if(derbyModel.getValue()!=null)
+							{
+							derbyModel.getValue().clear();
+							}
+						fireRDFModelUpdated();
+						}
+					catch (Exception er) {
+						er.printStackTrace();
+						}
+					}
+				}));
+			}
+		menu.add(new JSeparator());
+		menu.add(new JMenuItem(new AbstractAction("Preferences")
+		{
+		private static final long serialVersionUID = 1L;
+
+		@Override
+		public void actionPerformed(ActionEvent e)
+			{
+			SimpleDialog d= new SimpleDialog(SciFOAFApplication.this,"Preferences");
+			JPanel pane= new JPanel(new InputLayout());
+			d.getContentPane().add(pane);
+			pane.add(new JLabel("Pubmed Max Return:",JLabel.RIGHT));
+			JSpinner spin1= new JSpinner(new SpinnerNumberModel(SciFOAFApplication.this.pubmedCount,1,100,1));
+			pane.add(spin1);
+			pane.add(new JLabel("Pubmed Start From:",JLabel.RIGHT));
+			JSpinner spin2= new JSpinner(new SpinnerNumberModel(SciFOAFApplication.this.pubmedStart,0,Integer.MAX_VALUE,1));
+			pane.add(spin2);
+			if(d.showDialog()!=SimpleDialog.OK_OPTION) return;
+			SciFOAFApplication.this.pubmedCount= Number.class.cast(spin1.getValue()).intValue();
+			SciFOAFApplication.this.pubmedStart= Number.class.cast(spin2.getValue()).intValue();
+			}
+		}));
+	
+		
 		menu.add(new JSeparator());
 		menu.add(new JMenuItem(new AbstractAction("Quit")
 			{
@@ -2759,6 +2953,302 @@ public class SciFOAFApplication extends JFrame {
 		}
 	
 	
+	private void doMenuAddPubmedReference(Component owner,DerbyModel.Resource i)
+		{
+		try
+			{
+			boolean found=false;
+			if(i==null) return;
+			Vector<DerbyModel.Resource> names=new Vector<DerbyModel.Resource>();
+			CloseableIterator<DerbyModel.Statement> iter1= i.listProperties(_rsrc(NCBI.NS, NCBI.IsNCBIAuthor));
+			while(iter1.hasNext())
+				{
+				DerbyModel.Statement x= iter1.next();
+				if(!x.getValue().isResource()) continue;
+				if(!x.getValue().asResource().hasProperty(_rsrc(RDF.NS,"type"), _rsrc(NCBI.NS,NCBI.Author))) continue;
+				names.addElement(x.getValue().asResource());
+				}
+			iter1.close();
+			if(names.isEmpty()) return;
+			
+			
+			StringBuilder terms= new StringBuilder();
+			for(DerbyModel.Resource name:names)
+				{
+				String firstName= name.getString(_rsrc(NCBI.NS,NCBI.firstName), null);
+				String lastName= name.getString(_rsrc(NCBI.NS,NCBI.lastName),null);
+				if(lastName==null) continue;
+				if(terms.length()!=0) terms.append(" OR ");
+				terms.append("\"");
+				terms.append(lastName);
+				
+				if(firstName!=null)
+					{
+					if(firstName.length()>1) firstName=firstName.substring(0,1);
+					terms.append(" "+firstName);
+					}
+				terms.append("\"[Author]");
+				found=true;
+				}
+			if(!found) return;
+			
+			class Param extends WindowAdapter
+				{
+				String term ;
+				JDialog dialog;
+				Document dom;
+				Throwable error=null;
+				
+				@Override
+				public void windowOpened(WindowEvent e)
+					{
+					Runnable runner= new Runnable()
+						{
+						@Override
+						public void run()
+							{
+							try {
+								 if(term.length()==0) return;
+					                URL url= new URL("http://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed"+
+					                        "&term="+ URLEncoder.encode(term,"UTF-8") +
+					                        "&tool=scifoaf"+
+					                        "&email=plindenbaum_at_yahoo.fr"+
+					                        "&retmode=xml&usehistory=y&retmax="+SciFOAFApplication.this.pubmedCount+"&retstart="+SciFOAFApplication.this.pubmedStart
+					                        ) ;
+					               Debug.debug(url);
+					               
+				                    InputStream in= url.openStream();
+				                   
+				                    XMLInputFactory xfactory = XMLInputFactory.newInstance();
+				                    xfactory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, Boolean.FALSE);
+				                    xfactory.setProperty(XMLInputFactory.IS_VALIDATING, Boolean.FALSE);
+				                    xfactory.setProperty(XMLInputFactory.IS_COALESCING, Boolean.TRUE);
+				           
+				                    XMLEventReader parser = xfactory.createXMLEventReader(in);
+				                   
+				                    String QueryKey=null;
+				                    String WebEnv= null;
+				                    int idCount=0;
+				                    /** loop over the events */
+				                    while(parser.hasNext())
+				                        {
+				                        XMLEvent event = parser.nextEvent();
+				                        if(event.isStartElement())
+				                            {
+				                            StartElement element = event.asStartElement();
+				                            if(element.getName().getLocalPart().equals("QueryKey"))
+				                                {
+				                                QueryKey= parser.getElementText().trim();
+				                                }
+				                            else if(element.getName().getLocalPart().equals("WebEnv"))
+				                                {
+				                                WebEnv = parser.getElementText().trim();
+				                                }
+				                            else  if(element.getName().getLocalPart().equals("Id"))
+				                            	{
+				                            	++idCount;
+				                            	}
+				                            }
+				                        }
+				                    in.close();
+				                    if(QueryKey==null || WebEnv==null)
+				                        {
+				                        throw new IOException("Cannot find QueryKey or WebEnv in "+url);
+				                        }
+					                   
+				                    url= new URL("http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed"+
+				                                "&rettype=full"+
+				                                "&tool=scifoaf"+
+				                                "&email=plindenbaum_at_yahoo.fr"+
+				                                "&retmode=xml"+
+				                                "&WebEnv="+ WebEnv +
+				                                "&query_key="+QueryKey+
+				                                "&retmode=xml&usehistory=y&retmax="+SciFOAFApplication.this.pubmedCount+"&retstart="+SciFOAFApplication.this.pubmedStart
+				                                ) ;
+				                    Debug.debug(url);
+				                    Debug.debug(idCount);
+				                    if(idCount>0)
+					                    {
+										DocumentBuilderFactory factory= DocumentBuilderFactory.newInstance();
+										factory.setCoalescing(true);
+										factory.setExpandEntityReferences(true);
+										factory.setValidating(false);
+										factory.setIgnoringComments(true);
+										factory.setIgnoringElementContentWhitespace(true);
+										factory.setXIncludeAware(false);
+										DocumentBuilder builder= factory.newDocumentBuilder();
+										Debug.debug(url);
+										Param.this.dom=builder.parse(url.toString());
+										Debug.debug("OK, downloaded dom==null ?"+(Param.this.dom==null));
+					                    }
+								}
+							catch (Exception e)
+								{
+								Debug.debug(e);
+								Param.this.error=e;
+								Param.this.dom=null;
+								}
+							Debug.debug("End Thread");
+							Param.this.dialog.setVisible(false);
+							Param.this.dialog.dispose();
+							}	
+						};
+					Thread t= new Thread(runner);
+					t.start();
+					}
+				}
+			Param param= new Param();
+			param.term=terms.toString();
+			
+			
+			
+			param.dialog= new JDialog(owner==null?null:SwingUtilities.getWindowAncestor(owner),"Fetching Paper",Dialog.ModalityType.APPLICATION_MODAL);
+			param.dialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+			JPanel pane= new JPanel(new BorderLayout());
+			pane.setBorder(new EmptyBorder(10,10,10,10));
+			param.dialog.setContentPane(pane);
+			pane.add(SwingUtils.withFont(new JLabel(" Fetching "+terms,JLabel.CENTER),new Font("Dialog",Font.BOLD,24)),BorderLayout.NORTH);
+			JProgressBar bar= new JProgressBar();
+			bar.setIndeterminate(true);
+			pane.add(bar,BorderLayout.CENTER);
+			SwingUtils.packAndCenter(param.dialog);
+			param.dialog.addWindowListener(param);
+			param.dialog.setVisible(true);
+			
+			if(param.dom!=null)
+				{
+				Element root=param.dom.getDocumentElement();
+				if(root!=null && !root.getNodeName().equals("PubmedArticleSet"))
+					{
+					param.error= new IOException(root.getNodeName()+":"+root.getTextContent());
+					param.dom=null;
+					}
+				}
+		
+			if(param.error!=null)
+				{
+				ThrowablePane.show(owner, param.error);
+				return;
+				}
+			
+			if(param.dom==null)
+				{
+				Debug.debug("dom==null");
+				return;
+				}
+			
+			class PaperShuttle
+				{
+				boolean selected=false;
+				Paper paper;
+				}
+			
+			GenericTableModel<PaperShuttle> selectPapersModel = new GenericTableModel<PaperShuttle>()
+				{
+				private static final long serialVersionUID = 1L;
+				
+				@Override
+				public Class<?> getColumnClass(int columnIndex) {
+					if(columnIndex==0) return Boolean.class;
+					return super.getColumnClass(columnIndex);
+					}
+				
+				@Override
+				public int getColumnCount() {
+					return 5;
+					}
+				@Override
+				public boolean isCellEditable(int rowIndex, int columnIndex) {
+					return columnIndex==0;
+					}
+				
+				@Override
+				public void setValueAt(Object value, int rowIndex,
+						int columnIndex) {
+					elementAt(rowIndex).selected= Boolean.class.cast(value);
+					fireTableCellUpdated(rowIndex, columnIndex);
+					}
+				
+				
+				@Override
+				public String getColumnName(int columnIndex) {
+					switch(columnIndex)
+						{
+						case 0: return "Select";
+						case 1: return "First Author";
+						case 2: return "Date";
+						case 3: return "Author";
+						case 4: return "Title";
+						}
+					return null;
+					}
+				
+				@Override
+				public Object getValueOf(PaperShuttle s, int columnIndex)
+					{
+					switch(columnIndex)
+						{
+						case 0: return s.selected;
+						case 1: return (s.paper.authors.isEmpty()?null:s.paper.authors.firstElement().toString());
+						case 2: return s.paper.PubDate;
+						case 3: return s.paper.JournalTitle;
+						case 4: return s.paper.ArticleTitle;
+						}
+					return null;
+					}
+				};
+			
+			Element root=param.dom.getDocumentElement();
+			for(Node n1=root.getFirstChild();n1!=null;n1=n1.getNextSibling())
+				{
+				if(n1.getNodeType()!=Node.ELEMENT_NODE) continue;
+				Paper paper= Paper.parse(Element.class.cast(n1));
+				if(paper==null || paper.PMID==null ||
+					getRDFModel().containsSubject(getRDFModel().createResource(Paper.getURI(paper.PMID))))
+					{
+					continue;
+					}
+				PaperShuttle s= new PaperShuttle();
+				s.paper=paper;
+				selectPapersModel.addElement(s);
+				}
+			
+			SimpleDialog d= new SimpleDialog(owner,"Select Papers");
+			pane= new JPanel(new BorderLayout());
+			d.getContentPane().add(pane);
+			pane.add(new JScrollPane(new JTable(selectPapersModel)));
+			if(d.showDialog()!=SimpleDialog.OK_OPTION) return;
+			
+			
+			for(Iterator<PaperShuttle> iter=selectPapersModel.listElements();
+				iter.hasNext();)
+				{
+				PaperShuttle s= iter.next();
+				Debug.debug();
+				if(!s.selected) continue;
+				Debug.debug(s.paper.PMID);
+				PaperEditor paperEditor= new PaperEditor(owner,s.paper)
+					{
+					private static final long serialVersionUID = 1L;
+
+					@Override
+					FoafModel getModel() {
+						return getRDFModel();
+						}
+					};
+				Debug.debug();
+				if(paperEditor.showDialog()!=PaperEditor.OK_OPTION) continue;
+				paperEditor.create();
+				}
+			}
+		catch(Exception error)
+			{
+			ThrowablePane.show(owner, error);
+			}
+		fireRDFModelUpdated();
+		}
+	
+	
 	private DerbyModel.Resource loadPubmedPapersByPMID(Component owner, int pmid)
 		{
 		try {
@@ -2873,7 +3363,7 @@ public class SciFOAFApplication extends JFrame {
 		BufferedImage img=null;
 		CloseableIterator<DerbyModel.Statement> iter1= getRDFModel().listStatements(
 			foafAgent,
-			getRDFModel().createResource(FOAF.NS,"depicted")
+			_rsrc(FOAF.NS,"depiction")
 			, null);
 		
 		while(iter1.hasNext())
@@ -2883,7 +3373,7 @@ public class SciFOAFApplication extends JFrame {
 			DerbyModel.Resource imgrsrc= stmt1.getValue().asResource();
 			if(!imgrsrc.hasProperty(
 				getRDFModel().RDF_TYPE,
-				getRDFModel().createResource(FOAF.NS, "Image")	
+				_rsrc(FOAF.NS, "Image")	
 				)) continue;			
 			
 			if(!imgrsrc.isURL()) continue;
@@ -2949,6 +3439,12 @@ public class SciFOAFApplication extends JFrame {
 		return getRDFModel().createResource(ns, local);
 		}
 	
+	private Icon getIconByName(String icnName)
+		{
+		URL url=SciFOAFApplication.class.getResource("/images/"+icnName);
+		return url==null?null:new ImageIcon(url);
+		}
+	
 	/**
 	 * main
 	 */
@@ -3004,7 +3500,7 @@ public class SciFOAFApplication extends JFrame {
 	    	catch (ClassNotFoundException e)
 	    		{
 	    		JOptionPane.showMessageDialog(null,
-	    				"<html><body><h1>Cannot find the SQL Driver "+DerbyModel.JDBC_DRIVER_NAME+
+	    				"<html><body><h1>Cannot find the SQL Driver "+DerbyModel.JDBC_DRIVER_NAME+"</h1><h1>"+
 	    				" in the java $CLASSPATH</h1>"+
 	    				"<p>See <a href='http://developers.sun.com/javadb/'>http://developers.sun.com/javadb/</a></p>"+
 	    				"</body></html>",
@@ -3032,5 +3528,7 @@ public class SciFOAFApplication extends JFrame {
 			e.printStackTrace();
 			}
 		}
-
 }
+
+
+
