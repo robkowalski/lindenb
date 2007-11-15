@@ -52,8 +52,8 @@ public class SQLUtilities
                 {
                 case('\"'): buffer.append("\\\"");break;
                 case('\''): buffer.append("\\\'");break;
-                case('\n'): buffer.append("\\\n");break;
-                case('\t'): buffer.append("\\\t");break;
+                case('\n'): buffer.append("\\n");break;
+                case('\t'): buffer.append("\\t");break;
                 case('\\'): buffer.append("\\\\");break;
                 default: buffer.append(s.charAt(i)); break;
                 }

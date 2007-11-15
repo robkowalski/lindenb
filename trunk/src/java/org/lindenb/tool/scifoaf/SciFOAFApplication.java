@@ -17,7 +17,6 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.awt.image.BufferedImage;
 import java.beans.PropertyVetoException;
 import java.io.File;
 import java.io.IOException;
@@ -37,7 +36,6 @@ import java.util.Vector;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
-import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListCellRenderer;
@@ -91,11 +89,10 @@ import javax.xml.stream.events.XMLEvent;
 import org.lindenb.io.PreferredDirectory;
 import org.lindenb.lang.RunnableObject;
 import org.lindenb.lang.ThrowablePane;
+import org.lindenb.sw.model.AbstractRDFModel;
 import org.lindenb.sw.model.DerbyModel;
-import org.lindenb.sw.model.DerbyModel.CloseableIterator;
-import org.lindenb.sw.model.DerbyModel.RDFNode;
-import org.lindenb.sw.model.DerbyModel.Resource;
-import org.lindenb.sw.model.DerbyModel.Statement;
+import org.lindenb.sw.model.RDFException;
+import org.lindenb.sw.model.AbstractRDFModel.CloseableIterator;
 import org.lindenb.sw.vocabulary.DC;
 import org.lindenb.sw.vocabulary.FOAF;
 import org.lindenb.sw.vocabulary.Geo;
@@ -108,7 +105,6 @@ import org.lindenb.swing.SimpleDialog;
 import org.lindenb.swing.SwingUtils;
 import org.lindenb.swing.layout.InputLayout;
 import org.lindenb.swing.table.GenericTableModel;
-
 import org.lindenb.util.Assert;
 import org.lindenb.util.Compilation;
 import org.lindenb.util.Debug;
@@ -336,7 +332,7 @@ class GeoNamePane extends SimpleDialog
 abstract class SpatialThingEditor extends SimpleDialog
 	{
 	private static final long serialVersionUID = 1L;
-	Vector<Pair<FoafModel.Resource,JComponent>> fields= new Vector<Pair<Resource,JComponent>>();
+	Vector<Pair<FoafModel.Resource,JComponent>> fields= new Vector<Pair<DerbyModel.Resource,JComponent>>();
 	
 	JTextField placeName;
 	JTextField latitude;
@@ -596,7 +592,7 @@ abstract class PaperEditor extends SimpleDialog
 	
 	abstract FoafModel getModel();
 	
-	PaperEditor(Component c,Paper paper) throws SQLException
+	PaperEditor(Component c,Paper paper) throws RDFException
 		{
 		super(c,"Pubmed PMID."+paper.PMID);
 		Debug.debug();
@@ -638,7 +634,7 @@ abstract class PaperEditor extends SimpleDialog
 			pane3.add(cb);
 			}
 		}
-	private JComboBox createCombo(Author author) throws SQLException
+	private JComboBox createCombo(Author author) throws RDFException
 		{
 		DefaultComboBoxModel m= new DefaultComboBoxModel();
 		
@@ -686,7 +682,7 @@ abstract class PaperEditor extends SimpleDialog
 		}
 	
 	
-	public DerbyModel.Resource create() throws SQLException
+	public DerbyModel.Resource create() throws RDFException
 		{
 		Debug.debug(paper);
 		DerbyModel.Resource instance= getModel().createResource(paper.getURI());
@@ -733,7 +729,7 @@ abstract class PaperEditor extends SimpleDialog
 				case 0: continue;//ignore
 				case 1:
 				{Debug.debug();
-				Resource author= createAuthor(p.second());
+				DerbyModel.Resource author= createAuthor(p.second());
 				if(author!=null)
 					{
 					linkAuthorAndPaper(instance,author);
@@ -749,7 +745,7 @@ abstract class PaperEditor extends SimpleDialog
 				{
 				Debug.debug(m.getElementAt(index));
 				Debug.debug(m.getElementAt(index).getClass());
-				Resource author=Statement.class.cast(m.getElementAt(index)).getSubject();
+				DerbyModel.Resource author=DerbyModel.Statement.class.cast(m.getElementAt(index)).getSubject();
 				if(author!=null)
 					{
 					linkAuthorAndPaper(instance,author);
@@ -763,7 +759,7 @@ abstract class PaperEditor extends SimpleDialog
 		return instance;
 		}
 	
-	private void linkAuthorAndPaper(DerbyModel.Resource paper,DerbyModel.Resource author) throws SQLException
+	private void linkAuthorAndPaper(DerbyModel.Resource paper,DerbyModel.Resource author) throws RDFException
 		{
 		getModel().addStatement(
 				paper,
@@ -778,7 +774,7 @@ abstract class PaperEditor extends SimpleDialog
 				);
 		}
 	
-	private DerbyModel.Resource createAuthor(Author o) throws SQLException
+	private DerbyModel.Resource createAuthor(Author o) throws RDFException
 		{
 		if(o.FirstName==null) o.FirstName="";
 
@@ -809,7 +805,7 @@ abstract class PaperEditor extends SimpleDialog
 		return author;
 		}
 	
-	private DerbyModel.Resource createNCBIAuthor(Author o) throws SQLException
+	private DerbyModel.Resource createNCBIAuthor(Author o) throws RDFException
 		{
 		DerbyModel.Resource author= getModel().createAnonymousResource(o.LastName);
 		getModel().addStatement(
@@ -826,7 +822,7 @@ abstract class PaperEditor extends SimpleDialog
 		return author;
 		}
 	
-	private void _addpredicate(DerbyModel.Resource instance,String ns,String local,String value) throws SQLException
+	private void _addpredicate(DerbyModel.Resource instance,String ns,String local,String value) throws RDFException
 		{
 		if(value==null || value.trim().length()==0 ) return;
 		if(value.length()> getModel().getLiteralMaxLength()) value=value.substring(0,getModel().getLiteralMaxLength());
@@ -899,7 +895,7 @@ class StmtWrapper extends XObject
 	private DerbyModel.Statement stmt;
 	private DerbyModel.Resource rdfType;
 	private DerbyModel.Literal title;
-	StmtWrapper(DerbyModel.Statement stmt) throws SQLException
+	StmtWrapper(DerbyModel.Statement stmt) throws RDFException
 		{
 		this.stmt= stmt;
 		this.rdfType= this.stmt.getSubject().getPropertyAsResource(stmt.getModel().createResource(RDF.NS,"type"));
@@ -932,19 +928,19 @@ class StmtWrapper extends XObject
 	
 	
 	
-	public DerbyModel getModel() {
+	public AbstractRDFModel getModel() {
 		return getStatement().getModel();
 	}
 
-	public Resource getPredicate() {
+	public DerbyModel.Resource getPredicate() {
 		return getStatement().getPredicate();
 	}
 
-	public Resource getSubject() {
+	public DerbyModel.Resource getSubject() {
 		return getStatement().getSubject();
 	}
 
-	public RDFNode getValue() {
+	public DerbyModel.RDFNode getValue() {
 		return getStatement().getValue();
 	}
 
@@ -1089,7 +1085,7 @@ public class SciFOAFApplication extends JFrame {
 				SciFOAFApplication.this.showStatementFrame(instance, null, null);
 				SciFOAFApplication.this.fireRDFModelUpdated();
 				}
-			catch (SQLException err)
+			catch (RDFException err)
 				{
 				ThrowablePane.show(owner,err);
 				}
@@ -1293,7 +1289,7 @@ public class SciFOAFApplication extends JFrame {
 		public Vector<DerbyModel.Statement> getSelectedStatements()
 			{
 			int indexes[]=getSelectedRows();
-			 Vector<Statement> sel= new  Vector<Statement>(indexes.length);
+			 Vector<DerbyModel.Statement> sel= new  Vector<DerbyModel.Statement>(indexes.length);
 			 for(int i=0;i< indexes.length;++i)
 			 	{
 				 DerbyModel.Statement stmt= getStatementAt(indexes[i]);
@@ -1306,7 +1302,7 @@ public class SciFOAFApplication extends JFrame {
 		}
 	
 	
-	private static String _shortName(RDFNode r)
+	private static String _shortName(DerbyModel.RDFNode r)
 		{
 		if(r==null) return "*";
 		String s=r.isLiteral()?r.asLiteral().getString():r.asResource().getShortName();
@@ -1592,7 +1588,7 @@ public class SciFOAFApplication extends JFrame {
 					if(toremove.isEmpty()) return;
 					
 					try {getRDFModel().remove(toremove);
-					} catch (SQLException er) {
+					} catch (RDFException er) {
 						ThrowablePane.show(table, er);}
 					
 					fireRDFModelUpdated();
@@ -1641,7 +1637,7 @@ public class SciFOAFApplication extends JFrame {
 							subjectTextField.setText(r.getURI());
 							subjectTextField.setCaretPosition(0);
 							} 
-						catch (SQLException err)
+						catch (RDFException err)
 							{
 							ThrowablePane.show(StatementsFrame.this, err);
 							}
@@ -1745,7 +1741,7 @@ public class SciFOAFApplication extends JFrame {
 							valueTextField.setText(r.getURI());
 							valueTextField.setCaretPosition(0);
 							} 
-						catch (SQLException err)
+						catch (RDFException err)
 							{
 							ThrowablePane.show(StatementsFrame.this, err);
 							}
@@ -2171,7 +2167,7 @@ public class SciFOAFApplication extends JFrame {
 				
 				
 				}
-			catch(SQLException err)
+			catch(RDFException err)
 				{
 				ThrowablePane.show(StatementsFrame.this, err);
 				}
@@ -2237,7 +2233,7 @@ public class SciFOAFApplication extends JFrame {
 			Cursor oldCursor= this.getCursor();
 			this.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
 			Vector<StmtWrapper> stmts= new Vector<StmtWrapper>();
-			HashSet<DerbyModel.Statement> wereSeleted= new HashSet<Statement>(table.getSelectedStatements());
+			HashSet<DerbyModel.Statement> wereSeleted= new HashSet<DerbyModel.Statement>(table.getSelectedStatements());
 			HashSet<Integer> rowsToSelect= new HashSet<Integer>();
 			int pageToReach = Number.class.cast(this.pagerPageStart.getValue()).intValue()-1;
 			int maxStatementPerPage= Number.class.cast(this.pagerLimitSpinner.getValue()).intValue();
@@ -2288,7 +2284,7 @@ public class SciFOAFApplication extends JFrame {
 					}
 				iter.close();
 				}
-			catch(SQLException err)
+			catch(RDFException err)
 				{
 				ThrowablePane.show(this, err);
 				}
@@ -2340,7 +2336,7 @@ public class SciFOAFApplication extends JFrame {
 		private JTextField regexTextField;
 		private ConstrainedAction<SubjectSelector> filterAction;
 		private JSpinner spinLimit;
-		private HashSet<DerbyModel.Resource> selected=new HashSet<Resource>();
+		private HashSet<DerbyModel.Resource> selected=new HashSet<DerbyModel.Resource>();
 		private DerbyModel.Resource withProperty=null;
 		private DerbyModel.RDFNode withValue=null;
 
@@ -2459,7 +2455,7 @@ public class SciFOAFApplication extends JFrame {
 					this.table.getStmtTable().addElement(new StmtWrapper(x));
 					}
 				} 
-			catch (SQLException err)
+			catch (RDFException err)
 				{
 				Debug.debug(err);
 				}
@@ -2595,7 +2591,7 @@ public class SciFOAFApplication extends JFrame {
 					m.addElement(r);
 					}
 				} 
-			catch (SQLException err)
+			catch (RDFException err)
 				{
 				}
 			}
@@ -2668,7 +2664,7 @@ public class SciFOAFApplication extends JFrame {
 				}
 			}));
 		
-		menu.add(new JMenuItem(this.menuSaveAsN3Action=new AbstractAction("Export As RDF")
+		menu.add(new JMenuItem(this.menuSaveAsN3Action=new AbstractAction("Export As N3")
 			{
 			private static final long serialVersionUID = 1L;
 			@Override
@@ -2684,7 +2680,7 @@ public class SciFOAFApplication extends JFrame {
 					}
 				}
 			}));
-		menu.add(new JMenuItem(this.exportToSimileAction=new AbstractAction("Open",getIconByName("Open24.gif"))
+		menu.add(new JMenuItem(this.exportToSimileAction=new AbstractAction("Export to Exhibit",getIconByName("Open24.gif"))
 			{
 			private static final long serialVersionUID = 1L;
 			@Override
@@ -2831,9 +2827,8 @@ public class SciFOAFApplication extends JFrame {
 		if(chooser.showSaveDialog(this)!=JFileChooser.APPROVE_OPTION) return null;
 		File f= chooser.getSelectedFile();
 		if(f==null) return null;
-		if(f.exists())
+		if(f.exists()&& JOptionPane.showConfirmDialog(this, f.toString()+" exist. Overwrite ?", "Overwrite ?",JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE, null)!=JOptionPane.OK_OPTION)
 			{
-			JOptionPane.showMessageDialog(this, f.toString()+" exist.", "Exsts", JOptionPane.WARNING_MESSAGE, null);
 			return  null;
 			}
 		
@@ -2856,7 +2851,7 @@ public class SciFOAFApplication extends JFrame {
 					{
 					this.derbyModel.getValue().close();
 					}
-				} catch (SQLException e) {ThrowablePane.show(this, e); }
+				} catch (RDFException e) {ThrowablePane.show(this, e); }
 			this.derbyModel.setValue(model);
 			} 
 		catch (Exception e2) {
@@ -2879,23 +2874,53 @@ public class SciFOAFApplication extends JFrame {
 					{
 					this.derbyModel.getValue().close();
 					}
-				} catch (SQLException e) {ThrowablePane.show(this, e); }
+				} catch (RDFException e) {ThrowablePane.show(this, e); }
 			this.derbyModel.setValue(model);
 			} 
 		catch (Exception e2) {
 			ThrowablePane.show(this, e2);
 			}
 		}
-	
+	/**
+	 * export to simile exhibit
+	 * http://simile.mit.edu/wiki/Exhibit/Getting_Started_Tutorial
+	 * 
+	 */
 	private void doMenuExportToSimile()
 		{
 		File dir=chooseFileSaveAs();
 		if(dir==null) return;
+		try
+			{
+			ExhibitExporter exporter= new ExhibitExporter(getRDFModel())
+				{
+				@Override
+				public void fatalError(Object o) {
+					if(o instanceof Throwable)
+						{
+						ThrowablePane.show(SciFOAFApplication.this,Throwable.class.cast(o));
+						}
+					else
+						{
+						JOptionPane.showMessageDialog(SciFOAFApplication.this, o,"Error",JOptionPane.ERROR_MESSAGE,null);
+						}
+					}
+				};
+			exporter.setOutputDirectory(dir);
+			exporter.run();
+			}
+		catch(Exception err)
+			{
+			ThrowablePane.show(this, err);
+			}
+		
+		//
+		
 		/*
 		try {
 			
 			}
-		catch (SQLException err) {
+		catch (RDFException err) {
 			ThrowablePane.show(this, err);
 			}*/
 		}
@@ -2963,7 +2988,7 @@ public class SciFOAFApplication extends JFrame {
 				return;
 				}
 			}
-		catch(SQLException err)
+		catch(RDFException err)
 			{
 			ThrowablePane.show(owner, err);
 			}
@@ -3002,7 +3027,7 @@ public class SciFOAFApplication extends JFrame {
 					);
 			showStatementFrame(r,null,null);
 			}
-		catch (SQLException err) {
+		catch (RDFException err) {
 			ThrowablePane.show(owner, err);
 			}
 		}
@@ -3115,7 +3140,7 @@ public class SciFOAFApplication extends JFrame {
 			showStatementFrame(imgRsrc, null, null);
 			return imgRsrc;
 			}
-		catch(SQLException err)
+		catch(RDFException err)
 			{
 			ThrowablePane.show(owner, err);
 			return null;
@@ -3529,41 +3554,6 @@ public class SciFOAFApplication extends JFrame {
 		}
 	
 	
-	private BufferedImage loadDepiction(DerbyModel.Resource foafAgent) throws IOException,SQLException
-		{
-		BufferedImage img=null;
-		CloseableIterator<DerbyModel.Statement> iter1= getRDFModel().listStatements(
-			foafAgent,
-			_rsrc(FOAF.NS,"depiction")
-			, null);
-		
-		while(iter1.hasNext())
-			{
-			DerbyModel.Statement stmt1= iter1.next();
-			if(!stmt1.getValue().isResource()) continue;
-			DerbyModel.Resource imgrsrc= stmt1.getValue().asResource();
-			if(!imgrsrc.hasProperty(
-				getRDFModel().RDF_TYPE,
-				_rsrc(FOAF.NS, "Image")	
-				)) continue;			
-			
-			if(!imgrsrc.isURL()) continue;
-			URL url= imgrsrc.asURL();
-			if(url==null) continue;
-			try
-				{
-				img = ImageIO.read(url);
-				break;
-				}
-			catch (IOException e)
-				{
-				Debug.debug(e);
-				}
-			}
-		
-		iter1.close();
-		return img;
-		}
 	
 	private StatementsFrame showStatementFrame(
 		DerbyModel.Resource S,
@@ -3597,7 +3587,7 @@ public class SciFOAFApplication extends JFrame {
 		}
 	
 	
-	private boolean _same(RDFNode n1,RDFNode n2)
+	private boolean _same(DerbyModel.RDFNode n1,DerbyModel.RDFNode n2)
 		{
 		if(n1==null && n2==null) return true;
 		if(n1==null && n2!=null) return false;
