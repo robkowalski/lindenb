@@ -222,5 +222,24 @@ public class SQLUtilities
 		return clazz.cast(selectOneOrZeroValue(row));
 		}
     
-    
+    public static void safeRollBack(Connection con)
+    	{
+    	if(con==null) return;
+    	try {
+			con.rollback();
+			} 
+    	catch (Exception e)
+    		{
+			}
+    	}
+    public static void safeSetAutoCommit(Connection con,boolean autocommit)
+		{
+		if(con==null) return;
+		try {
+			con.setAutoCommit(autocommit);
+			} 
+		catch (Exception e)
+			{
+			}
+		}
     }

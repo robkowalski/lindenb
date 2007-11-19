@@ -34,8 +34,8 @@ public static void center(Window window,int marginH,int marginV)
 	{
 	Dimension screen= Toolkit.getDefaultToolkit().getScreenSize();
 	window.setBounds(
-		Math.max(0,(screen.width-marginH)/2),
-		Math.max(0,(screen.height-marginV)/2),
+		Math.max(0,marginH/2),
+		Math.max(0,marginV/2),
 		screen.width-marginH,screen.height-marginV
 		);
 	}
@@ -79,6 +79,20 @@ public static void setFontSize(Component root,int fontSize)
 			}
 		}
 	}
+
+public static void setFontSize(Component root,float fontSize)
+{
+Font f= root.getFont();
+root.setFont(new Font(f.getName(),f.getStyle(),(int)Math.ceil(f.getSize()*fontSize)));
+if(root instanceof JComponent)
+	{
+	JComponent c=JComponent.class.cast(root);
+	for(int i=0;i< c.getComponentCount();++i)
+		{
+		setFontSize(c.getComponent(i),fontSize);
+		}
+	}
+}
 
 public static <T extends Component> T findComponentByName(Component root,String name,Class<T> clazz)
 	{

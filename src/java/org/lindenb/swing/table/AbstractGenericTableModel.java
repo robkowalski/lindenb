@@ -16,16 +16,16 @@ public abstract class AbstractGenericTableModel<T> extends XAbstractTableModel
 	{
 	public abstract T elementAt(int rowIndex);
 	@Override
-	public Object getValueAt(int rowIndex, int columnIndex) {
+	public Object getValueAt(int rowIndex, int column) {
 		T t= elementAt(rowIndex);
 		if(t==null) return null;
-		return getValueOf(t,columnIndex);
+		return getValueOf(t,column);
 		}
 	
-	public abstract Object getValueOf(T object, int columnIndex);
+	public abstract Object getValueOf(T object, int column);
 	
 	@Override
-	public boolean isCellEditable(int rowIndex, int columnIndex) {
+	public boolean isCellEditable(int rowIndex, int column) {
 		return false;
 		}
 	

@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.Serializable;
 import java.io.Writer;
 import java.lang.reflect.Constructor;
 import java.net.MalformedURLException;
@@ -45,16 +46,21 @@ public static interface CloseableIterator<E> extends Iterator<E>
 protected class CloseableIteratorAdapter<E>
 	implements CloseableIterator<E>
 	{
-	Iterator<E> iter;
+	private Iterator<E> iter;
+	protected E last=null;
 	CloseableIteratorAdapter(Iterator<E> x)
 		{
 		this.iter=x;
 		}
 	@Override
-	public boolean hasNext() { return this.iter.hasNext();}
+	public boolean hasNext() { 
+		boolean b= this.iter.hasNext();
+		if(!b) last=null;
+		return b;
+		}
 	@Override
 	public E next() {
-		return this.iter.next();
+		return (last=this.iter.next());
 	}
 	@Override
 	public void remove() {
@@ -68,7 +74,7 @@ protected class CloseableIteratorAdapter<E>
  * @author pierre
  *
  */
-public interface RDFNode
+public interface RDFNode extends Serializable
 	{
 	public AbstractRDFModel getModel();
 	public abstract short getNodeType();
@@ -187,7 +193,7 @@ public interface Literal
 	}
 
 public interface Statement
-	extends Comparable<Statement>
+	extends Comparable<Statement>,Serializable
 	{
 	@Override
 	public int compareTo(Statement o);
@@ -980,6 +986,8 @@ public  Resource createResource(String uri)
 	{
 	return new ResourceImpl(uri)
 		{
+		private static final long serialVersionUID = 1L;
+
 		@Override
 		public AbstractRDFModel getModel() {
 			return AbstractRDFModel.this;
@@ -992,6 +1000,7 @@ public Literal createLiteral(String text)
 	{
 	return new LiteralImpl(text)
 		{
+		private static final long serialVersionUID = 1L;
 		@Override
 		public AbstractRDFModel getModel() {
 			return AbstractRDFModel.this;
@@ -1005,6 +1014,8 @@ public Statement createStatement( Resource subject,Resource predicate,RDFNode va
 	{
 	return new AbstractStatementImpl(subject,predicate,value)
 		{	
+		private static final long serialVersionUID = 1L;
+
 		@Override
 		public AbstractRDFModel getModel()
 			{
