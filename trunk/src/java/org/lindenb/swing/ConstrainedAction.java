@@ -133,7 +133,7 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 				{
 				String s=this.component.getText();
 				if(this.param) s=s.trim();
-				return s.length()==0?"is Empty":null;
+				return s.length()==0?name(this.component)+" is Empty":null;
 				}
 			});
 		}
