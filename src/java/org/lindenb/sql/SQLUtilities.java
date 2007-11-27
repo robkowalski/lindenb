@@ -228,7 +228,7 @@ public class SQLUtilities
     	try {
 			con.rollback();
 			} 
-    	catch (Exception e)
+    	catch (SQLException e)
     		{
 			}
     	}
@@ -238,8 +238,37 @@ public class SQLUtilities
 		try {
 			con.setAutoCommit(autocommit);
 			} 
-		catch (Exception e)
+		catch (SQLException e)
 			{
 			}
 		}
+    
+    /** test if a connection is closed without throwing an exception
+     * . return true if con is null or something bad happened */
+    public static boolean safeIsClosed(Connection con)
+		{
+		if(con==null) return true;
+		try {
+			return con.isClosed();
+			} 
+		catch (SQLException e)
+			{
+			return true;
+			}
+		}
+    
+    /**  closes a connection without throwing an exception
+      */
+    public static void safeClose(Connection con)
+		{
+		if(con==null || safeIsClosed(con)) return;
+		try {
+			con.close();
+			} 
+		catch (SQLException e)
+			{
+			//silent
+			}
+		}
+    
     }
