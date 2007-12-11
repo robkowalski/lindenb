@@ -5,12 +5,39 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.Reader;
+import java.io.Writer;
 import java.net.URL;
 import java.util.zip.GZIPInputStream;
 
 public class IOUtils
 	{
+	public static void copyTo(InputStream in, OutputStream out) throws IOException
+		{
+		byte buffer[]=new byte[2048];
+		int n=0;
+		while((n=in.read(buffer))!=-1)
+			{
+			out.write(buffer, 0, n);
+			}
+		out.flush();
+		}
+	
+	public static void copyTo(Reader in, Writer out) throws IOException
+		{
+		char buffer[]=new char[2048];
+		int n=0;
+		while((n=in.read(buffer))!=-1)
+			{
+			out.write(buffer, 0, n);
+			}
+		out.flush();
+		}
+	
+	
 	public static BufferedReader openReader(String uri) throws IOException
 		{
 		if(	uri.startsWith("http://") ||
