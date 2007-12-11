@@ -3,14 +3,21 @@
  */
 package org.lindenb.sw;
 
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
+
+import javax.xml.namespace.QName;
+
 
 import org.lindenb.sw.vocabulary.DC;
 import org.lindenb.sw.vocabulary.FOAF;
 import org.lindenb.sw.vocabulary.RDF;
 import org.lindenb.sw.vocabulary.RDFS;
+import org.w3c.dom.Attr;
+import org.w3c.dom.Element;
+import org.w3c.dom.NamedNodeMap;
 
 /**
  * @author pierre
@@ -58,7 +65,18 @@ public String getNsPrefixURI(String prefix)
 	return null;
 	}
 
-
+/**  Answer a QName with the expansion of the given uri, or null if no such qname can be constructed using the mapping's prefixes. */
+public QName getQName(java.lang.String uri)
+	{
+	if(uri==null) return null;
+	int n= uri.lastIndexOf('#');
+	if(n==-1) n= uri.lastIndexOf('/');
+	if(n==-1) return null;
+	String ns= uri.substring(0,n+1);
+	String prefix= getNsURIPrefix(ns);
+	if(prefix==null) return null;
+	return new QName(ns,uri.substring(n+1),prefix);
+	}
 
 /**  Answer a qname with the expansion of the given uri, or null if no such qname can be constructed using the mapping's prefixes. */
 public String qnameFor(java.lang.String uri)
@@ -79,6 +97,8 @@ public String shortForm(java.lang.String uri)
 	return s==null?uri:s;
 	}
 
+
+/** list all prefixes */
 public Set<String> getPrefixes()
 	{
 	HashSet<String> set= new HashSet<String>(this.uri2prefix.size());
@@ -86,4 +106,16 @@ public Set<String> getPrefixes()
 	return set;
 	}
 
+/** add all the prefixes namespaces declared in a dom element */
+public void addNamespaces(Element root)
+	{
+	NamedNodeMap atts=root.getAttributes();
+	for(int j=0;j< atts.getLength();++j)
+		{
+		Attr att= Attr.class.cast(atts.item(j));
+		if(!att.getName().startsWith("xmlns:")) continue;
+		String prefix= att.getName().substring(6);
+		this.setNsPrefix(prefix, att.getValue());
+		}
+	}
 }

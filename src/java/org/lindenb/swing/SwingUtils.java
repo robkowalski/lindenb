@@ -69,7 +69,10 @@ public static void setFontDeep(Component root,Font font)
 public static void setFontSize(Component root,int fontSize)
 	{
 	Font f= root.getFont();
-	root.setFont(new Font(f.getName(),f.getStyle(),fontSize));
+	if(f!=null)
+		{
+		root.setFont(new Font(f.getName(),f.getStyle(),fontSize));
+		}
 	if(root instanceof JComponent)
 		{
 		JComponent c=JComponent.class.cast(root);

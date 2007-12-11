@@ -19,11 +19,14 @@ import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JList;
 import javax.swing.JTable;
+import javax.swing.JTree;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
+import javax.swing.event.TreeSelectionEvent;
+import javax.swing.event.TreeSelectionListener;
 import javax.swing.text.JTextComponent;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
@@ -164,6 +167,46 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 					}
 				}
 			});
+		}
+	
+	public void mustBeOpaqueURI(JTextComponent component)
+		{
+		addTextValidator(new Validator1<JTextComponent>(component)
+				{
+				@Override
+				public String getErrorMessage()
+					{
+					try {
+						URI uri= new URI(component.getText());
+						if(!uri.isOpaque()) return ""+name(this.component)+" is not an opaque uri";
+						return null;
+						}
+					catch (Exception e)
+						{
+						return "Cannot cast "+name(this.component)+" to an opaque URI";
+						}
+					}
+				});
+		}
+	
+	public void mustBeAbsoluteURI(JTextComponent component)
+		{
+		addTextValidator(new Validator1<JTextComponent>(component)
+				{
+				@Override
+				public String getErrorMessage()
+					{
+					try {
+						URI uri= new URI(component.getText());
+						if(!uri.isAbsolute()) return ""+name(this.component)+" is not an absolute uri";
+						return null;
+						}
+					catch (Exception e)
+						{
+						return "Cannot cast "+name(this.component)+" to an absolute URI";
+						}
+					}
+				});
 		}
 	
 	public void mustHaveMaxLength(JTextComponent component,int maxLengthExclusive)
@@ -405,7 +448,23 @@ public abstract class ConstrainedAction<T> extends ObjectAction<T>
 			});
 		}
 
-	
+	public void mustBeSelected(JTree tree)
+		{
+		tree.getSelectionModel().addTreeSelectionListener(new TreeSelectionListener()
+			{
+			@Override
+			public void valueChanged(TreeSelectionEvent e) {
+				validate();
+				}
+			});
+		addValidator(new Validator1<JTree>(tree)
+				{
+				@Override
+				public String getErrorMessage() {
+					return component.getSelectionCount()==0? name(component)+" is not selected":null;
+					}
+				});
+		}
 	
 	public void mustBeSelected(JTable table)
 		{

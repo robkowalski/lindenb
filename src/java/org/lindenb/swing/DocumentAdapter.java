@@ -5,6 +5,22 @@ import javax.swing.event.DocumentListener;
 
 public abstract class DocumentAdapter implements DocumentListener {
 
+	private Object userObject;
+	public DocumentAdapter()
+		{
+		this(null);
+		}
+	
+	public DocumentAdapter(Object userObject)
+		{
+		this.userObject=userObject;
+		}
+	
+	public Object getUserObject()
+		{
+		return this.userObject;
+		}
+	
 	@Override
 	public void changedUpdate(DocumentEvent e)
 		{
