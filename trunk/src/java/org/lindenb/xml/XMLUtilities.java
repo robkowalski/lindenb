@@ -1,5 +1,11 @@
 package org.lindenb.xml;
 
+import java.util.Collection;
+import java.util.Vector;
+
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+
 
 public class XMLUtilities
 	{
@@ -40,5 +46,84 @@ public static String escape(CharSequence s)
 		       }
 		return buffer.toString();
         }
+
+/**
+ * return wether the given node matches ns and localName
+ * @param node
+ * @param ns namespace use null as a wildcard for all namespaceuri
+ * @param localName use null as a wildcard for all localNames
+ * @return is node matching
+ */
+public static boolean isA(Node node,String ns,String localName)
+	{
+	if(node.getNodeType()!=Node.ELEMENT_NODE) return false;
+	if(ns!=null && !ns.equals(node.getNamespaceURI()))return false;
+	if(localName!=null && !localName.equals(node.getLocalName())) return false;
+	return true;
+	}
+
+
+/**
+ * count number of element under root matching ns and localName
+ * @param root
+ * @param ns namespace use null as a wildcard for all namespaceuri
+ * @param localName use null as a wildcard for all localNames
+ * @return number Found
+ */
+public static int count(Node root,String ns,String localName)
+	{
+	int n=0;
+	for(Node c=root.getFirstChild();c!=null;c=c.getNextSibling())
+		{
+		if(!isA(c,ns,localName)) continue;
+		++n;
+		}
+	return n;
+	}
+
+/**
+ * return the first Element under root matching ns and localName
+ * @param root
+ * @param ns namespace use null as a wildcard for all namespaceuri
+ * @param localName use null as a wildcard for all localNames
+ * @return element Found or null
+ */
+public static Element firstElement(Node root,String ns,String localName)
+	{
+	for(Node c=root.getFirstChild();c!=null;c=c.getNextSibling())
+		{
+		if(!isA(c,ns,localName)) continue;
+		return Element.class.cast(c);
+		}
+	return null;
+	}
+
+/** return Collection over child elements */
+public static Collection<Element> elements(Node parent)
+	{
+	return elements(parent,null,null);
+	}
+
+/**
+ * return a collection of all Element under parent matching ns and localName
+ * @param parent
+ * @param ns namespace use null as a wildcard for all namespaceuri
+ * @param localName use null as a wildcard for all localNames
+ * @return element Found or null
+ */
+public static Collection<Element> elements(Node parent,String namespace,String localName)
+	{
+	Vector<Element> v= new Vector<Element>();
+	for(Node c=parent.getFirstChild();c!=null;c=c.getNextSibling())
+		{
+		if(isA(c,namespace,localName))
+			{
+			v.addElement( Element.class.cast(c));
+			}
+		}
+	return v;
+	}
+
+
 
 }
