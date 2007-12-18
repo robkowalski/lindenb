@@ -258,6 +258,7 @@ public class SQLUtilities
 		}
     
     /**  closes a connection without throwing an exception
+     * @param con the connection to close . can be null , open or already closed
       */
     public static void safeClose(Connection con)
 		{

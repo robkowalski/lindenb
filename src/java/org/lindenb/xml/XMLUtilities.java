@@ -3,6 +3,7 @@ package org.lindenb.xml;
 import java.util.Collection;
 import java.util.Vector;
 
+import org.w3c.dom.Attr;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
@@ -125,5 +126,56 @@ public static Collection<Element> elements(Node parent,String namespace,String l
 	}
 
 
+
+/**
+ * return a XPATH-like description of the node
+ */
+public static String node2path(Node n)
+	{
+	StringBuilder b=new StringBuilder();
+	while(n!=null)
+		{
+		switch(n.getNodeType())
+			{
+			case Node.ATTRIBUTE_NODE:
+				{
+				b.insert(0,"/@"+n.getNodeName());
+				n= Attr.class.cast(n).getOwnerElement();
+				continue;
+				}
+			case Node.TEXT_NODE:
+				{
+				b.insert(0,"text()");
+				break;
+				}
+			case Node.COMMENT_NODE:
+				{
+				b.insert(0,"comment()");
+				break;
+				}
+			case Node.ELEMENT_NODE:
+				{
+				int L=getLevel(n);
+				b.insert(0,"/"+n.getNodeName()+"["+(L+1)+"]");
+				break;
+				}
+			}
+		n=n.getParentNode();
+		}
+	return b.toString();
+	}
+
+/** return the level of a node */
+public static int getLevel(Node n)
+	{
+	if(n==null) return -1;
+	int L=0;
+	while(n.getParentNode()!=null)
+		{
+		++L;
+		n= n.getParentNode();
+		}
+	return L;
+	}
 
 }
