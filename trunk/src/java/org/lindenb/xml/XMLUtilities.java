@@ -89,7 +89,7 @@ public static int count(Node root,String ns,String localName)
  * @param localName use null as a wildcard for all localNames
  * @return element Found or null
  */
-public static Element firstElement(Node root,String ns,String localName)
+public static Element firstChild(Node root,String ns,String localName)
 	{
 	for(Node c=root.getFirstChild();c!=null;c=c.getNextSibling())
 		{
@@ -98,6 +98,21 @@ public static Element firstElement(Node root,String ns,String localName)
 		}
 	return null;
 	}
+
+
+/**
+ * return the first Element under root 
+ */
+public static Element firstChild(Node root)
+	{
+	for(Node c=root.getFirstChild();c!=null;c=c.getNextSibling())
+		{
+		if(c.getNodeType()!=Node.ELEMENT_NODE) continue;
+		return Element.class.cast(c);
+		}
+	return null;
+	}
+
 
 /** return Collection over child elements */
 public static Collection<Element> elements(Node parent)
