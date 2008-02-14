@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet href="chrome://global/skin/" type="text/css"?>
+<window
+       id="main-window"
+       title="History Of Science"
+       orient="horizontal"
+       xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+       xmlns:h="http://www.w3.org/1999/xhtml"
+       onload="MY.loaded();"
+       >
+<!-- FIREFOX 2.0 IS REQUIRED TO SEE THIS FILE !!!   -->
+<script src="history.js"/>
+<script src="person.js"/>
+<!-- __URCHIN__ -->
+<vbox  flex="1">
+<hbox>
+<h:div><h:h1>History Of Sciences</h:h1> 2008 <h:a href="mailto:plindenbaum@yahoo.fr">Pierre Lindenbaum PhD</h:a>. 
+Testing <h:a href="http://www.freebase.com">Freebase</h:a> to display the biographies of famous scientists. See also the <h:a href="history.kml">KML file</h:a> for Google Earth. </h:div>
+</hbox>
+<scrollbox flex="6" style='overflow: auto;'>
+	<stack id="timeline" flex="6"  style="background-color:lightgray;color:black;width:200px;border-style:solid;border-color: black;border-width:1px;">
+	<!-- content goes here -->
+	</stack>
+</scrollbox>
+
+<vbox flex="1">
+<hbox><description id="message"/></hbox>
+<hbox  flex="1">
+	
+	<listbox id="gender" seltype="multiple"  rows="2" flex="1">
+		<listhead>
+			<listheader label="Gender"/>
+		</listhead>
+		<listitem label="Man" value="Man"/>
+		<listitem label="Woman" value="Female"/>
+	</listbox>
+	
+	<listbox id="profession" seltype="multiple"  rows="5" flex="1">
+		<listhead>
+			<listheader label="Profession"/>
+  		</listhead>
+	</listbox>
+	
+	<listbox id="country" seltype="multiple"  rows="5" flex="1">
+		<listhead>
+			<listheader label="Country"/>
+		</listhead>
+	</listbox>
+	
+	<listbox id="knownfor" seltype="multiple"  rows="5" flex="1">
+		<listhead>
+			<listheader label="Known for"/>
+		</listhead>
+	</listbox>
+	<button id="yes" label="Update"  flex="1" oncommand="MY.update();"/>
+</hbox>
+<hbox><label value="__ABOUT__"/></hbox>
+</vbox>
+
+</vbox>
+</window>
