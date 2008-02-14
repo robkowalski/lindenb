@@ -27,7 +27,7 @@
  </target>
 
  
- <target name="all" depends="pubmed2wikipedia,scifoaf,pivot">
+ <target name="all" depends="pubmed2wikipedia,scifoaf,pivot,freebase">
  </target>
 
 <target name="tango" depends="declare-ant-tasks">
@@ -105,7 +105,32 @@
 	 <delete dir="build/compile"/>
  </target>
  
- 
+ <target name="freebase" depends="declare-ant-tasks">
+	 <mkdir dir="build/compile"/>
+	 <mkdir dir="build/compile/images"/>
+	 
+	 <copy todir="build/compile" includeEmptyDirs="false">
+		 <fileset dir="src/java"/>
+	 </copy>
+	 <compileInfoTask name="Freebase" package="org.lindenb.util" dir="build/compile"/>
+	 <javac srcdir="build/compile"
+		destdir="build/compile"
+		source="1.6"
+		target="1.6">
+		 <include name="**/metaweb/Metaweb01.java"/>
+	 </javac>
+	 
+	 <delete includeEmptyDirs="true">
+		 <fileset dir="build/compile" includes="**/*.java"/>
+	 </delete>
+	 <jar destfile="build/freebase.jar"
+	      basedir="build/compile">
+		 <manifest>
+			 <attribute name="Main-Class" value="org.lindenb.tool.metaweb.Metaweb01"/>
+		 </manifest>
+	 </jar>
+	 <delete dir="build/compile"/>
+ </target>
  
  <target name="scifoaf" depends="declare-ant-tasks">
 	 <mkdir dir="build/compile"/>

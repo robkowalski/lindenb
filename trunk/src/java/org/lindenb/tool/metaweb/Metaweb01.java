@@ -395,8 +395,13 @@ public class Metaweb01 {
 	    {
     	
 	    String envelope = "{\"qname1\":{\"query\":" +json+ "}}";
+	    
 	    String urlStr =MQLREADURL+"?queries="+URLEncoder.encode(envelope, "UTF-8");
-	    if(isDebugging()) System.err.println("Sending : "+urlStr);
+	    if(isDebugging())
+		{
+		System.err.println("Sending:"+envelope);
+		//System.err.println("Sending : "+urlStr);
+		}
 	    // Now place the query in JSON envelope objects, and URL encodethe envelopes
 	    URL url= new URL(urlStr);
 	    URLConnection con=url.openConnection();
@@ -616,7 +621,7 @@ public class Metaweb01 {
 			out.print("deathPlace:"+quote(p.get("place_of_death"))+",");
 			
 			out.print("knownFor:"+quote(p.getArray("knownFor"))+",");
-			out.print("img:"+quote(p.iconFile==null?null:this.baseURL+p.iconFile.getName()));
+			out.print("img:"+quote(p.iconFile==null?null:p.iconFile.getName()));
 			out.println("}");
 			}
 		out.println("];");

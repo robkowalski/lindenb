@@ -342,7 +342,7 @@ pileup:function()
 			{
 			var img= document.createElementNS(XUL.NS,"image");
 			hbox.appendChild(img);
-			img.setAttribute("src","file:///home/pierre/historyofscience/tmp/"+o.img);
+			img.setAttribute("src",o.img);
 			img.setAttribute("style","width:"+MY.iconSize+"px;height:"+MY.iconSize+"px;");
 			}
 		
