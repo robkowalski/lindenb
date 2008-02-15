@@ -15,7 +15,7 @@
 <vbox  flex="1">
 <hbox>
 <h:div><h:h1>History Of Sciences</h:h1> 2008 <h:a title="plindenbaum@yahoo.fr" href="mailto:plindenbaum@yahoo.fr">Pierre Lindenbaum PhD</h:a>. 
-Testing <h:a title="freebase" href="http://www.freebase.com">Freebase</h:a> to fetch the biographies of famous scientists. See also my <h:a href="http://plindenbaum.blogspot.com">blog</h:a> and the <h:a href="history.kml" title="kml">KML file</h:a> for Google Earth. </h:div>
+Testing <h:a title="freebase" href="http://www.freebase.com">Freebase</h:a> to fetch the biographies of famous scientists. See also my <h:a href="http://plindenbaum.blogspot.com/2008/02/freebase-and-history-of-sciences.html">blog</h:a> and the <h:a href="__KML__" title="kml">KML file</h:a> for Google Earth. </h:div>
 </hbox>
 <scrollbox flex="6" style='overflow: auto;'>
 	<stack id="timeline" flex="6"  style="background-color:lightgray;color:black;width:200px;border-style:solid;border-color: black;border-width:1px;">
