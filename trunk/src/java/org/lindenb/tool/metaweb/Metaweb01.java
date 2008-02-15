@@ -638,7 +638,11 @@ public class Metaweb01 {
 				"<script type=\"text/javascript\">"+
 				"_uacct = \""+urchinID+"\";"+
 				"urchinTracker();"+
-				"</script>"));
+				"</script>")).replace("__KML__",
+				"http://maps.google.com/maps?f=q&hl=en&geocode=&q="+
+				XMLUtilities.escape(URLEncoder.encode(this.baseURL+"history.kml","UTF-8"))+
+				"&amp;ie=UTF8&amp;ll=53.956086,-13.007812&amp;spn=99.233765,284.0625&amp;t=h&amp;z=2"
+				);
 		out.print(xul);
 		out.flush();
 		out.close();
