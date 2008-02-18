@@ -913,7 +913,7 @@ private String escape(String s)
     	if(!object.containsKey("guid")) return;
     	Person person= new Person();
     	person.set("guid",object.get("guid").asString());
-    	persons.addElement(person);
+
     	/** find types about this person */
     	JSONItem q =query("{\"guid\":\""+person.get("guid")+"\",\"type\":[]}");
     	JSONItem json=q.find("qname1.result.type");
@@ -978,6 +978,9 @@ private String escape(String s)
 				System.err.println("Type not handled "+type);
 				}
 			}
+	if(person.startDate==null) return;
+    	persons.addElement(person);
+
     	//System.out.println(person.toString());
     	//System.out.println("##");
     	}
