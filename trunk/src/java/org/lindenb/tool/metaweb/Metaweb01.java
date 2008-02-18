@@ -65,8 +65,15 @@ abstract class Date
 	/** constructor from string YYYY-MM-DD */
 	protected Date(String s)
 		{
+		boolean neg=false;
+		if(s.startsWith("-"))
+			{
+			s=s.substring(1);
+			neg=true;
+			}
+		
 		String toks[]=s.split("[\\-]");
-		this.year= Integer.parseInt(toks[0]);
+		this.year= Integer.parseInt(toks[0])*(neg?-1:1);
 		if(toks.length>1)
 			{
 			this.month=Short.parseShort(toks[1]);
