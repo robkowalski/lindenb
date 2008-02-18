@@ -63,7 +63,7 @@ EndDate.prototype.days=function()
 var MY={
 now: null,
 iconSize:64,
-screenWidth:3000,
+screenWidth:15000,
 minDate:null,
 maxDate:null,
 debug:function(msg)
