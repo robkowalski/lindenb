@@ -437,7 +437,7 @@ public class Metaweb01 {
     private void run() throws IOException
 		{
     	//get all object on freebase having type=/user/lindenb/default_domain/scientist
-	    JSONItem item=query("[{\"guid\":null,\"type\":\"/user/lindenb/default_domain/scientist\"}]");
+	    JSONItem item=query("[{\"guid\":null,\"type\":\"/user/lindenb/default_domain/scientist\",\"limit\":10000}]");
 	    if(item==null) return;
 	    //get the result
 	    JSONItem json1=item.find("qname1.result");
