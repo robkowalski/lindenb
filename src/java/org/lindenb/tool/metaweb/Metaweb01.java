@@ -150,7 +150,8 @@ abstract class Date
 				}
 			}
 		return b.toString();
-		}	
+		}
+	
 		
 	@Override
 	/** nice display of this date */
@@ -532,17 +533,6 @@ public class Metaweb01 {
 		out.println("<Document>");
 		out.println("<name>History of Science</name>");
 		
-		//define icons
-		for(Person o:persons)
-			{
-			if(o.iconFile==null) continue;
-			out.println("<Style id=\""+ o.iconFile.getName()+"\">");
-			out.println(" <href>"+this.baseURL+o.iconFile.getName()+"</href>");
-			out.println(" <hotSpot x='"+getIconSize()/2 +"' y='"+getIconSize()/2 +"' xunits=\"pixels\" yunits=\"pixels\"/>");
-			out.println("</Style>");
-			}
-		
-		
 		for(Person o:persons)
 			{
 			for(int side=0;side<2;++side)
@@ -564,10 +554,6 @@ public class Metaweb01 {
 				out.print((side==0?"Birth of ":"Death of ")+XMLUtilities.escape(o.getHTML()));
 				out.print(XMLUtilities.escape("</div>"));
 				out.println("</description>");
-				if(o.iconFile!=null)
-					{
-					out.println("<styleUrl>"+this.baseURL+o.iconFile.getName()+"</styleUrl>");
-					}
 				out.print("<Point><coordinates>");
 				out.print(place.longitude+","+place.latitude);
 				out.println("</coordinates></Point>");
@@ -656,6 +642,38 @@ public class Metaweb01 {
 		
 		out= new PrintWriter(new FileWriter(new File(this.tmpFolder,"history.js")));
 		out.print(ResourceUtils.getContent(getClass(), "history.js"));
+		out.flush();
+		out.close();
+		
+		//as ical
+		out= new PrintWriter(new FileWriter(new File(this.tmpFolder,"history.ical")));
+		out.println("BEGIN:VCALENDAR");
+		out.println("CALSCALE:GREGORIAN");
+		out.println("METHOD:PUBLISH");
+		out.println("X-WR-CALNAME;VALUE=TEXT:History Of Sciences"); 
+		out.println("VERSION:2.0");
+		for(Person o:this.persons)
+			{
+			for(int side=0;side<2;++side)
+			{
+			Date date=(side==0?o.startDate:o.endDate);
+			if(date==null || date.getMonth()==null || date.getDayOfMonth()==null) continue;
+			String title=(side==0?"Birth":"Death")+" of "+C.escape(o.getName()+" <a href=\"http://www.google.com\">TEST URL</a>");
+			Place place=(side==0?o.startPlace:o.endPlace);
+			out.println("BEGIN:VEVENT");
+			out.println("SUMMARY:"+title);
+			out.println("DTSTART;VALUE=DATE:1900"+(date.getMonth()<10?"0":"")+date.getMonth()+(date.getDayOfMonth()<10?"0":"")+date.getDayOfMonth());
+			out.println("DTEND;VALUE=DATE:1900"+(date.getMonth()<10?"0":"")+date.getMonth()+(date.getDayOfMonth()<10?"0":"")+date.getDayOfMonth());
+			out.println("RRULE:FREQ=YEARLY;WKST=SU");
+			out.println("UID:"+o.getID()+(side==0?"b":"d")+"@freebase.com");
+			out.println("DESCRIPTION:"+title);
+			out.println("LOCATION:"+(place==null?null:C.escape(side==0?o.get("birthPlace"):o.get("deathPlace"))));
+			if(o.iconFile!=null) out.println("X-GOOGLE-CALENDAR-CONTENT-ICON:"+this.baseURL+o.iconFile.getName());
+			
+			out.println("END:VEVENT");
+			}
+			}
+		out.println("END:VCALENDAR");
 		out.flush();
 		out.close();
 		}
