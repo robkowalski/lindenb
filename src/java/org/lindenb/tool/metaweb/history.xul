@@ -47,6 +47,12 @@ Testing <h:a title="freebase" href="http://www.freebase.com">Freebase</h:a> to f
 		</listhead>
 	</listbox>
 	
+	<listbox id="awards" seltype="multiple"  rows="5" flex="1">
+		<listhead>
+			<listheader label="Awards"/>
+		</listhead>
+	</listbox>
+	
 	<listbox id="knownfor" seltype="multiple"  rows="5" flex="1">
 		<listhead>
 			<listheader label="Known for"/>

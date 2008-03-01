@@ -113,7 +113,7 @@ loaded:function()
 		}
 	MY.fillListBox("profession",set);
 	
-	
+	//knownfor
 	set= new Array()	
 	for(var i=0;i< persons.length;++i)
 		{
@@ -124,6 +124,7 @@ loaded:function()
 		}
 	MY.fillListBox("knownfor",set);
 	
+	//country
 	set= new Array()	
 	for(var i=0;i< persons.length;++i)
 		{
@@ -134,17 +135,34 @@ loaded:function()
 		}
 	MY.fillListBox("country",set);
 	
+	//AWARDS
+	set= new Array()	
+	for(var i=0;i< persons.length;++i)
+		{
+		for(var j=0;j< persons[i].awards.length;++j)
+			{
+			set[persons[i].awards[j] ]=1;
+			}
+		}
+	MY.fillListBox("awards",set);
+	
 	MY.pileup();
 	},
 fillListBox:function(id,set)
 	{
 	var root=document.getElementById(id);
 	if(root==null) return;
+	var array2= new Array(set.length);
 	for(var p in set)
 		{
+		array2.push(p);
+		}
+	array2.sort();
+	for(var j=0;j< array2.length;++j)
+		{
 		var item=document.createElementNS(XUL.NS,"listitem");
-		item.setAttribute("label",p);
-		item.setAttribute("value",p);
+		item.setAttribute("label",array2[j]);
+		item.setAttribute("value",array2[j]);
 		root.appendChild(item);
 		}
 	},
@@ -235,6 +253,17 @@ update:function()
 			persons[i].selected=false;
 			}
 		}	
+	
+	sel=MY.selectedItems("awards");
+	
+	for(var i=0;i< persons.length && sel.length>0;++i)
+		{
+		if(!persons[i].selected) continue;
+		if(!MY.containsSet(persons[i].awards,sel))
+			{
+			persons[i].selected=false;
+			}
+		}
 	
 	sel=MY.selectedItems("gender");
 	
