@@ -152,7 +152,40 @@ abstract class Date
 		return b.toString();
 		}
 	
-		
+	public String toWikipedia(String locale)
+		{
+		StringBuilder b= new StringBuilder();
+		if(getMonth()!=null)
+			{
+			b.append("[[");
+			switch(getMonth())
+				{
+				case 1: b.append("January"); break;
+				case 2: b.append("February"); break;
+				case 3: b.append("March"); break;
+				case 4: b.append("April"); break;
+				case 5: b.append("May"); break;
+				case 6: b.append("June"); break;
+				case 7: b.append("July"); break;
+				case 8: b.append("August"); break;
+				case 9: b.append("September"); break;
+				case 10: b.append("October"); break;
+				case 11: b.append("November"); break;
+				case 12: b.append("December"); break;
+				default: b.append(getMonth()); break;
+				}
+			
+			if(getDayOfMonth()!=null)
+				{
+				b.append(" ");
+				b.append(getDayOfMonth()<10?"0":"").append(String.valueOf(getDayOfMonth()));
+				}
+			b.append("]], ");
+			}
+		b.append("[["+String.valueOf(getYear())+"]]");
+		return b.toString();
+		}
+	
 	@Override
 	/** nice display of this date */
 	public String toString()
@@ -297,6 +330,11 @@ public class Metaweb01 {
 	private EndDate maxDate=null;
 	/** all the person we found */
 	private Vector<Person> persons= new Vector<Person>();
+	/** number of persons to be fetched */
+	private int limitNumberOfPerson= 10000;
+	/** echo request */
+	private boolean echoRequest=true;
+	
 	
 	/** for debugging: a simple class which echos the bytes read by the inputstream */
     private  class EchoReader extends InputStream
@@ -339,7 +377,7 @@ public class Metaweb01 {
     
     private boolean isDebugging()
     	{
-    	return true;
+    	return echoRequest;
     	}
     
     
@@ -407,7 +445,7 @@ public class Metaweb01 {
 	    String urlStr =MQLREADURL+"?queries="+URLEncoder.encode(envelope, "UTF-8");
 	    if(isDebugging())
 		{
-		System.err.println("Sending:"+envelope);
+		if(echoRequest) System.err.println("Sending:"+envelope);
 		//System.err.println("Sending : "+urlStr);
 		}
 	    // Now place the query in JSON envelope objects, and URL encodethe envelopes
@@ -418,7 +456,11 @@ public class Metaweb01 {
 	    con.connect();
 	    InputStream in=con.getInputStream();
 	    //parse JSON
-	    JSONItem item=JSONBuilder.newInstance().parse(new EchoReader(in));
+	    JSONItem item=JSONBuilder.newInstance().parse(
+	    		echoRequest?
+	    		new EchoReader(in):
+	    		in
+	    		);
 	    in.close();
 	    //check for error
 	    String code=getString(item, "code");
@@ -438,7 +480,7 @@ public class Metaweb01 {
     private void run() throws IOException
 		{
     	//get all object on freebase having type=/user/lindenb/default_domain/scientist
-	    JSONItem item=query("[{\"guid\":null,\"type\":\"/user/lindenb/default_domain/scientist\",\"limit\":10000}]");
+	    JSONItem item=query("[{\"guid\":null,\"type\":\"/user/lindenb/default_domain/scientist\",\"limit\":"+this.limitNumberOfPerson+"}]");
 	    if(item==null) return;
 	    //get the result
 	    JSONItem json1=item.find("qname1.result");
@@ -590,7 +632,7 @@ public class Metaweb01 {
 				}
 			else
 				{
-				out.print("new StartDate("+
+				out.println("new StartDate("+
 					p.startDate.getYear()+","+
 					(p.startDate.getMonth()==null?"null,null":
 					p.startDate.getMonth()+","+p.startDate.getDayOfMonth())+
@@ -605,16 +647,23 @@ public class Metaweb01 {
 				}
 			else
 				{
-				out.print("new EndDate("+
+				out.println("new EndDate("+
 					p.endDate.getYear()+","+
 					(p.endDate.getMonth()==null?"null,null":
 					p.endDate.getMonth()+","+p.endDate.getDayOfMonth())+
 					"),");
 				}
-			out.print("deathPlace:"+quote(p.get("place_of_death"))+",");
+			out.println("deathPlace:"+quote(p.get("place_of_death"))+",");
 			
-			out.print("knownFor:"+quote(p.getArray("knownFor"))+",");
-			out.print("img:"+quote(p.iconFile==null?null:p.iconFile.getName()));
+			out.println("knownFor:"+quote(p.getArray("knownFor"))+",");
+			out.println("img:"+quote(p.iconFile==null?null:p.iconFile.getName())+",");
+			out.print("awards:[");
+			for(int k=0;k< p.awards.size();++k)
+				{
+				if(k>0) out.print(",");
+				out.print(quote(p.awards.elementAt(k).name));
+				}
+			out.println("]");
 			out.println("}");
 			}
 		out.println("];");
@@ -645,6 +694,53 @@ public class Metaweb01 {
 		out.flush();
 		out.close();
 		
+		//as infoboxes for wikipedia
+		out= new PrintWriter(new FileWriter(new File(this.tmpFolder,"infoboxes_en.txt")));
+		for(Person o:this.persons)
+			{
+			//print URL
+			out.println("http://en.wikipedia.org/wiki/"+
+					URLEncoder.encode(o.getName().replace(' ', '_'),"UTF-8"));
+			out.println();
+			out.println("{{Infobox Scientist");
+			out.println("|name              = "+ o.getName());
+			out.println("|box_width         =" );
+			out.println("|image             = "+("Female".equals(o.getGender())?"Replace_this_image_female.svg":"Replace_this_image_male.svg"));
+			out.println("|image_width       = 150px");
+			out.println("|caption           = "+ o.getName());
+			out.println("|birth_date        = "+(o.startDate==null?"":o.startDate.toWikipedia("en")));
+			out.println("|birth_place       = "+(o.getBirthPlace()==null?"":"[["+o.getBirthPlace()+"]]"));
+			out.println("|death_date        = "+(o.endDate==null?"":o.endDate.toWikipedia("en")));
+			out.println("|death_place       = "+(o.getDeathPlace()==null?"":"[["+o.getDeathPlace()+"]]"));
+			out.println("|residence         = ");
+			out.println("|citizenship       = ");
+			out.print("|nationality       =");for(String s:o.getArray("nationality")) out.print(" [["+s+"]]"); out.println();
+			out.println("|ethnicity         = ");
+			out.print("|field             = ");for(String s:o.getArray("profession")) out.print(" [["+s+"]]"); out.println();
+			out.println("|work_institutions = ");
+			out.println("|alma_mater        = ");
+			out.println("|doctoral_advisor  = ");
+			out.println("|doctoral_students = ");
+			out.print("|known_for         = ");for(String s:o.getArray("knownFor")) out.print(" [["+s+"]]"); out.println();
+			out.println("|author_abbrev_bot = ");
+			out.println("|author_abbrev_zoo = ");
+			out.println("|influences        = ");
+			out.println("|influenced        = ");
+			out.print("|prizes            =");for(Award s:o.awards)
+					{
+					out.print(" [["+s.name+"]]"); 
+					if(s.year!=null) out.print(" in [["+s.year+"]]");
+					}out.println();
+			out.println("|footnotes         = ");
+			out.println("|signature         =");
+			out.println("}}");
+			
+			out.println();
+			out.println();
+			}
+		out.flush();
+		out.close();
+		
 		//as ical
 		out= new PrintWriter(new FileWriter(new File(this.tmpFolder,"history.ical")));
 		out.println("BEGIN:VCALENDAR");
@@ -667,7 +763,7 @@ public class Metaweb01 {
 			out.println("RRULE:FREQ=YEARLY;WKST=SU");
 			out.println("UID:"+o.getID()+(side==0?"b":"d")+"@freebase.com");
 			out.println("DESCRIPTION:"+title);
-			out.println("LOCATION:"+(place==null?null:C.escape(side==0?o.get("birthPlace"):o.get("deathPlace"))));
+			out.println("LOCATION:"+(place==null?null:C.escape(side==0?o.getBirthPlace():o.getDeathPlace())));
 			if(o.iconFile!=null) out.println("X-GOOGLE-CALENDAR-CONTENT-ICON:"+this.baseURL+o.iconFile.getName());
 			
 			out.println("END:VEVENT");
@@ -766,6 +862,12 @@ public class Metaweb01 {
     	
     	}
     
+    private static class Award
+    	{
+    	String name;
+    	Integer year;
+    	}
+    
     private static class Place
     	{
     	double longitude;
@@ -785,7 +887,7 @@ public class Metaweb01 {
     	EndDate endDate=null;
     	File iconFile=null;
     	int y=0;
-    	
+    	Vector<Award> awards= new Vector<Award>(1);
     	@Override
     	public int compareTo(Person o)
     		{
@@ -828,6 +930,20 @@ public class Metaweb01 {
     		{
     		return get("name");
     		}
+    	
+    	public String getGender()
+			{
+			return get("gender");
+			}
+    	public String getBirthPlace()
+			{
+	    	return get("place_of_birth");
+			}
+    	
+    	public String getDeathPlace()
+			{
+	    	return get("place_of_death");
+			}
     	
     	public String getHTML()
     		{
@@ -991,6 +1107,31 @@ private String escape(String s)
 				{
 				
 				}
+			else if(type.equals("/award/award_winner"))
+				{
+				JSONItem q4 =query("{\"id\":\""+person.get("guid")+"\",\"awards_won\":[{\"*\":null}],\"type\":\""+type+"\"}");
+				JSONItem i5=q4.find("qname1.result.awards_won");
+				
+				if(i5!=null && i5.isArray())
+					{
+					for(JSONItem i6: i5.asArray())
+						{
+						
+						if(i6==null || !i6.isObject()) continue;
+						
+						JSONObject i7=i6.asObject();
+						JSONItem i8= i7.get("award");
+						String awardName= (i8!=null && i8.isString()?i8.asString():null);
+						if(awardName==null) continue;
+						i8= i7.get("year");
+						Integer year= (i8!=null && i8.isConstant()?new Integer(i8.asString()):null);
+						Award award= new Award();
+						award.name=awardName;
+						award.year=year;
+						person.awards.addElement(award);
+						}
+					}
+				}
 			else
 				{
 				System.err.println("Type not handled "+type);
@@ -1110,6 +1251,8 @@ private String escape(String s)
 					System.err.println(" -c <string> metaweb cookie");
 					System.err.println(" -u <string> base url");
 					System.err.println(" -g <string> google analytics id");
+					System.err.println(" -n <int> number of person to be fetched (optional)");
+					System.err.println(" -H hide requests messages");
 					return;
 					}
 				else if(args[optind].equals("-d"))
@@ -1127,6 +1270,14 @@ private String escape(String s)
 				else if(args[optind].equals("-g"))
 					{
 					app.urchinID= args[++optind];
+					}
+				else if(args[optind].equals("-n"))
+					{
+					app.limitNumberOfPerson= Integer.parseInt( args[++optind]);
+					}
+				else if(args[optind].equals("-H"))
+					{
+					app.echoRequest= false;
 					}
 				else if(args[optind].equals("--"))
 					{

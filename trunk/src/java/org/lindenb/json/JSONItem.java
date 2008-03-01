@@ -68,6 +68,7 @@ public abstract class JSONItem
 		{
 		return isConstant(String.class);
 		}
+	///return true if value can be casted as number
 	public boolean isNumber()
 		{
 		return isConstant(Number.class);
