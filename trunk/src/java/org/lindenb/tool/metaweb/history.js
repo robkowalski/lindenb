@@ -309,7 +309,7 @@ pileup:function()
 			}
 		}
 	if(MY.minDate==null || MY.maxDate==null) return;
-	
+	/*
 	var nLine=-1;
 	while(remains.length>0)
 		{
@@ -339,7 +339,7 @@ pileup:function()
 			remains.splice(bestIndex,1);
 			}
 		}
-	
+	*/
 	var timeline=document.getElementById("timeline");
 	MY.removeAllChild(timeline);
 	var MARGIN=2;
@@ -349,8 +349,8 @@ pileup:function()
 		var o= persons[i];
 		var stack= document.createElementNS(XUL.NS,"stack");
 		var style="top:"+Math.round(o.y*(HEIGHT+10))+"px;"+
-			"left:"+Math.round(MY.x1(o))+"px;"+
-			"width:"+Math.round(MY.x2(o)-MY.x1(o))+"px;"+
+			"left:"+Math.round(o.x1)+"px;"+
+			"width:"+Math.round(o.x2-o.x1)+"px;"+
 			"height:"+Math.round(HEIGHT)+"px;"+
 			"background-color:black;"+
 			"color:white;"+

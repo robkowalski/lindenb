@@ -30,6 +30,7 @@ import java.util.regex.Pattern;
 
 import javax.imageio.ImageIO;
 
+import org.lindenb.io.IOUtils;
 import org.lindenb.json.JSONBuilder;
 import org.lindenb.json.JSONItem;
 import org.lindenb.json.JSONObject;
@@ -619,7 +620,9 @@ public class Metaweb01 {
 			out.println("name:"+quote(p.getName())+",");
 			out.println("guid:"+quote(p.getID())+",");
 			out.println("gender:"+quote(p.get("gender"))+",");
-			out.println("y:0,");
+			out.println("x1:"+p.x1()+",");
+			out.println("x2:"+p.x2()+",");
+			out.println("y:"+p.y+",");
 			out.println("node:null,");
 			out.println("selected:true,");
 			out.println("nationality:"+quote(p.getArray("nationality"))+",");
@@ -698,9 +701,25 @@ public class Metaweb01 {
 		out= new PrintWriter(new FileWriter(new File(this.tmpFolder,"infoboxes_en.txt")));
 		for(Person o:this.persons)
 			{
+			String wikipediaurl="http://en.wikipedia.org/wiki/"+
+			URLEncoder.encode(o.getName().replace(' ', '_'),"UTF-8");
+			
+			try {
+				String s = IOUtils.getURLContent(new URL(
+					"http://en.wikipedia.org/w/index.php?title="+
+					URLEncoder.encode(o.getName().replace(' ', '_'),"UTF-8")+
+					"&action=edit"));
+				s=s.toLowerCase().replaceAll("[ ]", "_");
+				if(s.contains("infobox_scientist") ||
+					s.contains("infobox_person")) continue;
+				
+				} 
+			catch (Exception e) {
+				e.printStackTrace();
+				}
+			
 			//print URL
-			out.println("http://en.wikipedia.org/wiki/"+
-					URLEncoder.encode(o.getName().replace(' ', '_'),"UTF-8"));
+			out.println(wikipediaurl);
 			out.println();
 			out.println("{{Infobox Scientist");
 			out.println("|name              = "+ o.getName());
@@ -714,28 +733,29 @@ public class Metaweb01 {
 			out.println("|death_place       = "+(o.getDeathPlace()==null?"":"[["+o.getDeathPlace()+"]]"));
 			out.println("|residence         = ");
 			out.println("|citizenship       = ");
-			out.print("|nationality       =");for(String s:o.getArray("nationality")) out.print(" [["+s+"]]"); out.println();
+			out.print("|nationality       =");for(String s:o.getArray("nationality")) out.print(", [["+s+"]]"); out.println();
 			out.println("|ethnicity         = ");
-			out.print("|field             = ");for(String s:o.getArray("profession")) out.print(" [["+s+"]]"); out.println();
+			out.print("|field             = ");for(String s:o.getArray("profession")) out.print(", [["+s+"]]"); out.println();
 			out.println("|work_institutions = ");
 			out.println("|alma_mater        = ");
 			out.println("|doctoral_advisor  = ");
 			out.println("|doctoral_students = ");
-			out.print("|known_for         = ");for(String s:o.getArray("knownFor")) out.print(" [["+s+"]]"); out.println();
+			out.print("|known_for         = ");for(String s:o.getArray("knownFor")) out.print(", [["+s+"]]"); out.println();
 			out.println("|author_abbrev_bot = ");
 			out.println("|author_abbrev_zoo = ");
 			out.println("|influences        = ");
 			out.println("|influenced        = ");
 			out.print("|prizes            =");for(Award s:o.awards)
 					{
-					out.print(" [["+s.name+"]]"); 
-					if(s.year!=null) out.print(" in [["+s.year+"]]");
+					out.print(", [["+s.name+"]]"); 
+					if(s.year!=null) out.print("([["+s.year+"]])");
 					}out.println();
 			out.println("|footnotes         = ");
 			out.println("|signature         =");
 			out.println("}}");
 			
 			out.println();
+			out.println("============================================================");
 			out.println();
 			}
 		out.flush();
@@ -1010,7 +1030,7 @@ public class Metaweb01 {
     
 private int getScreenWidthInPixel()
 	{
-	return 3000;
+	return 15000;
 	}
 
 private double convertDate2Pixel(StartDate d)
@@ -1156,13 +1176,13 @@ private String escape(String s)
     	JSONObject geoloc= i.asObject();
     	if(!(geoloc.containsKey("longitude") && geoloc.containsKey("latitude")))
 			{
-			System.err.println("Cannot get lon/lat");
+			if(isDebugging()) System.err.println("Cannot get lon/lat");
 			return null;
 			}
     	Place coord= new Place();
     	coord.longitude= geoloc.get("longitude").asDouble();
     	coord.latitude= geoloc.get("latitude").asDouble();
-    	System.err.println("ok found "+coord);
+    	//System.err.println("ok found "+coord);
     	return coord;
     	}
     
@@ -1189,7 +1209,7 @@ private String escape(String s)
     	JSONItem item=root.find(path);
     	if(item==null ||  !item.isString())
     		{
-    		System.err.println("Cannot get "+path +" in "+root);
+    		if(isDebugging()) System.err.println("Cannot get "+path +" in "+root);
     		return null;
     		}
     	return item.toString();
@@ -1200,7 +1220,7 @@ private String escape(String s)
     	JSONItem item=root.find(path);
     	if(item==null ||  !item.isArray())
     		{
-    		System.err.println("Cannot get "+path +" in "+root);
+    		if(isDebugging()) System.err.println("Cannot get "+path +" in "+root);
     		return null;
     		}
     	Vector<String> array=new Vector<String>(item.asArray().size());

@@ -25,6 +25,16 @@ public class IOUtils
 		return w.toString();
 		}
 	
+	public static String getURLContent(URL url) throws IOException
+		{
+		StringWriter w= new StringWriter();
+		InputStreamReader r=new InputStreamReader(url.openStream());
+		copyTo(r,w);
+		r.close();
+		return w.toString();
+		}
+	
+	
 	public static void copyTo(InputStream in, OutputStream out) throws IOException
 		{
 		byte buffer[]=new byte[2048];
