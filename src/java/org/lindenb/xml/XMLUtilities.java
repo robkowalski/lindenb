@@ -117,7 +117,15 @@ public static Element firstChild(Node root)
 /** return Collection over child elements */
 public static Collection<Element> elements(Node parent)
 	{
-	return elements(parent,null,null);
+	Vector<Element> v= new Vector<Element>();
+	for(Node c=parent.getFirstChild();c!=null;c=c.getNextSibling())
+		{
+		if(c.getNodeType()==Node.ELEMENT_NODE)
+			{
+			v.addElement( Element.class.cast(c));
+			}
+		}
+	return v;
 	}
 
 /**
