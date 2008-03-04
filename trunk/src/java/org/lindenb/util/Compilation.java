@@ -12,6 +12,7 @@ private Compilation()
 	{
 	
 	}
+static public String getName() { return "?";}
 static public String getDate() { return "__DATE__";}
 static public String getUser() { return "__USER__";}
 static public String getPath() { return "__PWD__";}
