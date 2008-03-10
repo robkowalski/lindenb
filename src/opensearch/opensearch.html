@@ -1,0 +1,51 @@
+<html>
+<head>
+<title>Custom Search Engines</title>
+<link 	rel="search"
+	type="application/opensearchdescription+xml"
+	title="Search dbSNP" 
+	href="dbsnp.xml"
+	/>
+<link 	rel="search"
+	type="application/opensearchdescription+xml"
+	title="Search UCSC hg18" 
+	href="hg18.xml"
+	/>
+
+<link 	rel="search"
+	type="application/opensearchdescription+xml"
+	title="Search Connotea" 
+	href="connotea.xml"
+	/>
+<link 	rel="search"
+	type="application/opensearchdescription+xml"
+	title="Search Hapmap" 
+	href="hapmap.xml"
+	/>
+</head>
+<script type= "text/javascript">
+function add(name)
+ {
+ name=location.href.substr(0,location.href.length-location.pathname.length)+"/"+name;
+ if (window.external && ("AddSearchProvider" in window.external))
+	{
+	window.external.AddSearchProvider(name);
+  	}
+ else
+	{
+        // No search engine support (IE 6, Opera, etc).
+        alert("Cannot add engine support");
+        }
+}
+
+</script>
+<body>
+This page contains links to custom search engines.
+<ul>
+<li><a href="javascript:add('dbsnp.xml');">dbsnp</a>: Search dbSNP</li>
+<li><a href="javascript:add('hg18.xml');">hg18</a>: Search UCSC Genome Browser Human Genome hg18</li>
+<li><a href="javascript:add('connotea.xml');">Connotea</a>: Search Connotea</li>
+<li><a href="javascript:add('hapmap.xml');">Hapmap</a>: Search Hapmap Build 36</li>
+</ul>
+</body>
+</html>
