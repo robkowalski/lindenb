@@ -27,7 +27,7 @@
  </target>
 
  
- <target name="all" depends="pubmed2wikipedia,scifoaf,pivot,freebase,connotea2delicious">
+ <target name="all" depends="pubmed2wikipedia,scifoaf,pivot,freebase,connotea2delicious,xul4wikipedia">
  </target>
 
 <target name="tango" depends="declare-ant-tasks">
@@ -163,6 +163,42 @@
 	 <delete dir="build/compile"/>
  </target>
  <!-- ================================================================= -->
+ 
+ 
+ <!-- XUL4WIKIPEDIA -->
+ <target name="xul4wikipedia" depends="declare-ant-tasks">
+	 <mkdir dir="build/compile"/>
+	 
+	 <copy todir="build/compile" includeEmptyDirs="false">
+		 <fileset dir="src/java"/>
+	 </copy>
+	 
+	 <wget  url="http://upload.wikimedia.org/wikipedia/commons/thumb/6/63/Wikipedia-logo.png/32px-Wikipedia-logo.png"
+		todir="build/compile/org/lindenb/tool/xul4wikipedia"
+		/>
+	 
+	 <compileInfoTask name="xul2wikipedia" package="org.lindenb.util" dir="build/compile"/>
+	 <javac srcdir="build/compile"
+		destdir="build/compile"
+		debug="true"
+		source="1.6"
+		target="1.6">
+		 <include name="**/xul4wikipedia/XUL4Wikipedia.java"/>
+	 </javac>
+	 
+	 <delete includeEmptyDirs="true">
+		 <fileset dir="build/compile" includes="**/*.java"/>
+	 </delete>
+	 <jar destfile="build/xul2wikipedia.jar"
+	      basedir="build/compile">
+		 <manifest>
+			 <attribute name="Main-Class" value="org.lindenb.tool.xul4wikipedia.XUL4Wikipedia"/>
+		 </manifest>
+	 </jar>
+	 <delete dir="build/compile"/>
+ </target>
+ <!-- ================================================================= -->
+ 
  
  <!-- ================================================================= -->
  <target name="scifoaf" depends="declare-ant-tasks">

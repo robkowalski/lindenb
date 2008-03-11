@@ -1,0 +1,120 @@
+<menu>
+<menu-item label="Citation">
+{{Citation
+ | last =
+ | first =
+ | author-link =
+ | last2 =
+ | first2 =
+ | author2-link =
+ | publication-date =
+ | date =
+ | year =
+ | title =
+ | edition =
+ | volume =
+ | series =
+ | publication-place =
+ | place =
+ | publisher =
+ | pages =
+ | page =
+ | id =
+ | isbn =
+ | doi =
+ | oclc =
+ | url =
+ | accessdate =
+}}
+</menu-item>
+
+<menu label="People">
+	<menu label="Images">
+		<menu-item label="Man">[[Image:Replace_this_image_male.svg]]</menu-item>
+		<menu-item label="Woman">[[Image:Replace_this_image_female.svg]]</menu-item>
+		<menu-item label="Nobel Prize">[[Image:Nobel prize medal.svg|20px]]</menu-item>
+	</menu>
+	<menu-item label="Birth Date">{{Birth date|YYYY|M|D}}</menu-item>
+	<menu-item label="Death Date">{{Death date|YYYY|M|D}}</menu-item>
+	<menu-item label="Person">
+{{Infobox Person
+|name          = 
+|image         = Replace_this_image_male.svg
+|image_size    = 150px
+|caption       = 
+|birth_name    = 
+|birth_date    = 
+|birth_place   = 
+|death_date    = 
+|death_place   = 
+|death_cause   = 
+|resting_place = 
+|resting_place_coordinates = 
+|residence     = 
+|nationality   = 
+|other_names   = 
+|known_for     = 
+|education     = 
+|employer      = 
+|occupation    = 
+|home_town     = 
+|title         = 
+|salary        = 
+|networth      = 
+|height        = 
+|weight        = 
+|term          = 
+|predecessor   = 
+|successor     = 
+|party         = 
+|boards        = 
+|religion      = 
+|spouse        = 
+|partner       = 
+|children      = 
+|parents       = 
+|relatives     = 
+|signature     = 
+|website       = 
+|footnotes     = 
+}}
+	</menu-item>
+	<menu-item label="Scientist">
+{{Infobox Scientist
+|name              = 
+|box_width         =
+|image             =Image:Replace_this_image_male.svg 
+|image_width       =150px
+|caption           = 
+|birth_date        = 
+|birth_place       = 
+|death_date        = 
+|death_place       = 
+|residence         = 
+|citizenship       = 
+|nationality       = 
+|ethnicity         = 
+|field             = 
+|work_institutions = 
+|alma_mater        = 
+|doctoral_advisor  = 
+|doctoral_students = 
+|known_for         = 
+|author_abbrev_bot = 
+|author_abbrev_zoo = 
+|influences        = 
+|influenced        = 
+|prizes            = 
+|religion          = 
+|footnotes         = 
+|signature         =
+}}
+	</menu-item>
+</menu>
+
+<menu label="Countries">
+ <menu-item label="Switzerland">[[Image:Flag of Switzerland.svg|20px|]] [[Switzerland]]</menu-item>
+</menu>
+
+
+</menu>
