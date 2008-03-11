@@ -1,0 +1,3 @@
+content	xul4wikipedia	chrome/content/
+overlay	chrome://browser/content/browser.xul	chrome://xul4wikipedia/content/menu.xul
+skin	xul4wikipedia classic/1.0 chrome/skin/

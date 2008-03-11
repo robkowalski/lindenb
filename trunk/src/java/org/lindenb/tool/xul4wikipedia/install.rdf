@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:em="http://www.mozilla.org/2004/em-rdf#">
+
+  <rdf:Description about="urn:mozilla:install-manifest">
+    <!-- my extension ID -->
+    <em:id>xul4wikipedia@plindenbaum.com</em:id>
+    <!-- version -->
+    <em:version>2.0</em:version>
+    <!-- this is a firefox extension -->
+    <em:type>2</em:type>
+   
+    <em:targetApplication>
+      <rdf:Description>
+	<!-- this is for firefox  -->
+        <em:id>{ec8030f7-c20a-464f-9b0e-13a3a9e97384}</em:id>
+	<!-- min/max firefox  version -->
+        <em:minVersion>2.0</em:minVersion>
+        <em:maxVersion>2.0.0.*</em:maxVersion>
+      </rdf:Description>
+    </em:targetApplication>
+   
+    <!-- name -->
+    <em:name>Wikipedia Edit Helper!</em:name>
+    <!-- description -->
+    <em:description>An Extension for inserting Templates or text in Wikipedia</em:description>
+    <!-- author -->
+    <em:creator>Pierre Lindenbaum</em:creator>
+    <!-- contact -->
+    <em:homepageURL>http://plindenbaum.blogspot.com</em:homepageURL>
+    <!-- icon -->
+    <em:iconURL>chrome://xul4wikipedia/skin/wikipedia.png</em:iconURL>
+  </rdf:Description>      
+</rdf:RDF>
+

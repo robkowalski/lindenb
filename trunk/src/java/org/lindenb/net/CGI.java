@@ -93,6 +93,18 @@ public class CGI
 		return params.toArray(new Param[params.size()]);
 		}
 	
+	/** find simple parameter and return its value as a String */
+	public String getString(String key)
+		{
+		Param p= getParameter(key);
+		if(p==null) return null;
+		if(p instanceof Parameter)
+			{
+			return Parameter.class.cast(p).getValue();
+			}
+		return null;
+		}
+	
 	public Param getParameter(String key)
 		{
 		for(Param p:this.parameters)
@@ -110,7 +122,7 @@ public class CGI
 		}
 	
 	
-	
+	/** par the HTTP request */
 	public void parse() throws IOException
 		{
 		String requestMethod=null;
