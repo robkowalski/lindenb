@@ -3,22 +3,42 @@
 <style>
 .error {
 	color:white;
-	background:red;
+	background-color:red;
 	}
 textarea {
 	color:white;
-	background:black;
+	background-color:black;
+	width: 600px;
+    height: 500px;
+    border: 3px solid #cccccc;
+    padding: 5px;
+    font-family: Courier;
 	}
 </style>
 <title></title>
 </head>
 <body>
 <h1>XUL4Wikipedia</h1>
-<h3>Pierre Lindenbaum 2008</h3>
+<h3>Pierre Lindenbaum PhD 2008</h3>
+
+<div>
+<b>XUL4Wikipedia</b> creates an <a href="https://addons.mozilla.org/">extension</a> on the fly for <a href="http://www.mozilla.com/firefox/">firefox</a>.
+The extension appends some custom items in the contextual popup menu.
+Each of those items inserts a custom text for <a href="http://en.wikipedia.org">wikipedia</a> when editing a page, for example a <a href="http://en.wikipedia.org/wiki/Template:Infobox_Person">Template:Infobox Person</a>.
+<b>XUL4Wikipedia</b> uses a simple XML syntax with two elements.
+<ul>
+<li><b>&lt;menu&gt;</b> is the root of the document. A &lt;menu&gt; contains some other &lt;menu&gt; or some &lt;menu-item&gt;. A &lt;menu&gt; should have an attribute <b>label</b> </li>
+<li><b>&lt;menu-item&gt;</b> is the child of a &lt;menu&gt;. A menu-item must have an attribute label. A menu-item contains the text to be inserted in wikipedia.</li>
+</ul>
+<div>__ERROR__</div>
+</div>
 <form method="POST" action="__ACTION__">
 <textarea name="xml">__MENU_SAMPLE__</textarea><br/>
 <input type="submit"/>
 </form>
+<div>Save the file to your desktop. Then, open up a fresh firefox browser, and position it so you can drag the downloaded file into the main area of firefox (it can be dropped anywhere, and the cursor will slightly change).
+This should initiate the install of the extension
+</div>
 <hr/>
 <div>__ABOUT__</about>
 __URCHIN__

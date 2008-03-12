@@ -177,7 +177,7 @@
 		todir="build/compile/org/lindenb/tool/xul4wikipedia"
 		/>
 	 
-	 <compileInfoTask name="xul2wikipedia" package="org.lindenb.util" dir="build/compile"/>
+	 <compileInfoTask name="xul4wikipedia" package="org.lindenb.util" dir="build/compile"/>
 	 <javac srcdir="build/compile"
 		destdir="build/compile"
 		debug="true"
@@ -189,7 +189,7 @@
 	 <delete includeEmptyDirs="true">
 		 <fileset dir="build/compile" includes="**/*.java"/>
 	 </delete>
-	 <jar destfile="build/xul2wikipedia.jar"
+	 <jar destfile="build/xul4wikipedia.jar"
 	      basedir="build/compile">
 		 <manifest>
 			 <attribute name="Main-Class" value="org.lindenb.tool.xul4wikipedia.XUL4Wikipedia"/>
