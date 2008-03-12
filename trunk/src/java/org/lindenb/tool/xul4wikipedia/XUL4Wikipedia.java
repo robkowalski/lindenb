@@ -22,19 +22,17 @@ import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
+/**
+ * XUL4Wikipedia
+ *
+ */
 public class XUL4Wikipedia
-{
-private static long ID_GENERATOR=System.currentTimeMillis();
-
-private static class AsCGI
 	{
-	private CGI cgi= new CGI();
+	private static long ID_GENERATOR=System.currentTimeMillis();
 	private String action="";
 	private String urchin=null;
-	public AsCGI()
-		{
-		
-		}
+
+
 	private void echoForm(String msg,String menu)
 		{
 		String html =ResourceUtils.getContent(XUL4Wikipedia.class, "form.html","");
@@ -56,20 +54,20 @@ private static class AsCGI
 		System.out.flush();
 		}
 	
-	private void run()
+	private void cgiRun()
 		{
-		
-		this.cgi.setContentMaxLength(1024*10);
+		CGI cgi= new CGI();
+		cgi.setContentMaxLength(1024*10);
 		try 
 			{
-			this.cgi.parse();
+			cgi.parse();
 			}
 		catch(IOException err)
 			{
 			echoForm(err.getMessage(),null);
 			return;
 			}
-		String xml=this.cgi.getString("xml");
+		String xml= cgi.getString("xml");
 		if(xml==null)
 			{
 			echoForm(null,null);
@@ -89,63 +87,20 @@ private static class AsCGI
 			echoForm(err.getMessage(),xml);
 			return;
 			}
-		System.out.println("Content-type:application/x-xpinstall");
-		System.out.println("Content-Disposition: inline; filename=xul4wikipedia.xpi");
-		System.out.println("Content-Transfer-Encoding: binary\n");
-		System.out.println();
+	
+		//System.out.print("Content-type: application/x-xpinstall\n");
+		// 
+		System.out.print("Content-type: application/octet-stream\n");
+		System.out.print("Content-Disposition: inline; filename=xul4wikipedia.xpi\n");
+		System.out.print("Content-Length: "+xpi.length+"\n");
+		System.out.print("Content-Transfer-Encoding: binary\n");
+		System.out.print("Cache-Control: no-cache\n");
+		System.out.print("Pragma: no-cache\n");
+		System.out.print("\n");
 		System.out.write(xpi, 0, xpi.length);
 		System.out.flush();
 		}
 	
-	public static void main(String args[])
-		{
-		main(0,args);
-		}
-	public static void main(int optind,String args[])
-		{
-		AsCGI app= new AsCGI();
-		
-        while (optind < args.length)
-           {
-           if (args[optind].equals("-h"))
-                   {
-           			System.err.println(Compilation.getLabel());
-           			System.err.println("-u urchin");
-           			System.err.println("-a action");
-                   return;
-                   }
-           else if (args[optind].equals("-u"))
-               {
-           	   app.urchin=args[++optind];      
-               }
-           else if (args[optind].equals("-a"))
-	           {
-	       	   app.action=args[++optind];      
-	           }
-           else if (args[optind].equals("--"))
-               {
-               ++optind;
-               break;
-               }
-           else if (args[optind].startsWith("-"))
-               {
-               System.err.println("bad argument " + args[optind]);
-               System.exit(-1);
-               }
-           else
-               {
-               break;
-               }
-           ++optind;
-           }
-       if(optind!=args.length)
-               {
-       		System.err.println("wrong number of arguments");
-       		System.exit(-1);
-               }
-		app.run();
-		}
-	}
 
 private XUL4Wikipedia()
 	{
@@ -362,6 +317,7 @@ public static void main(String args[])
                 {
                 XUL4Wikipedia main= new XUL4Wikipedia();
                  int optind=0;
+                 boolean runAsCGI=false;
                  String xpiFileName=null;
                  while (optind < args.length)
 	                {
@@ -370,35 +326,56 @@ public static void main(String args[])
 	                		System.err.println(Compilation.getLabel());
 	                		System.err.println("-cgi run as CGI (must be the first arg)");
 		                	System.err.println("-h this screen");
-		                	System.err.println("-o xpi file name");
+		                	System.err.println("-o xpi file name (required)");
+		                	System.err.println("-u urchin google code for cgi (optional)");
+		           			System.err.println("-a action for cgi form" );
 	                        System.err.println("<xml file>");
 	                        return;
 	                        }
-	                else if (args[optind].equals("-cgi") && optind==0)
+	                else if (args[optind].equals("-cgi"))
 		                {
-		                AsCGI.main(++optind,args);
-	                	return;
+	                	runAsCGI=true;
 		                }
 	                else if (args[optind].equals("-o"))
 		                {
 	                	xpiFileName=args[++optind];      
 		                }
+	                else if (args[optind].equals("-u"))
+	                	{
+	                	main.urchin=args[++optind];      
+	                	}
+	                else if (args[optind].equals("-a"))
+	                	{
+	                	main.action=args[++optind];      
+	 	           		}
 	                else if (args[optind].equals("--"))
-	                        {
-	                        ++optind;
-	                        break;
-	                        }
+                        {
+                        ++optind;
+                        break;
+                        }
 	                else if (args[optind].startsWith("-"))
-	                        {
-	                        System.err.println("bad argument " + args[optind]);
-	                        System.exit(-1);
-	                        }
+                        {
+                        System.err.println("bad argument " + args[optind]);
+                        System.exit(-1);
+                        }
 	                else
-	                        {
-	                        break;
-	                        }
+                        {
+                        break;
+                        }
 	                ++optind;
 	                }
+                 
+                 if(runAsCGI)
+	             	{
+	             	if(optind!=args.length)
+		                	{
+		                	System.err.println("XUL4Wikipedia: wrong number of arguments");
+		            		System.exit(-1);
+		                	}
+	             	main.cgiRun();
+	             	return;
+	             	}
+                 
                 if(xpiFileName==null)
 	                 {
 	         		 System.err.println("xpi filename undefined");
@@ -409,11 +386,13 @@ public static void main(String args[])
 	        		 System.err.println("xpi filename "+xpiFileName+" sould end with xpi");
 	        		 System.exit(-1);
 	                }
+                
+               
                 if(optind+1!=args.length)
-                        {
-                		System.err.println("XUL4Wikipedia: wrong number of arguments");
-                		System.exit(-1);
-                        }
+                    {
+            		System.err.println("XUL4Wikipedia: wrong number of arguments");
+            		System.exit(-1);
+                    }
                 BufferedReader in= new BufferedReader(new FileReader(args[optind++]));
                 FileOutputStream fout= new FileOutputStream(xpiFileName);
                 main.run(in,fout);
