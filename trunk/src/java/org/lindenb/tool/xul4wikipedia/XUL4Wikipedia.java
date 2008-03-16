@@ -37,18 +37,19 @@ public class XUL4Wikipedia
 		{
 		String html =ResourceUtils.getContent(XUL4Wikipedia.class, "form.html","");
 		if(menu==null) menu= ResourceUtils.getContent(XUL4Wikipedia.class, "menu.xml","");
-		html=html.replaceFirst("__MENU_SAMPLE__",XMLUtilities.escape(menu)).
+		html=html.replaceFirst("__MENU_SAMPLE__",(menu==null?"":XMLUtilities.escape(menu))).
 					replaceAll("__ABOUT__",XMLUtilities.escape( Compilation.getLabel())). 
 					replaceAll("__URCHIN__",(urchin==null?"":"<script src=\"http://www.google-analytics.com/urchin.js\" type=\"text/javascript\">"+
 							"</script>"+
 							"<script type=\"text/javascript\">"+
-							"_uacct = \""+urchin+"\";"+
+							"_uacct = \""+XMLUtilities.escape(urchin)+"\";"+
 							"urchinTracker();"+
 							"</script>")).
 					replaceAll("__ACTION__",(action==null?"":action)).
 					replaceAll("__ERROR__",(msg==null?"":"<div class='error'>"+XMLUtilities.escape(msg)+"</div>"))
 					;
 		System.out.println("Content-type:text/html");
+		System.out.print("Content-Length: "+html.length()+"\n");
 		System.out.println();
 		System.out.print(html);
 		System.out.flush();
@@ -57,13 +58,14 @@ public class XUL4Wikipedia
 	private void cgiRun()
 		{
 		CGI cgi= new CGI();
-		cgi.setContentMaxLength(1024*10);
+		cgi.setContentMaxLength(1024*8);
 		try 
 			{
 			cgi.parse();
 			}
-		catch(IOException err)
+		catch(Throwable err)
 			{
+			cgi=null;
 			echoForm(err.getMessage(),null);
 			return;
 			}
@@ -83,15 +85,14 @@ public class XUL4Wikipedia
 			fout.close();
 			xpi=fout.toByteArray();
 			}
-		catch (Exception err) {
+		catch (Throwable err) {
 			echoForm(err.getMessage(),xml);
 			return;
 			}
 	
-		//System.out.print("Content-type: application/x-xpinstall\n");
-		// 
-		System.out.print("Content-type: application/octet-stream\n");
-		System.out.print("Content-Disposition: inline; filename=xul4wikipedia.xpi\n");
+		System.out.print("Content-type: application/x-xpinstall\n"); 
+		//System.out.print("Content-Disposition: inline; filename=xul4wikipedia.xpi\n");//<---- doesnt work !! ERROR -127
+		System.out.print("Content-Disposition: attachment; filename=xul4wikipedia.xpi\n");
 		System.out.print("Content-Length: "+xpi.length+"\n");
 		System.out.print("Content-Transfer-Encoding: binary\n");
 		System.out.print("Cache-Control: no-cache\n");
@@ -109,7 +110,7 @@ private XUL4Wikipedia()
 private static  abstract class AbstractMenu
 	{
 	String id= String.valueOf("wkpd"+(ID_GENERATOR++));
-	String label;
+	String label="Untitled";
 	AbstractMenu next;
 	public String getId() {
 		return this.id;
@@ -185,9 +186,12 @@ private Menu parseMenu(Element root)throws IOException
 	{
 	if(!root.getNodeName().equals("menu")) throw new IOException("Expected <menu> but found <"+root.getNodeName()+">");
 	Attr att= root.getAttributeNode("label");
-	if(att==null)  throw new IOException("<"+root.getNodeName()+"> is missing attribute \"label\"");
 	Menu menu= new Menu();
-	menu.label= att.getValue();
+	if(att!=null)
+		{
+		menu.label= att.getValue();
+		}
+	
 	
 	for(Node c1= root.getFirstChild();c1!=null;c1=c1.getNextSibling())
 		{
@@ -201,9 +205,11 @@ private Menu parseMenu(Element root)throws IOException
 			{
 			if(!sub.hasChildNodes()) throw new IOException("found empty <"+root.getNodeName()+">");
 			att= sub.getAttributeNode("label");
-			if(att==null)  throw new IOException("<"+sub.getNodeName()+"> is missing attribute \"label\"");
 			MenuItem mi= new MenuItem();
-			mi.label= att.getValue();
+			if(att!=null)
+				{
+				mi.label= att.getValue();
+				}
 			mi.content= sub.getTextContent();
 			menu.addChild(mi);
 			}

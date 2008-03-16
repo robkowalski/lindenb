@@ -169,6 +169,7 @@ public class CGI
 		} catch (Exception e) {
 			throw new IOException("Bad content Length "+contentLength);
 			}
+		if(contentLength<0) throw new IOException("Bad Content");
 		if(contentLength>getContentMaxLength()) throw new IOException("Content too large");
 	 	
 		if(!isMultipart())
