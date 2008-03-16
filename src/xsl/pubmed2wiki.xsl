@@ -30,8 +30,7 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 <xsl:apply-templates select="PubmedArticle"/>
 </xsl:template>
 
-<xsl:template match="PubmedArticle">
-&lt;ref&gt;{{Citation<xsl:apply-templates select=".//PMID"/>
+<xsl:template match="PubmedArticle">&lt;ref&gt;{{Citation<xsl:apply-templates select=".//PMID"/>
 <xsl:apply-templates select=".//AuthorList"/>
 <xsl:apply-templates select=".//PubDate"/>
 <xsl:apply-templates select=".//ArticleTitle"/>
@@ -39,12 +38,7 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 <xsl:apply-templates select=".//ISOAbbreviation"/>
 <xsl:apply-templates select=".//Pagination"/>
 <xsl:apply-templates select=".//ArticleId[@IdType=&apos;doi&apos;]"/>
-}}&lt;/ref&gt;
-<xsl:text>
-
-</xsl:text>
-
-</xsl:template>
+}}&lt;/ref&gt;</xsl:template>
 
 <xsl:template match="PMID">
 |id = PMID:<xsl:value-of select="."/>
