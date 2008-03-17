@@ -48,7 +48,7 @@ public class XUL4Wikipedia
 					replaceAll("__ACTION__",(action==null?"":action)).
 					replaceAll("__ERROR__",(msg==null?"":"<div class='error'>"+XMLUtilities.escape(msg)+"</div>"))
 					;
-		System.out.println("Content-type:text/html");
+		System.out.println("Content-type: text/html");
 		System.out.print("Content-Length: "+html.length()+"\n");
 		System.out.println();
 		System.out.print(html);
