@@ -38,10 +38,10 @@
 	<menu-item label="Death Date">{{Death date|YYYY|M|D}}</menu-item>
 	<menu-item label="Person">
 {{Infobox Person
-|name          = 
+|name          = {{PAGENAME}}
 |image         = Replace_this_image_male.svg
 |image_size    = 150px
-|caption       = 
+|caption       = {{PAGENAME}}
 |birth_name    = 
 |birth_date    = 
 |birth_place   = 
@@ -81,11 +81,11 @@
 	</menu-item>
 	<menu-item label="Scientist">
 {{Infobox Scientist
-|name              = 
+|name              = {{PAGENAME}}
 |box_width         =
 |image             =Replace_this_image_male.svg 
 |image_width       =150px
-|caption           = 
+|caption           = {{PAGENAME}}
 |birth_date        = 
 |birth_place       = 
 |death_date        = 

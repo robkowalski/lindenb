@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.Reader;
+import java.io.StreamTokenizer;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.net.URL;
@@ -16,22 +17,42 @@ import java.util.zip.GZIPInputStream;
 
 public class IOUtils
 	{
-	public static String getFileContent(File file) throws IOException
+	/** @return a representation of a StreamTokenizer  */
+	public static String toString(StreamTokenizer st)
+	    {
+		if(st==null) return "null";
+	    switch(st.ttype)
+	        {
+	        case StreamTokenizer.TT_EOF: return "<EOF>";
+	        case StreamTokenizer.TT_EOL: return "<EOL>";
+	        case StreamTokenizer.TT_NUMBER: return String.valueOf(st.nval)+"(number)";
+	        case StreamTokenizer.TT_WORD: return st.sval+"(word)";
+	        default: return  "'"+((char)st.ttype)+"'(char)";
+	        }
+	    }
+	
+	public static String getReaderContent(Reader r) throws IOException
 		{
 		StringWriter w= new StringWriter();
-		FileReader r=new FileReader(file);
 		copyTo(r,w);
-		r.close();
 		return w.toString();
+		}
+	
+	
+	public static String getFileContent(File file) throws IOException
+		{
+		FileReader r=new FileReader(file);
+		String s=getReaderContent(r);
+		r.close();
+		return s;
 		}
 	
 	public static String getURLContent(URL url) throws IOException
 		{
-		StringWriter w= new StringWriter();
 		InputStreamReader r=new InputStreamReader(url.openStream());
-		copyTo(r,w);
+		String s=getReaderContent(r);
 		r.close();
-		return w.toString();
+		return s;
 		}
 	
 	
