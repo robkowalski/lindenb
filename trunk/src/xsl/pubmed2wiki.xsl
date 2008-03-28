@@ -36,12 +36,15 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 <xsl:apply-templates select=".//ArticleTitle"/>
 <xsl:apply-templates select=".//JournalIssue"/>
 <xsl:apply-templates select=".//ISOAbbreviation"/>
+<xsl:if test="not(.//ISOAbbreviation)"><xsl:call-template name="periodical">
+<xsl:with-param name="J" select=".//Journal/Title"/>
+</xsl:call-template></xsl:if>
 <xsl:apply-templates select=".//Pagination"/>
 <xsl:apply-templates select=".//ArticleId[@IdType=&apos;doi&apos;]"/>
 }}&lt;/ref&gt;</xsl:template>
 
 <xsl:template match="PMID">
-|id = PMID:<xsl:value-of select="."/>
+|id = [[PMID]]:<xsl:value-of select="."/>
 |url= http://www.ncbi.nlm.nih.gov/pubmed/<xsl:value-of select="."/>
 </xsl:template>
 
@@ -78,9 +81,21 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 |title=<xsl:value-of select="."/>
 </xsl:template>
 
-<xsl:template match="ISOAbbreviation">
-|periodical=<xsl:value-of select="."/>
+<xsl:template match="ISOAbbreviation"><xsl:call-template name="periodical">
+<xsl:with-param name="J" select="."/>
+</xsl:call-template>
 </xsl:template>
+
+<xsl:template name="periodical">
+<xsl:param name="J"/>
+|periodical=<xsl:choose>
+<xsl:when test="$J='Science'">[[Science Magazine|Science]]</xsl:when>
+<xsl:when test="$J='Nature'">[[Nature (journal)|Nature]]</xsl:when>
+<xsl:when test="$J='Proc. Natl. Acad. Sci. U.S.A.'">[[PNAS|Proc. Natl. Acad. Sci. U.S.A.]]</xsl:when>
+<xsl:otherwise><xsl:value-of select="$J"/></xsl:otherwise>
+</xsl:choose>
+</xsl:template>
+
 
 
 <xsl:template match="JournalIssue">
