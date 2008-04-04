@@ -27,8 +27,32 @@
  </target>
 
  
- <target name="all" depends="pubmed2wikipedia,scifoaf,pivot,freebase,connotea2delicious,xul4wikipedia">
- </target>
+ <target name="all" depends="pubmed2wikipedia,scifoaf,pivot,freebase,connotea2delicious,xul4wikipedia,krobar">
+</target>
+
+<target name="archive"
+        description="create a tar.gz archive to store the whole projet"
+        >
+        <tar destfile="lindenb.tar">
+         <tarfileset dir="." prefix="lindenb/">
+                <exclude name="**/java/bin/**"/> <!--  eclipse output -->
+                <exclude name="build/**"/>
+                <exclude name="**/CVS/**"/>
+                <exclude name="**/*.class"/>
+                <exclude name="**/*.jar"/>
+                <exclude name="**/*~"/>
+                <exclude name="build"/>
+                <exclude name="lib"/>
+                <exclude name="lib/**"/>
+                <exclude name="**/jeter*"/>
+                <exclude name="lindenb.tar"/>
+                <exclude name="lindenb.tar.gz"/>
+                <exclude name="**/.*"/> <!-- hidden files  -->
+         </tarfileset>
+        </tar>
+        <gzip zipfile="lindenb.tar.gz" src="lindenb.tar"/>
+        <delete file="lindenb.tar"/>
+</target>
 
 <target name="tango" depends="declare-ant-tasks">
   <mkdir dir="build/tango"/>
@@ -37,6 +61,10 @@
   <gunzip src="build/tango/tango-icon-theme-0.8.1.tar.gz"/>
   <untar src="build/tango/tango-icon-theme-0.8.1.tar" dest="build/tango"/>
 </target> 
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
  
  <target name="pubmed2wikipedia" depends="declare-ant-tasks">
 	 <mkdir dir="build/compile"/>
@@ -78,6 +106,11 @@
 	<delete dir="build/compile"/>
  </target>
  
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ 
  <target name="pivot" depends="declare-ant-tasks">
 	 <mkdir dir="build/compile"/>
 	 <mkdir dir="build/compile/images"/>
@@ -104,10 +137,10 @@
 	 </jar>
 	 <delete dir="build/compile"/>
  </target>
- <!-- ================================================================= -->
- 
- 
- <!-- ================================================================= -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
  <target name="freebase" depends="declare-ant-tasks">
 	 <mkdir dir="build/compile"/>
 	 <mkdir dir="build/compile/images"/>
@@ -134,7 +167,10 @@
 	 </jar>
 	 <delete dir="build/compile"/>
  </target>
- <!-- ================================================================= -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
  
  <!-- CONNOTEA 2 DELICIOUS -->
  <target name="connotea2delicious" depends="declare-ant-tasks">
@@ -162,8 +198,10 @@
 	 </jar>
 	 <delete dir="build/compile"/>
  </target>
- <!-- ================================================================= -->
- 
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
  
  <!-- XUL4WIKIPEDIA -->
  <target name="xul4wikipedia" depends="declare-ant-tasks">
@@ -197,10 +235,10 @@
 	 </jar>
 	 <delete dir="build/compile"/>
  </target>
- <!-- ================================================================= -->
- 
- 
- <!-- ================================================================= -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
  <target name="scifoaf" depends="declare-ant-tasks">
 	 <mkdir dir="build/compile"/>
 	 <mkdir dir="build/compile/images"/>
@@ -249,6 +287,40 @@
 	 </jar>
 	 <!-- <delete dir="build/compile"/> -->
  </target>
- <!-- ================================================================= -->
-
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <target name="krobar" depends="declare-ant-tasks">
+	 <mkdir dir="build/compile"/>
+	 <mkdir dir="build/compile/images"/>
+	 <makeSplash title="KROBAR" file="build/compile/images/splash.jpeg"/>
+	 <wget  url="Open24.gif Save24.gif New24.gif Delete24.gif Zoom24.gif Edit24.gif"
+		base="http://java.sun.com/developer/techDocs/hi/repository/graphicsRepository/toolbarButtonGraphics/general/"
+		todir="build/compile/images"
+		/>
+	 
+	 <copy todir="build/compile" includeEmptyDirs="false">
+		 <fileset dir="src/java"/>
+	 </copy>
+	 <compileInfoTask name="Krobar" package="org.lindenb.util" dir="build/compile"/>
+	 <javac srcdir="build/compile"
+		destdir="build/compile"
+		source="1.6"
+		target="1.6">
+		 <include name="**/krobar/Krobar02.java"/>
+	 </javac>
+	 
+	 <delete includeEmptyDirs="true">
+		 <fileset dir="build/compile" includes="**/*.java"/>
+	 </delete>
+	 <jar destfile="build/krobar.jar"
+	      basedir="build/compile">
+		 <manifest>
+			 <attribute name="Main-Class" value="org.lindenb.tool.krobar.Krobar02"/>
+			 <attribute name="SplashScreen-Image" value="images/splash.jpeg"/>
+		 </manifest>
+	 </jar>
+	<delete dir="build/compile"/>
+ </target>
 </project>
