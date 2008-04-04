@@ -72,9 +72,8 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 </xsl:template>
 
 <xsl:template match="PubDate">
-|publication-date=<xsl:value-of select="Year"/><xsl:text> </xsl:text><xsl:value-of select="Month"/><xsl:text> </xsl:text><xsl:value-of select="Day"/> 
-|year=<xsl:value-of select="Year"/>
-</xsl:template>
+|publication-date=<xsl:value-of select="Year"/><xsl:text> </xsl:text><xsl:value-of select="Month"/><xsl:text> </xsl:text><xsl:value-of select="Day"/>
+|year=[[<xsl:value-of select="Year"/>]]</xsl:template>
 
 
 <xsl:template match="ArticleTitle">
@@ -89,8 +88,11 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 <xsl:template name="periodical">
 <xsl:param name="J"/>
 |periodical=<xsl:choose>
+<xsl:when test="$J='JAMA'">[[Journal of the American Medical Association|JAMA]]</xsl:when>
 <xsl:when test="$J='Science'">[[Science Magazine|Science]]</xsl:when>
 <xsl:when test="$J='Nature'">[[Nature (journal)|Nature]]</xsl:when>
+<xsl:when test="$J='Endocrinology'">[[Endocrinology (journal)|Endocrinology]]</xsl:when>
+<xsl:when test="$J='Genetics'">[[Genetics (journal)|Genetics]]</xsl:when>
 <xsl:when test="$J='Proc. Natl. Acad. Sci. U.S.A.'">[[PNAS|Proc. Natl. Acad. Sci. U.S.A.]]</xsl:when>
 <xsl:otherwise><xsl:value-of select="$J"/></xsl:otherwise>
 </xsl:choose>
