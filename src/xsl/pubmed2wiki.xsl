@@ -3,6 +3,7 @@
 	xmlns:xsl='http://www.w3.org/1999/XSL/Transform'
 	version='1.0'
 	>
+<xsl:param name="layout">ref</xsl:param>
 <!--
 
 This stylesheet transforms one or more Pubmed
@@ -30,7 +31,9 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 <xsl:apply-templates select="PubmedArticle"/>
 </xsl:template>
 
-<xsl:template match="PubmedArticle">&lt;ref&gt;{{Citation<xsl:apply-templates select=".//PMID"/>
+
+
+<xsl:template match="PubmedArticle"><xsl:choose><xsl:when test="$layout='ref'">&lt;ref&gt;</xsl:when><xsl:otherwise>*</xsl:otherwise></xsl:choose>{{Citation<xsl:apply-templates select=".//PMID"/>
 <xsl:apply-templates select=".//AuthorList"/>
 <xsl:apply-templates select=".//PubDate"/>
 <xsl:apply-templates select=".//ArticleTitle"/>
@@ -41,7 +44,8 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 </xsl:call-template></xsl:if>
 <xsl:apply-templates select=".//Pagination"/>
 <xsl:apply-templates select=".//ArticleId[@IdType=&apos;doi&apos;]"/>
-}}&lt;/ref&gt;</xsl:template>
+}}<xsl:choose><xsl:when test="$layout='ref'">&lt;/ref&gt;</xsl:when><xsl:otherwise><xsl:text>
+</xsl:text></xsl:otherwise></xsl:choose></xsl:template>
 
 <xsl:template match="PMID">
 |id = [[PMID]]:<xsl:value-of select="."/>
@@ -93,6 +97,7 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 <xsl:when test="$J='Nature'">[[Nature (journal)|Nature]]</xsl:when>
 <xsl:when test="$J='Endocrinology'">[[Endocrinology (journal)|Endocrinology]]</xsl:when>
 <xsl:when test="$J='Genetics'">[[Genetics (journal)|Genetics]]</xsl:when>
+<xsl:when test="$J='Lancet'">[[Lancet]]</xsl:when>
 <xsl:when test="$J='Proc. Natl. Acad. Sci. U.S.A.'">[[PNAS|Proc. Natl. Acad. Sci. U.S.A.]]</xsl:when>
 <xsl:otherwise><xsl:value-of select="$J"/></xsl:otherwise>
 </xsl:choose>
