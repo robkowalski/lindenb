@@ -93,7 +93,7 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 <xsl:param name="J"/>
 |periodical=<xsl:choose>
 <xsl:when test="$J='JAMA'">[[Journal of the American Medical Association|JAMA]]</xsl:when>
-<xsl:when test="$J='Science'">[[Science Magazine|Science]]</xsl:when>
+<xsl:when test="$J='Science'">[[Science (journal)|Science]]</xsl:when>
 <xsl:when test="$J='Nature'">[[Nature (journal)|Nature]]</xsl:when>
 <xsl:when test="$J='Endocrinology'">[[Endocrinology (journal)|Endocrinology]]</xsl:when>
 <xsl:when test="$J='Genetics'">[[Genetics (journal)|Genetics]]</xsl:when>
