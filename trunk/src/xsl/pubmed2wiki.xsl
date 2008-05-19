@@ -98,7 +98,11 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 
 
 <xsl:template match="ArticleTitle">
-|title=<xsl:value-of select="."/>
+|title=<xsl:choose>
+<xsl:when test="substring(.,string-length(.))='.'">
+<xsl:value-of select="substring(.,1,string-length(.)-1)"/></xsl:when>
+<xsl:otherwise><xsl:value-of select="."/></xsl:otherwise>
+</xsl:choose>
 </xsl:template>
 
 <xsl:template match="ISOAbbreviation"><xsl:call-template name="periodical">
