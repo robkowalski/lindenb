@@ -33,23 +33,44 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 
 
 
-<xsl:template match="PubmedArticle"><xsl:choose><xsl:when test="$layout='ref'">&lt;ref&gt;</xsl:when><xsl:otherwise>*</xsl:otherwise></xsl:choose>{{Citation<xsl:apply-templates select=".//PMID"/>
+<xsl:template match="PubmedArticle"><xsl:choose><xsl:when test="$layout='ref'">&lt;ref&gt;</xsl:when><xsl:otherwise>*</xsl:otherwise></xsl:choose>{{cite journal
+| quotes = no
 <xsl:apply-templates select=".//AuthorList"/>
 <xsl:apply-templates select=".//PubDate"/>
 <xsl:apply-templates select=".//ArticleTitle"/>
-<xsl:apply-templates select=".//JournalIssue"/>
 <xsl:apply-templates select=".//ISOAbbreviation"/>
 <xsl:if test="not(.//ISOAbbreviation)"><xsl:call-template name="periodical">
 <xsl:with-param name="J" select=".//Journal/Title"/>
 </xsl:call-template></xsl:if>
+<xsl:apply-templates select=".//JournalIssue"/>
 <xsl:apply-templates select=".//Pagination"/>
+| publisher = 
+| location = 
+| issn = 
+<xsl:apply-templates select=".//PMID"/>
 <xsl:apply-templates select=".//ArticleId[@IdType=&apos;doi&apos;]"/>
-}}<xsl:choose><xsl:when test="$layout='ref'">&lt;/ref&gt;</xsl:when><xsl:otherwise><xsl:text>
+| bibcode = 
+| oclc =
+| id = 
+| url = 
+| language = 
+| format = 
+| accessdate = 
+| laysummary = 
+| laysource = 
+| laydate = 
+| quote = 
+ }}<xsl:choose><xsl:when test="$layout='ref'">&lt;/ref&gt;</xsl:when><xsl:otherwise><xsl:text>
 </xsl:text></xsl:otherwise></xsl:choose></xsl:template>
 
-<xsl:template match="PMID">
-|id = [[PMID]]:<xsl:value-of select="."/>
-|url= http://www.ncbi.nlm.nih.gov/pubmed/<xsl:value-of select="."/>
+
+
+
+
+
+
+
+<xsl:template match="PMID">| pmid = <xsl:value-of select="."/>
 </xsl:template>
 
 <xsl:template match="ArticleId[@IdType=&apos;doi&apos;]">
@@ -57,27 +78,23 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 </xsl:template>
 
 <xsl:template match="AuthorList">
-<xsl:if  test="Author[1]">
-|last=<xsl:value-of select="Author[1]/LastName"/>
+<xsl:if test="count(Author)&gt;0">|last=<xsl:value-of select="Author[1]/LastName"/>
 |first=<xsl:value-of select="Author[1]/ForeName"/>
+|authorlink=</xsl:if>
+<xsl:if test="count(Author)&gt;1">
+|coauthors=<xsl:for-each select="Author">
+<xsl:if test="position()&gt;1">
+<xsl:value-of select="LastName"/><xsl:text> </xsl:text><xsl:value-of select="ForeName"/>
+<xsl:if test="position()!=last()"><xsl:text>, </xsl:text></xsl:if>
 </xsl:if>
-<xsl:if  test="Author[2]">
-|last2=<xsl:value-of select="Author[2]/LastName"/>
-|first2=<xsl:value-of select="Author[2]/ForeName"/>
-</xsl:if>
-<xsl:if  test="Author[3]">
-|last3=<xsl:value-of select="Author[3]/LastName"/>
-|first3=<xsl:value-of select="Author[3]/ForeName"/>
-</xsl:if>
-<xsl:if  test="Author[4]">
-|last4=<xsl:value-of select="Author[4]/LastName"/>
-|first4=<xsl:value-of select="Author[4]/ForeName"/>
+</xsl:for-each>
 </xsl:if>
 </xsl:template>
 
 <xsl:template match="PubDate">
-|publication-date=<xsl:value-of select="Year"/><xsl:text> </xsl:text><xsl:value-of select="Month"/><xsl:text> </xsl:text><xsl:value-of select="Day"/>
-|year=[[<xsl:value-of select="Year"/>]]</xsl:template>
+|year=<xsl:value-of select="Year"/>
+|month=<xsl:value-of select="Month"/>
+</xsl:template>
 
 
 <xsl:template match="ArticleTitle">
@@ -91,7 +108,7 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 
 <xsl:template name="periodical">
 <xsl:param name="J"/>
-|periodical=<xsl:choose>
+|journal=<xsl:choose>
 <xsl:when test="$J='JAMA'">[[Journal of the American Medical Association|JAMA]]</xsl:when>
 <xsl:when test="$J='Science'">[[Science (journal)|Science]]</xsl:when>
 <xsl:when test="$J='Nature'">[[Nature (journal)|Nature]]</xsl:when>
