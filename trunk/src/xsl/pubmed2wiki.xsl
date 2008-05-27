@@ -34,7 +34,7 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 
 
 <xsl:template match="PubmedArticle"><xsl:choose><xsl:when test="$layout='ref'">&lt;ref&gt;</xsl:when><xsl:otherwise>*</xsl:otherwise></xsl:choose>{{cite journal
-| quotes = no
+| quotes = yes
 <xsl:apply-templates select=".//AuthorList"/>
 <xsl:apply-templates select=".//PubDate"/>
 <xsl:apply-templates select=".//ArticleTitle"/>
@@ -44,22 +44,10 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 </xsl:call-template></xsl:if>
 <xsl:apply-templates select=".//JournalIssue"/>
 <xsl:apply-templates select=".//Pagination"/>
-| publisher = 
-| location = 
-| issn = 
+| publisher = | location = | issn = 
 <xsl:apply-templates select=".//PMID"/>
 <xsl:apply-templates select=".//ArticleId[@IdType=&apos;doi&apos;]"/>
-| bibcode = 
-| oclc =
-| id = 
-| url = 
-| language = 
-| format = 
-| accessdate = 
-| laysummary = 
-| laysource = 
-| laydate = 
-| quote = 
+| bibcode = | oclc =| id = | url = | language = | format = | accessdate = | laysummary = | laysource = | laydate = | quote = 
  }}<xsl:choose><xsl:when test="$layout='ref'">&lt;/ref&gt;</xsl:when><xsl:otherwise><xsl:text>
 </xsl:text></xsl:otherwise></xsl:choose></xsl:template>
 
@@ -92,7 +80,7 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 </xsl:template>
 
 <xsl:template match="PubDate">
-|year=<xsl:value-of select="Year"/>
+|year=[[<xsl:value-of select="Year"/>]]
 |month=<xsl:value-of select="Month"/>
 </xsl:template>
 
