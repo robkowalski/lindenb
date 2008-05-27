@@ -6,22 +6,42 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:h="http://www.w3.org/1999/xhtml"
  >
+<!--
 
+This stylesheet transforms a blast xml result to XHTML+SVG
+
+Author: Pierre Lindenbaum PhD plindenbaum@yahoo.fr
+
+
+-->
+<!-- ========================================================================= -->
 <xsl:output method='xml' indent='yes' omit-xml-declaration="no"/>
-
+<!-- we preserve the spaces in that element -->
 <xsl:preserve-space elements="svg:style h:style" />
 
+<!-- ========================================================================= -->
+<!-- the width of the SVG -->
 <xsl:variable name="svg-width">800</xsl:variable>
+<!-- height of a HSP -->
 <xsl:variable name="hsp-height">10</xsl:variable>
+<!-- total number of Hits in first blast iteration -->
 <xsl:variable name="hit-count"><xsl:value-of select="count(BlastOutput/BlastOutput_iterations/Iteration[1]/Iteration_hits/Hit)"/></xsl:variable>
+<!-- total number of HSP in first blast iteration -->
 <xsl:variable name="hsp-count"><xsl:value-of select="count(BlastOutput/BlastOutput_iterations/Iteration[1]/Iteration_hits/Hit/Hit_hsps/Hsp)"/></xsl:variable>
-
+<!-- query length (bases or amino acids ) -->
 <xsl:variable name="query-length"><xsl:value-of select="BlastOutput/BlastOutput_query-len"/></xsl:variable>
+<!-- margin between two hits -->
 <xsl:variable name="space-between-hits"><xsl:value-of select="3* $hsp-height"/></xsl:variable>
+<!-- height of all hits -->
 <xsl:variable name="hits-height"><xsl:value-of select="$hsp-count * $hsp-height + ($hit-count + 1) * $space-between-hits"/></xsl:variable>
+<!-- size of the top header -->
 <xsl:variable name="header-height">50</xsl:variable>
 
+<!-- ========================================================================= -->
+
+<!-- matching the root node -->
 <xsl:template match="/">
+<!-- start XHTML -->
 <h:html>
 <h:head>
 	<h:style type="text/css">
@@ -49,6 +69,8 @@
 </h:div>
 <h:hr/>
 <h:div style="text-align:center">
+
+<!-- starts SVG figure -->
 <xsl:element name="svg:svg">
 <xsl:attribute name="version">1.0</xsl:attribute>
 <xsl:attribute name="width"><xsl:value-of select="$svg-width"/></xsl:attribute>
@@ -126,16 +148,19 @@ rect.hit	{
   
  <xsl:apply-templates select="BlastOutput"/>
 </xsl:element>
+<!-- end SVG figure -->
+
 </h:div>
 <h:hr/>
  <xsl:apply-templates select="BlastOutput/BlastOutput_param/Parameters"/>
 <h:hr/>
-<h:p><h:b>SVG</h:b> figure generated with <h:b>blast2svg</h:b> <h:a href="http://plindenbaum.blogspot.com">Pierre Lindenbaum PhD</h:a> <h:i>( plindenbaum at yahoo dot fr )</h:i></h:p>
+<h:p><h:b>SVG</h:b> figure generated with <h:a href="http://code.google.com/p/lindenb/source/browse/trunk/src/xsl/blast2svg.xsl">blast2svg</h:a>. <h:a href="http://plindenbaum.blogspot.com">Pierre Lindenbaum PhD</h:a> <h:i>( plindenbaum at yahoo dot fr )</h:i></h:p>
 
 </h:body>
 </h:html>
 </xsl:template>
-
+<!-- ========================================================================= -->
+<!-- display parameters in a HTML table -->
 <xsl:template match="Parameters">
 <h:div>
 <h:h3>Parameters</h:h3>
@@ -150,7 +175,10 @@ rect.hit	{
 </h:div>
 </xsl:template>
 
+
+<!-- ========================================================================= -->
 <xsl:template match="BlastOutput">
+  <!-- paint header -->
   <svg:g>
 	<xsl:element name="svg:rect">
 	<xsl:attribute name="x">0</xsl:attribute>
@@ -171,18 +199,22 @@ rect.hit	{
 <xsl:apply-templates select="BlastOutput_iterations/Iteration[1]/Iteration_hits"/>
 </xsl:template> 
 
-
+<!-- ========================================================================= -->
 
 <xsl:template match="Iteration_hits">
   <xsl:apply-templates select="Hit"/>
 </xsl:template> 
 
-
+<!-- ========================================================================= -->
 
 <xsl:template match="Hit">
+    <!-- count number of preceding hits -->
     <xsl:variable name="preceding-hits"><xsl:value-of select="count(preceding-sibling::Hit)"/></xsl:variable>
+     <!-- count number of preceding hsp -->
     <xsl:variable name="preceding-hsp"><xsl:value-of select="count(preceding-sibling::Hit/Hit_hsps/Hsp)"/></xsl:variable>
+    <!-- calculate hieght of this part -->
     <xsl:variable name="height"><xsl:value-of select="count(Hit_hsps/Hsp)*$hsp-height"/></xsl:variable>
+    <!-- translate this part verticaly -->
     <xsl:element name="svg:g">
       <xsl:attribute name="transform">translate(0,<xsl:value-of select="$header-height + $preceding-hsp * $hsp-height + ($preceding-hits + 1) * $space-between-hits "/>)</xsl:attribute>
       <xsl:attribute name="id">hit-<xsl:value-of select="generate-id(.)"/></xsl:attribute>
@@ -214,6 +246,8 @@ rect.hit	{
     </xsl:element>
 </xsl:template>
 
+<!-- ========================================================================= -->
+<!-- draw vertical lines , recursive template -->
 <xsl:template name="grid">
 	<xsl:param name="x" select="0" />
 	<xsl:param name="d" select="20" />
@@ -230,13 +264,14 @@ rect.hit	{
 	</xsl:if>
 </xsl:template>
 
+<!-- ========================================================================= -->
 
 <xsl:template match="Hit_hsps">
   <xsl:apply-templates select="Hsp"/>
 </xsl:template>
 
 
-
+<!-- ========================================================================= -->
 <xsl:template match="Hsp">
 <!-- number of previous hsp in the same Hit -->
 <xsl:variable name="preceding-hsp"><xsl:value-of select="count(preceding-sibling::Hsp)"/></xsl:variable>
@@ -259,15 +294,19 @@ rect.hit	{
   <xsl:when test="Hsp_query-from &lt; Hsp_query-to">+</xsl:when>
   <xsl:otherwise>-</xsl:otherwise></xsl:choose>) e=<xsl:value-of select="Hsp_evalue"/></xsl:variable>
   
+  <!-- translate this Hsp verticaly in its Hit -->
    <xsl:element name="svg:g">
       <xsl:attribute name="transform">translate(0,<xsl:value-of select="$preceding-hsp * $hsp-height"/>)</xsl:attribute>
       <xsl:attribute name="id">hsp-<xsl:value-of select="generate-id(.)"/></xsl:attribute>
       <xsl:attribute name="title"><xsl:value-of select="Hsp_evalue"/></xsl:attribute>
+      
+         <!-- paint the Hsp Rectangle -->
 	 <xsl:element name="svg:rect">
 	   <xsl:attribute name="x"><xsl:value-of select="$x1"/></xsl:attribute>
 	   <xsl:attribute name="y">2</xsl:attribute>
 	   <xsl:attribute name="width"><xsl:value-of select="$x2 - $x1"/></xsl:attribute>
 	   <xsl:attribute name="height"><xsl:value-of select="$hsp-height - 4"/></xsl:attribute>
+	   <!-- choose a color according to the e-value -->
 	   <xsl:attribute name="fill"><xsl:choose>
 	       <xsl:when test="Hsp_evalue &lt; 1E-100">url(#score1)</xsl:when>
 	       <xsl:when test="Hsp_evalue &lt; 1E-10">url(#score2)</xsl:when>
@@ -277,6 +316,7 @@ rect.hit	{
 	     </xsl:choose></xsl:attribute>
 	 </xsl:element>
 	 
+	 <!-- paint the label according to the position of the Hsp on screen  -->
 	 <xsl:choose>
 	 	<xsl:when test="$x2 &lt; (0.75 * $svg-width)">
 			<xsl:element name="svg:text">
@@ -306,9 +346,10 @@ rect.hit	{
 			</xsl:element>
 		</xsl:otherwise>
          </xsl:choose>
+         
     </xsl:element>
 </xsl:template>
-
+<!-- ========================================================================= -->
 
 
 </xsl:stylesheet>
