@@ -1,0 +1,10 @@
+Sort pubmed articles on impact factors
+
+= Introduction =
+
+
+
+= Details =
+* use the impact factors from http://www.eigenfactor.org/
+* 
+* compiled data at http://services.alphaworks.ibm.com/manyeyes/data/SSwHPOsOtha6vBkzdTsQO2~
