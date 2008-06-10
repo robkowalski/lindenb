@@ -30,12 +30,14 @@
 
 <menu label="People">
 	<menu label="Images">
-		<menu-item label="Man">[[Image:Replace_this_image_male.svg]]</menu-item>
-		<menu-item label="Woman">[[Image:Replace_this_image_female.svg]]</menu-item>
+		<menu-item label="Man">Replace_this_image_male.svg</menu-item>
+		<menu-item label="Woman">Replace_this_image_female.svg</menu-item>
 		<menu-item label="Nobel Prize">[[Image:Nobel prize medal.svg|20px]]</menu-item>
 	</menu>
 	<menu-item label="Birth Date">{{Birth date|YYYY|M|D}}</menu-item>
 	<menu-item label="Death Date">{{Death date|YYYY|M|D}}</menu-item>
+	<menu-item label="sort">{{DEFAULTSORT:FAMILY, FIRST}}</menu-item>
+	<menu-item label="Quote">{{Quote|Phrase|{{PAGENAME}}|''Source''}}</menu-item>
 	<menu-item label="Person">
 {{Infobox Person
 |name          = {{PAGENAME}}
@@ -77,9 +79,48 @@
 |signature     = 
 |website       = 
 |footnotes     = 
-}}
-	</menu-item>
-	<menu-item label="Scientist">
+}}</menu-item>
+<menu-item label="Architect">
+{{Infobox Architect
+|image                =Replace_this_image_male.svg 
+|image_size           = 150px
+|caption              = {{PAGENAME}}
+|name                 = {{PAGENAME}}
+|nationality          = 
+|birth_date           = 
+|birth_place          = 
+|death_date           = 
+|death_place          = 
+|alma_matter          =
+|practice_name        = 
+|significant_buildings= 
+|significant_projects = 
+|significant_design   = 
+|awards               = 
+}}</menu-item>	
+<menu-item label="Engineer">{{Infobox Engineer
+|image                =Replace_this_image_male.svg 
+|image_size           = 150px
+|caption              = {{PAGENAME}}
+|name                 = {{PAGENAME}}
+|nationality          = 
+|birth_date           = 
+|birth_place          = 
+|death_date           = 
+|death_place          = 
+|education            =
+|spouse               =
+|parents              =
+|children             =
+|discipline           =
+|institutions         =
+|practice_name        =  
+|significant_projects = 
+|significant_design   = 
+|significant_advance  =
+|significant_awards   = 
+}}</menu-item>
+<menu-item label="Scientist">
 {{Infobox Scientist
 |name              = {{PAGENAME}}
 |box_width         =
@@ -108,13 +149,30 @@
 |religion          = 
 |footnotes         = 
 |signature         =
-}}
-	</menu-item>
+}}</menu-item>
 </menu>
 
 <menu label="Countries">
- <menu-item label="Switzerland">[[Image:Flag of Switzerland.svg|20px|]] [[Switzerland]]</menu-item>
+<menu-item label="United Kingdom">[[United Kingdom]]</menu-item>
+<menu-item label="Germany">[[Germany]]</menu-item>
+ <menu-item label="France">[[France]]</menu-item>
+ <menu-item label="Switzerland"> [[Switzerland]]</menu-item>
+ <menu-item label="Spain">[[Spain]]</menu-item>
+ <menu-item label="Italy">[[Italy]]</menu-item>
+ <menu-item label="Russia">[[Russia]]</menu-item>
+ <menu-item label="Canada">[[Canada]]</menu-item>
+ <menu-item label="Austria">[[Austria]]</menu-item>
+ <menu-item label="United States">[[United States]]</menu-item>
 </menu>
-
+<menu label="Stubs &amp; Categories">
+	<menu-item label="inventor/engineer-stub">{{Engineer-stub}}</menu-item>
+	<menu-item label="biologist-stub">{{biologist-stub}}</menu-item>
+	<menu-item label="Biochemist-stub">{{Biochemist-stub}}</menu-item>
+	<menu-item label="Botanist_stubs">{{Botanist-stub}}</menu-item>
+	<menu-item label="Mycologist-stub">{{Mycologist-stub}}</menu-item>
+	<menu-item label="zoologist-stub">{{zoologist-stub}}</menu-item>
+	<menu-item label="geneticist-stub">{{geneticist-stub}}</menu-item>
+	<menu-item label="paleontologist-stub">{{paleontologist-stub}}</menu-item>
+</menu>	
 
 </menu>

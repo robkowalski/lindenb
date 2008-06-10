@@ -113,5 +113,41 @@ public class IOUtils
 		return new BufferedReader(new FileReader(file));
 		}
 
+	/** flush a stream without throwing an exception */
+	public static void safeFlush(OutputStream out)
+		{
+		if(out==null) return;
+		try { out.flush(); } catch(IOException err) {}
+		}
+	/** flush a writer without throwing an  exception */
+	public static void safeFlush(Writer out)
+		{
+		if(out==null) return;
+		try { out.flush(); } catch(IOException err) {}
+		}
 	
-}
+	/** close a stream without throwing an exception */
+	public static void safeClose(OutputStream out)
+		{
+		if(out==null) return;
+		try { out.close(); } catch(IOException err) {}
+		}
+	/** close a writer without throwing an  exception */
+	public static void safeClose(Writer out)
+		{
+		if(out==null) return;
+		try { out.close(); } catch(IOException err) {}
+		}
+	/** close a stream without throwing an exception */
+	public static void safeClose(InputStream in)
+		{
+		if(in==null) return;
+		try { in.close(); } catch(IOException err) {}
+		}
+	/** close a writer without throwing an  exception */
+	public static void safeClose(Reader in)
+		{
+		if(in==null) return;
+		try { in.close(); } catch(IOException err) {}
+		}
+	}
