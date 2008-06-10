@@ -2,7 +2,6 @@ package org.lindenb.tinytools;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Comparator;
@@ -67,7 +66,7 @@ private static Element find(Element root,String childName)
 	n1!=null;
 	n1=n1.getNextSibling())
 		{
-		if(!(	n1.getNodeType()==Node.ELEMENT_NODE ||
+		if(!(	n1.getNodeType()==Node.ELEMENT_NODE &&
 				n1.getNodeName().equals(childName))) continue;
 		return Element.class.cast(n1);
 		}
@@ -104,10 +103,11 @@ public Document sort(Document doc)
 		Element medlineJournalInfo= find(medlineCitation,"MedlineJournalInfo");
 		Element nlmUniqueID = find(medlineJournalInfo,"NlmUniqueID");
 
+		if(nlmUniqueID!=null)
+			{
+			pubmedArticle.impact= getImpactFromNlmId(nlmUniqueID.getTextContent().trim());
+			}
 	
-		pubmedArticle.impact= getImpactFromNlmId(nlmUniqueID.getTextContent().trim());
-
-			
 		articles.addElement(pubmedArticle);
 		root.removeChild(curr);
 		curr=next;
@@ -129,6 +129,9 @@ public Document sort(Document doc)
 		{
 		root.appendChild(pubmedArticle.domElement);
 		}
+	
+	
+	
 	return doc;
 		
 	
@@ -151,7 +154,7 @@ private static Map<String,Float> readScoreFile(BufferedReader in) throws IOExcep
 			{
 			nlmId_col=i;
 			}
-		else if(tokens[i].toLowerCase().equals("score"))
+		else if(tokens[i].toLowerCase().equals("eigenfactor"))
 			{
 			score_col=i;
 			}
@@ -168,7 +171,8 @@ private static Map<String,Float> readScoreFile(BufferedReader in) throws IOExcep
 			continue;
 			}
 		try {
-			map.put(tokens[nlmId_col].trim(),new Float( tokens[score_col]));
+			Float n= new Float( tokens[score_col]);
+			if(n!=null && n.floatValue()>=0) map.put(tokens[nlmId_col].trim(),n);
 			} 
 		catch (NumberFormatException e) {
 			throw new IOException("Error in score file in "+line,e);
@@ -187,9 +191,10 @@ public static void main(String[] args) {
 	        if(args[optind].equals("-h"))
 	           {
 	        	System.err.println(Compilation.getLabel());
-	        	System.err.println("This program sort the articles in a pubmed-xml file on the impact factor of their journals.");
+	        	System.err.println("This program sort the articles in a pubmed-xml file on the impact factor of their journals."+
+	        				"Default values from http://www.eigenfactor.org/ with permission.");
 	        	System.err.println("\t-h this screen");
-	        	System.err.println("\t-f score file (may be an url) , tab delimited, header contains \"nlmid\" and \"score\"<optional>");
+	        	System.err.println("\t-f score file (may be an url) , tab delimited, header contains \"nlmid\" and \"eigenfactor\" (<optional>)");
 	        	System.err.println("xml-file");
 	        	System.err.println();
 				return;
@@ -227,11 +232,7 @@ public static void main(String[] args) {
     		r.close();
     		}
     	
-    	if(optind+1!=args.length)
-    		{
-    		System.err.println("XML file is missing.");
-    		System.exit(-1);
-    		}
+    	
     	
     	//create a xml reader and parse the file
 		DocumentBuilderFactory factory=DocumentBuilderFactory.newInstance();
@@ -243,7 +244,25 @@ public static void main(String[] args) {
 		factory.setValidating(false);
 		factory.setXIncludeAware(false);
 		DocumentBuilder builder= factory.newDocumentBuilder();
-		Document doc=builder.parse(new File(args[optind]));
+		Document doc=null;
+		
+		//parse stdin
+		if(args.length==optind)
+			{
+			doc= builder.parse(System.in);
+			}
+		//parse file
+		else if(optind+1==args.length)
+			{
+			doc=builder.parse(new File(args[optind]));
+			}
+		//too much files
+		else
+			{
+			System.err.println("Illegal number of arguments");
+			System.exit(-1);
+			}
+		
 		
 		//sort the articles
 		ImpactFactorSorter sorter= new ImpactFactorSorter(map);
@@ -256,6 +275,7 @@ public static void main(String[] args) {
 	catch (Exception e)
 		{
 		e.printStackTrace();
+		System.exit(-1);
 		}
 	}
 }

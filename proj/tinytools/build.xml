@@ -34,6 +34,8 @@
  <target name="sortpubmed" depends="declare-ant-tasks">
 	 <mkdir dir="${compiledir}"/>
 	 
+	 
+	 
 	 <copy todir="${compiledir}" includeEmptyDirs="false">
 		 <fileset dir="src"/>
 		 <fileset dir="${rootdir}/src/java">
@@ -47,8 +49,16 @@
 		dir="${compiledir}"
 		/>
 	 
+	 <exec executable="wget">
+		 <arg value="-nc"/>
+		 <arg value="-O"/>
+		 <arg value="${compiledir}/org/lindenb/tinytools/eigenfactors.xls"/>
+		 <arg  value="http://services.alphaworks.ibm.com/manyeyes/static-resources/data/89ade5ae1a6d3f1e011a7387e9ff037b.txt"/>
+	 </exec>
+	 
 	 <javac srcdir="${compiledir}"
 		destdir="${compiledir}"
+		debug="true"
 		source="1.6"
 		target="1.6">
 		 <include name="**/tinytools/ImpactFactorSorter.java"/>
@@ -66,7 +76,7 @@
 				/>
 		 </manifest>
 	 </jar>
-	 <delete dir="${compiledir}"/>
+	<!-- <delete dir="${compiledir}"/> -->
  </target>
  
 </project>
