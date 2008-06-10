@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="lindenb" default="all">
+ <property environment="env"/><!-- prefix for environnement properties -->
+ <property name="derby.lib" value="${env.JAVA_HOME}/db/lib"/>
+ <property name="rootdir" value="../.."/>
+ <property name="builddir" value="${rootdir}/build"/>
+ <property name="compiledir" value="${builddir}/compile"/>
+
+
+<target name="all" depends="sortpubmed">
+</target>
+
+ <target name="build-ant-tasks">
+	 <mkdir dir="${builddir}/ant"/>
+	 <javac destdir="${builddir}/ant">
+	 <src path="${rootdir}/src/java"/>
+	  <include name="org/lindenb/ant/*.java"/>
+	</javac>
+ </target>
+
+ <target name="declare-ant-tasks" depends="build-ant-tasks">
+    <taskdef name="compileInfoTask"
+        	 classname="org.lindenb.ant.CompileInfoTask"
+        	 classpath="../../build/ant"/>
+ </target>
+
+
+ 
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ 
+ <target name="sortpubmed" depends="declare-ant-tasks">
+	 <mkdir dir="${compiledir}"/>
+	 
+	 <copy todir="${compiledir}" includeEmptyDirs="false">
+		 <fileset dir="src"/>
+		 <fileset dir="${rootdir}/src/java">
+			 <filename name="**/*.java"/>
+		 </fileset>
+	 </copy>
+	 
+	 <compileInfoTask
+		name="SortPubmed"
+		package="org.lindenb.util"
+		dir="${compiledir}"
+		/>
+	 
+	 <javac srcdir="${compiledir}"
+		destdir="${compiledir}"
+		source="1.6"
+		target="1.6">
+		 <include name="**/tinytools/ImpactFactorSorter.java"/>
+	 </javac>
+	 
+	 <delete includeEmptyDirs="true">
+		 <fileset dir="${compiledir}" includes="**/*.java"/>
+	 </delete>
+	 <jar destfile="../../build/sortpubmed.jar"
+	      basedir="${compiledir}">
+		 <manifest>
+			 <attribute
+				name="Main-Class"
+				value="org.lindenb.tinytools.ImpactFactorSorter"
+				/>
+		 </manifest>
+	 </jar>
+	 <delete dir="${compiledir}"/>
+ </target>
+ 
+</project>

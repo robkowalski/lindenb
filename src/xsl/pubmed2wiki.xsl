@@ -24,11 +24,26 @@ Author: Pierre Lindenbaum PhD.
 plindenbaum@yahoo.fr 
 http://en.wikipedia.org/wiki/User:Plindenbaum
 --&gt;
+<xsl:text>
+
+
+
+</xsl:text>
 <xsl:apply-templates/>
 </xsl:template>
 
 <xsl:template match="PubmedArticleSet">
+<xsl:if test="$layout!='ref'"><xsl:text>
+
+&lt;div class=&apos;references-small&apos;&gt;
+
+
+</xsl:text></xsl:if>
 <xsl:apply-templates select="PubmedArticle"/>
+<xsl:if test="$layout!='ref'"><xsl:text>
+
+&lt;/div&gt;
+</xsl:text></xsl:if>
 </xsl:template>
 
 
@@ -80,8 +95,7 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 </xsl:template>
 
 <xsl:template match="PubDate">
-|year=[[<xsl:value-of select="Year"/>]]
-|month=<xsl:value-of select="Month"/>
+|year=[[<xsl:value-of select="Year"/>]]|month=<xsl:value-of select="Month"/>.
 </xsl:template>
 
 
@@ -90,8 +104,7 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 <xsl:when test="substring(.,string-length(.))='.'">
 <xsl:value-of select="substring(.,1,string-length(.)-1)"/></xsl:when>
 <xsl:otherwise><xsl:value-of select="."/></xsl:otherwise>
-</xsl:choose>
-</xsl:template>
+</xsl:choose></xsl:template>
 
 <xsl:template match="ISOAbbreviation"><xsl:call-template name="periodical">
 <xsl:with-param name="J" select="."/>
@@ -109,7 +122,7 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 <xsl:when test="$J='Lancet'">[[The_Lancet|Lancet]]</xsl:when>
 <xsl:when test="$J='Proc. Natl. Acad. Sci. U.S.A.'">[[PNAS|Proc. Natl. Acad. Sci. U.S.A.]]</xsl:when>
 <xsl:when test="$J='Journal of the Royal Society of Medicine'">[[Journal of the Royal Society of Medicine]]</xsl:when>
-<xsl:otherwise><xsl:value-of select="$J"/></xsl:otherwise>
+<xsl:otherwise>[[<xsl:value-of select="$J"/>]]</xsl:otherwise>
 </xsl:choose>
 </xsl:template>
 
