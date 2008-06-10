@@ -44,6 +44,8 @@ private static class PubmedArticle
 
 /** map nlim-id to impact factor */
 private Map<String, Float> nlmid2impact;
+/** insert a new element score in the journalInfo */
+private boolean insertElementScore=false;
 
 public ImpactFactorSorter(Map<String, Float> nlmid2impact)
 	{
@@ -106,6 +108,13 @@ public Document sort(Document doc)
 		if(nlmUniqueID!=null)
 			{
 			pubmedArticle.impact= getImpactFromNlmId(nlmUniqueID.getTextContent().trim());
+			if(this.insertElementScore &&
+				pubmedArticle.impact>=0f)
+				{
+				Element scoreElement= doc.createElement("Score");
+				medlineJournalInfo.appendChild(scoreElement);
+				scoreElement.appendChild(doc.createTextNode(String.valueOf(pubmedArticle.impact)));
+				}
 			}
 	
 		articles.addElement(pubmedArticle);
@@ -186,6 +195,7 @@ public static void main(String[] args) {
 	try {
 		String scoreFile=null;
 		int optind=0;
+		boolean insertElementScore=false;
     	while(optind<args.length)
 	        {
 	        if(args[optind].equals("-h"))
@@ -194,6 +204,7 @@ public static void main(String[] args) {
 	        	System.err.println("This program sort the articles in a pubmed-xml file on the impact factor of their journals."+
 	        				"Default values from http://www.eigenfactor.org/ with permission.");
 	        	System.err.println("\t-h this screen");
+	        	System.err.println("\t-s insert a new node <Score> in the <MedlineJournalInfo>");
 	        	System.err.println("\t-f score file (may be an url) , tab delimited, header contains \"nlmid\" and \"eigenfactor\" (<optional>)");
 	        	System.err.println("xml-file");
 	        	System.err.println();
@@ -202,6 +213,10 @@ public static void main(String[] args) {
 	        else if(args[optind].equals("-f"))
 	        	{
 	        	scoreFile= args[++optind];
+	        	}
+	        else if(args[optind].equals("-s"))
+	        	{
+	        	insertElementScore=!insertElementScore;
 	        	}
 	        else if(args[optind].equals("--"))
 	            {
@@ -266,6 +281,7 @@ public static void main(String[] args) {
 		
 		//sort the articles
 		ImpactFactorSorter sorter= new ImpactFactorSorter(map);
+		sorter.insertElementScore= insertElementScore;
 		doc=sorter.sort(doc);
 		
 		//echo the document using an empty xslt document
