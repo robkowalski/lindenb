@@ -36,7 +36,8 @@
 	</menu>
 	<menu-item label="Birth Date">{{Birth date|YYYY|M|D}}</menu-item>
 	<menu-item label="Death Date">{{Death date|YYYY|M|D}}</menu-item>
-	<menu-item label="sort">{{DEFAULTSORT:FAMILY, FIRST}}</menu-item>
+	<menu-item label="Sort">{{DEFAULTSORT:FAMILY, FIRST}}</menu-item>
+	<menu-item label="Request Photo">{{Reqphoto}}</menu-item>
 	<menu-item label="Quote">{{Quote|Phrase|{{PAGENAME}}|''Source''}}</menu-item>
 	<menu-item label="Person">
 {{Infobox Person
@@ -100,7 +101,7 @@
 }}</menu-item>	
 <menu-item label="Engineer">{{Infobox Engineer
 |image                =Replace_this_image_male.svg 
-|image_size           = 150px
+|image_width           = 150px
 |caption              = {{PAGENAME}}
 |name                 = {{PAGENAME}}
 |nationality          = 
@@ -125,14 +126,13 @@
 |name              = {{PAGENAME}}
 |box_width         =
 |image             =Replace_this_image_male.svg 
-|image_width       =150px
+|image_size       =150px
 |caption           = {{PAGENAME}}
 |birth_date        = 
 |birth_place       = 
 |death_date        = 
 |death_place       = 
-|residence         = 
-|citizenship       = 
+|residence  = |citizenship = 
 |nationality       = 
 |ethnicity         = 
 |field             = 
@@ -141,14 +141,11 @@
 |doctoral_advisor  = 
 |doctoral_students = 
 |known_for         = 
-|author_abbrev_bot = 
-|author_abbrev_zoo = 
+|author_abbrev_bot =|author_abbrev_zoo = 
 |influences        = 
 |influenced        = 
 |prizes            = 
-|religion          = 
-|footnotes         = 
-|signature         =
+|religion = |footnotes = |signature         =
 }}</menu-item>
 </menu>
 
