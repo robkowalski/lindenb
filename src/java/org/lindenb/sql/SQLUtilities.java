@@ -117,7 +117,6 @@ public class SQLUtilities
     	}
     
     /** put first row of a ResultSet in a Vector */
-    @SuppressWarnings("unchecked")
 	static public Vector<Object> resultSetToVector(ResultSet row) throws SQLException
     	{
     	Vector<Object> data=new Vector<Object>();

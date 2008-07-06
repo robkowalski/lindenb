@@ -21,6 +21,8 @@ public abstract class JSONItem
 	extends XObject
 	implements Serializable,Cloneable
 	{
+	private static final long serialVersionUID = 1L;
+
 	protected JSONItem()
 		{
 			

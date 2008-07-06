@@ -42,5 +42,38 @@ public class C {
             }
         return buffer.toString();
         }
-
+    
+    /** unescape a C string */
+    static public String unescape(CharSequence s)
+    	{
+    	if(s==null) return null;
+      	StringBuilder sb= new StringBuilder(s.length());
+      	for(int i=1;i< s.length();++i)
+      		{
+      		if(s.charAt(i)=='\\')
+    			{
+    			if(i+1< s.length())
+    				{
+    				++i;
+    				switch(s.charAt(i))
+    					{
+    					case '\n': sb.append('\n'); break;
+    					case '\r': sb.append('\r'); break;
+    					case '\\': sb.append('\\'); break;
+    					case 'b': sb.append('\b'); break;
+    					case 't': sb.append('\t'); break;
+    					case 'f': sb.append('\f'); break;
+    					case '\'': sb.append('\''); break;
+    					case '\"': sb.append('\"'); break;
+    					default: sb.append(s.charAt(i));
+    					}
+    				}
+      			}
+      		else
+      			{
+      			sb.append(s.charAt(i));
+      			}
+      		}
+      	return sb.toString();
+    	}
 }

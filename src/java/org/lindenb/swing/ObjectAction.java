@@ -11,6 +11,7 @@ import javax.swing.Icon;
  *
  */
 public abstract class ObjectAction<T> extends AbstractAction {
+	private static final long serialVersionUID = 1L;
 	private T object;
 	/**
 	 * ObjectAction

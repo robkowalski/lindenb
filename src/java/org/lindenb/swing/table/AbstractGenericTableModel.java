@@ -14,6 +14,8 @@ import java.util.Vector;
  */
 public abstract class AbstractGenericTableModel<T> extends XAbstractTableModel
 	{
+	private static final long serialVersionUID = 1L;
+
 	public abstract T elementAt(int rowIndex);
 	@Override
 	public Object getValueAt(int rowIndex, int column) {
