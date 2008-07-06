@@ -41,6 +41,7 @@ import org.xml.sax.helpers.DefaultHandler;
  */
 public abstract class ConstrainedAction<T> extends ObjectAction<T>
 	{
+	private static final long serialVersionUID = 1L;
 	private Vector<Validator1<?>> validators= new Vector<Validator1<?>>(1,1);
 	
 	/**

@@ -3,6 +3,7 @@
  */
 package org.lindenb.swing.table;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -15,6 +16,7 @@ import java.util.Vector;
  */
 public abstract class GenericTableModel<T> extends AbstractGenericTableModel<T>
 	{
+	private static final long serialVersionUID = 1L;
 	private Vector<T> data= new Vector<T>();
 	
 	public GenericTableModel()
@@ -84,6 +86,13 @@ public abstract class GenericTableModel<T> extends AbstractGenericTableModel<T>
 		{
 		return new MyIterator();
 		}	
+	
+	
+	public Collection<T> elements()
+		{
+		return new ArrayList<T>(getDataVector());
+		}
+	
 	
 	private class MyIterator implements Iterator<T>
 		{
