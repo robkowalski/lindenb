@@ -9,6 +9,8 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
@@ -17,12 +19,18 @@ import java.lang.reflect.Constructor;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Stack;
 import java.util.Vector;
 import java.util.regex.Pattern;
 
 import javax.swing.AbstractAction;
+import javax.swing.ComboBoxModel;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
+import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -41,7 +49,9 @@ import javax.swing.SwingUtilities;
 import javax.swing.border.TitledBorder;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.TableModel;
 
+import org.apache.commons.logging.LogFactory;
 import org.lindenb.jena.JenaUtils;
 import org.lindenb.jena.vocabulary.FOAF;
 import org.lindenb.lang.RunnableObject;
@@ -52,6 +62,7 @@ import org.lindenb.swing.SwingUtils;
 import org.lindenb.swing.layout.InputLayout;
 import org.lindenb.swing.table.GenericTableModel;
 import org.lindenb.util.Compilation;
+import org.lindenb.util.NamedKey;
 import org.lindenb.util.TimeUtils;
 
 import com.hp.hpl.jena.rdf.model.AnonId;
@@ -67,6 +78,20 @@ import com.hp.hpl.jena.rdf.model.StmtIterator;
 import com.hp.hpl.jena.vocabulary.DC;
 import com.hp.hpl.jena.vocabulary.RDF;
 
+
+class Geo
+	{
+	static final String NS="http://ontology.lindenb.org/geo#";
+	private static Model m = ModelFactory.createDefaultModel();
+	public static final Resource Place = m.createResource(NS+ "Place" );
+	public static final Property lon = m.createProperty(NS, "long" );
+	public static final Property lat = m.createProperty(NS, "lat" );
+	public static final Property country = m.createProperty(NS, "country" );
+	public static final Property placename = m.createProperty(NS, "placename" );
+	public static final Property narrower = m.createProperty(NS, "narrower" );
+	public static final Property broader = m.createProperty(NS, "broader" );
+	}
+
 /**
  * @author SciFOAF
  *
@@ -80,16 +105,18 @@ public class SciFOAF extends JFrame
 	private File file=null;
 	/** content pane */
 	private JPanel contentPane;
+	/** history of instance edited */
+	private Stack<EditHistory> history=new Stack<EditHistory>();
+	/** log **/
+	private org.apache.commons.logging.Log _log= LogFactory.getLog(SciFOAF.class); 
 	
-	/** used to create a chained list of instance editions */
+	
+	/**  instance edited */
 	private class EditHistory
 		{
 		Resource subject=null;
-		Class<? extends InstanceEditor> editorClass=null;
-		EditHistory prev=null;
+		Resource rdfType=null;
 		}
-	
-	
 	
 	
 	/** RDFEditor */
@@ -119,25 +146,96 @@ public class SciFOAF extends JFrame
 		}
 	
 	
+	private class ComboRDFEditor
+		extends RDFEditor
+		{
+		private JComboBox combo;
+		private ComboRDFEditor(NamedKey<String> keys[])
+			{
+			this.combo= new JComboBox(keys);
+			}
+		public JComboBox getComboBox() {
+			return combo;
+			}
+		
+		@Override
+		public String getValidationMessage() {
+			return null;
+			}
+
+		@Override
+		public void loadFromModel()
+			{
+			ComboBoxModel comboModel = getComboBox().getModel();
+			getComboBox().setSelectedIndex(-1);
+			StmtIterator iter= getModel().listStatements(getSubject(),getProperty(),RDFNode.class.cast(null));
+			while(iter.hasNext())
+				{
+				Statement stmt= iter.nextStatement();
+				if(!stmt.getObject().isResource()) continue;
+				if(!stmt.getResource().isAnon()) continue;
+				String uri=stmt.getResource().getURI();
+				boolean found=false;
+				for(int i=0;i< comboModel.getSize();++i)
+					{
+					NamedKey<?> k= (NamedKey<?>)(comboModel.getElementAt(i));
+					if(k==null) continue;
+					if(k.getId().equals(uri))
+						{
+						getComboBox().setSelectedIndex(i);
+						found=true;
+						break;
+						}
+					}
+
+				if(found) break;
+				}
+			iter.close();
+			}
+
+		@Override
+		public void saveToModel()
+			{
+			Object s= getComboBox().getSelectedItem();
+			JenaUtils.remove(getModel(), getSubject(), getProperty(),null);
+			if(s!=null) getModel().add(
+					getSubject(),
+					getProperty(),
+					getModel().createResource(((NamedKey<?>)s).getId().toString())
+					);
+			}
+		
+		}
+	
+	/**
+	 * AbstractTextRDFEditor
+	 * @author pierre
+	 *
+	 */
 	private abstract class AbstractTextRDFEditor
 	 	extends RDFEditor
 		{
 		/** text field */
-		protected JTextField tf= new JTextField(20);
+		private JTextField tf= new JTextField(15);
 		
 		@Override
 		public void setProperty(Property prop) {
 			super.setProperty(prop);
 			this.tf.setName(getModel().shortForm(prop.getURI()));
 			}
-		
+		JTextField getTextField() { return this.tf;}
 		}
 	
+	/**
+	 * UrlRDFEditor
+	 *
+	 */
 	private class UrlRDFEditor extends AbstractTextRDFEditor
 		{
 		@Override
 		public String getValidationMessage() {
 			String s= super.tf.getText().trim();
+			if(s.length()==0) return null;
 			try
 				{
 				new URL(s);
@@ -158,7 +256,7 @@ public class SciFOAF extends JFrame
 				Statement stmt= iter.nextStatement();
 				if(!stmt.getObject().isResource()) continue;
 				if(!stmt.getResource().isAnon()) continue;
-				tf.setText(stmt.getResource().getURI());
+				getTextField().setText(stmt.getResource().getURI());
 				break;
 				}
 			iter.close();
@@ -166,7 +264,7 @@ public class SciFOAF extends JFrame
 		
 		@Override
 		public void saveToModel() {
-			String s= tf.getText().trim();
+			String s= getTextField().getText().trim();
 			JenaUtils.remove(getModel(), getSubject(), getProperty(),null);
 			if(s.length()!=0) getModel().add(
 					getSubject(),
@@ -177,6 +275,10 @@ public class SciFOAF extends JFrame
 		
 		}
 	
+	/**
+	 * MultiRDFTextEditor
+	 *
+	 */
 	private class MultiRDFTextEditor extends  AbstractTextRDFEditor
 		{
 		MultiRDFTextEditor()
@@ -202,7 +304,7 @@ public class SciFOAF extends JFrame
 				b.append(stmt.getLiteral().getString());
 				}
 			iter.close();
-			tf.setText(b.toString());
+			getTextField().setText(b.toString());
 			}
 		@Override
 		public void saveToModel() {
@@ -234,13 +336,13 @@ public class SciFOAF extends JFrame
 		
 		@Override
 		public String getValidationMessage() {
-			String s= this.tf.getText().trim();
+			String s= this.getTextField().getText().trim();
 			if(s.length()==0) return null;
 			for(Pattern pat: this.patterns)
 				{
 				if(!pat.matcher(s).matches())
 					{
-					return ""+tf.getName()+" should match regex "+pat.pattern();
+					return ""+getTextField().getName()+" should match regex "+pat.pattern();
 					}
 				}
 			for(Class<?> clazz: this.classes)
@@ -260,13 +362,13 @@ public class SciFOAF extends JFrame
 		
 		@Override
 		public void loadFromModel() {
-			tf.setText("");
+			getTextField().setText("");
 			StmtIterator iter= getModel().listStatements(getSubject(),getProperty(),RDFNode.class.cast(null));
 			while(iter.hasNext())
 				{
 				Statement stmt= iter.nextStatement();
 				if(!stmt.getObject().isLiteral()) continue;
-				tf.setText(stmt.getLiteral().getString());
+				getTextField().setText(stmt.getLiteral().getString());
 				break;
 				}
 			iter.close();
@@ -274,9 +376,15 @@ public class SciFOAF extends JFrame
 		
 		@Override
 		public void saveToModel() {
-			String s= tf.getText().trim();
+			
+			String s= getTextField().getText().trim();
+			log().info("save to model "+this.getClass()+" "+s);
 			JenaUtils.remove(getModel(), getSubject(), getProperty(),null);
-			if(s.length()!=0) getModel().add(getSubject(),getProperty(),s);
+			if(s.length()!=0)
+				{
+				log().info("saving ("+getSubject()+","+getProperty()+","+s+")");
+				getModel().add(getSubject(),getProperty(),s);
+				}
 			}
 		}
 	
@@ -317,12 +425,11 @@ public class SciFOAF extends JFrame
 		private static final long serialVersionUID = 1L;
 		protected Vector<RDFEditor> editors= new Vector<RDFEditor>();
 		private Resource subject;
-		private EditHistory prevHistory;
-		InstanceEditor(Resource subject,EditHistory prevHistory)
+
+		InstanceEditor(Resource subject)
 			{
 			super(new BorderLayout());
 			this.subject=subject;
-			this.prevHistory=prevHistory;
 			JPanel top= new JPanel(new FlowLayout(FlowLayout.CENTER));
 			this.add(top,BorderLayout.NORTH);
 			JLabel label= new JLabel(getModel().shortForm(subject.getURI()));
@@ -350,6 +457,7 @@ public class SciFOAF extends JFrame
 		
 		protected void saveToModel()
 			{
+			log().info("saving editors to model ");
 			for(RDFEditor ed:this.editors)
 				{
 				ed.saveToModel();
@@ -375,67 +483,63 @@ public class SciFOAF extends JFrame
 					return false;
 					}
 				}
+			log().info("isEditorsValid returns true");
 			return true;
 			}
 		
 		protected void doOKPressed()
 			{
+			log().info("OK pressed");
 			if(!isEditorsValid()) return;
 			saveToModel();
-			
-			if(this.prevHistory==null)
+			SciFOAF.this.history.pop();
+			if(SciFOAF.this.history.isEmpty())
 				{
 				installMainPane();
 				}
 			else
 				{
+				EditHistory eh=SciFOAF.this.history.peek();
 				installInstancePane(
-					this.prevHistory.subject,
-					this.prevHistory.editorClass,
-					this.prevHistory.prev
+					eh.subject,
+					eh.rdfType
 					);
 				}
 			}
 		
-		private <T extends AbstractTextRDFEditor> AbstractTextRDFEditor addRDFField(JComponent input,Property prop,Class<T> clazz)
+		private  AbstractTextRDFEditor addRDFField(JComponent input,Property prop,AbstractTextRDFEditor ed)
 			{
-			JTextField tf= new JTextField(getModel().shortForm(prop.getURI())+":",JTextField.RIGHT);
+			JLabel tf= new JLabel(getModel().shortForm(prop.getURI())+":",JTextField.RIGHT);
 			input.add(tf);
 			tf.setToolTipText(prop.getURI());
-			try {
-				AbstractTextRDFEditor ed=clazz.newInstance();
-				ed.setSubject(getSubject());
-				ed.setProperty(prop);
-				input.add(ed.tf);
-				return ed;
-			} catch (Exception e)
-				{
-				throw new RuntimeException(e);
-				}
 			
+			ed.setSubject(getSubject());
+			ed.setProperty(prop);
+			input.add(ed.tf);
+			this.editors.add(ed);
+			return ed;
 			}
 		
 		
 		
 		protected TextRDFEditor addInputField(JComponent input,Property prop)
 			{
-			return TextRDFEditor.class.cast(addRDFField(input,prop,TextRDFEditor.class));
+			return TextRDFEditor.class.cast(addRDFField(input,prop,new TextRDFEditor()));
 			}
 		
 		protected MultiRDFTextEditor addMultiInputField(JComponent input,Property prop)
 			{
-			return MultiRDFTextEditor.class.cast(addRDFField(input,prop,MultiRDFTextEditor.class));
+			return MultiRDFTextEditor.class.cast(addRDFField(input,prop,new MultiRDFTextEditor()));
 			}
 		
 		protected UrlRDFEditor addResourceField(JComponent input,Property prop)
 			{
-			return UrlRDFEditor.class.cast(addRDFField(input,prop,UrlRDFEditor.class));
+			return UrlRDFEditor.class.cast(addRDFField(input,prop,new UrlRDFEditor()));
 			}
 		
 		protected JComponent createTable(
 			String title,
-			ResourceTableModel tm,
-			Class<?  extends InstanceEditor> editor,
+			TableModel tm,
 			Resource targetRDFType
 			)
 			{
@@ -445,7 +549,8 @@ public class SciFOAF extends JFrame
 			table.setShowVerticalLines(false);
 			table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 			RDFTableCellRenderer render= new RDFTableCellRenderer();
-			for(int i=0;i< table.getColumnModel().getColumnCount();++i)
+			/** starting from 1 */
+			for(int i=1;i< table.getColumnModel().getColumnCount();++i)
 				{
 				table.getColumnModel().getColumn(i).setCellRenderer(render);
 				}
@@ -453,12 +558,12 @@ public class SciFOAF extends JFrame
 			JPanel bot= new JPanel(new FlowLayout());
 			p.add(bot,BorderLayout.SOUTH);
 			
-			if(editor!=null)
+			
 				{
-				class Shuttle1 { JTable table; Class<?  extends InstanceEditor> editorClazz;}
+				class Shuttle1 { JTable table; Resource rdfType;}
 				Shuttle1 sh1= new Shuttle1();
 				sh1.table = table;
-				sh1.editorClazz = editor;
+				sh1.rdfType = targetRDFType;
 				ConstrainedAction<Shuttle1> action= new ConstrainedAction<Shuttle1>(sh1,"View")
 					{
 					private static final long serialVersionUID = 1L;
@@ -472,38 +577,28 @@ public class SciFOAF extends JFrame
 						if(i==-1) return;
 						ResourceTableModel tm=ResourceTableModel.class.cast(getObject().table.getModel());
 						Resource r= tm.elementAt(i);
-						EditHistory h= new EditHistory();
-						h.subject= getSubject();
-						h.editorClass= InstanceEditor.this.getClass();
-						h.prev= InstanceEditor.this.prevHistory;
-						installInstancePane(r, getObject().editorClazz, h);
+						installInstancePane(r,getObject().rdfType);
 						}
 					};
 				action.mustHaveOneRowSelected(table);
 				bot.add(new JButton(action));
 				
-				class Shuttle2 { Resource rdfType; Class<?  extends InstanceEditor> editorClazz;}
-				Shuttle2 sh2= new Shuttle2();
-				sh2.rdfType = targetRDFType;
-				sh2.editorClazz = editor;
-				ObjectAction<Shuttle2> action2= new ObjectAction<Shuttle2>(sh2, "New "+getModel().shortForm(targetRDFType.getURI()))
+				
+				
+				ObjectAction<Resource> action2= new ObjectAction<Resource>(targetRDFType, "New "+getModel().shortForm(targetRDFType.getURI()))
 					{
 					private static final long serialVersionUID = 1L;
 
 					@Override
 					public void actionPerformed(ActionEvent arg0) {
 						if(!InstanceEditor.this.isEditorsValid()) return;
-						Resource r= JenaUtils.askNewURI(getModel(), InstanceEditor.this,
-								"Give me a new URI for a new "+getModel().shortForm(getObject().rdfType.getURI()));
+						Resource r= askNewURI(InstanceEditor.this,
+								"Give me a new URI for a new "+getModel().shortForm(getObject().getURI()),
+								getObject());
 						if(r==null) return;
 						InstanceEditor.this.saveToModel();
-						
-						getModel().add(r,RDF.type,getObject().rdfType);
-						EditHistory h= new EditHistory();
-						h.subject= getSubject();
-						h.editorClass= InstanceEditor.this.getClass();
-						h.prev= InstanceEditor.this.prevHistory;
-						installInstancePane(r, getObject().editorClazz, h);
+						getModel().add(r,RDF.type,getObject());
+						installInstancePane(r, getObject());
 						}
 					};
 				bot.add(new JButton(action2));
@@ -512,6 +607,70 @@ public class SciFOAF extends JFrame
 			}
 		
 		}
+	/** ImageEditor */
+	private class ImageEditor
+		extends InstanceEditor
+		{
+		private static final long serialVersionUID = 1L;
+		public ImageEditor(Resource subject)
+			{
+			super(subject);
+			JPanel grid= new JPanel(new GridLayout(0,2,1,1));
+			this.add(grid,BorderLayout.CENTER);
+			JPanel left= new JPanel(new GridLayout(2,0,1,1));
+			grid.add(left);
+			JLabel label=null;
+			try 
+				{
+				ImageIcon icn= new ImageIcon(new URL(getSubject().getURI()),getSubject().getURI());
+				label=new JLabel(icn);
+				}
+			catch(Exception err)
+				{
+				label= new JLabel(getSubject().getURI(),JLabel.CENTER);
+				log().warn("problem with image"+ getSubject(),err);
+				}
+			left.add(new JScrollPane(label));
+			
+			JPanel pane2= new JPanel(new InputLayout());
+			left.add(pane2);
+			TextRDFEditor ed=addInputField(pane2,FOAF.knows);
+			ed.getTextField().setEnabled(false);
+			ed=addInputField(pane2,FOAF.knows);
+			ed.getTextField().setEnabled(false);
+			
+			JPanel right= new JPanel(new GridLayout(0,1,1,1));
+			grid.add(pane2);
+			
+				{
+				
+				}
+			
+			}
+		}
+	
+	/** PersonEditor */
+	private class PlaceEditor
+		extends InstanceEditor
+		{
+		private static final long serialVersionUID = 1L;
+
+		public PlaceEditor(Resource subject)
+			{
+			super(subject);
+			JPanel pane= new JPanel(new GridLayout(0,2,1,1));
+			this.add(pane,BorderLayout.CENTER);
+			JPanel left= new JPanel(new InputLayout());
+			pane.add(left);
+			addInputField(left, Geo.placename);
+			addInputField(left, Geo.lon);
+			addInputField(left, Geo.lat);
+			addInputField(left, Geo.country);
+
+			
+			
+			}
+		}
 	
 	/** PersonEditor */
 	private class PersonEditor
@@ -519,9 +678,9 @@ public class SciFOAF extends JFrame
 		{
 		private static final long serialVersionUID = 1L;
 
-		PersonEditor(Resource subject,EditHistory history)
+		public PersonEditor(Resource subject)
 			{
-			super(subject,history);
+			super(subject);
 			JPanel pane= new JPanel(new GridLayout(0,2,1,1));
 			this.add(pane,BorderLayout.CENTER);
 			JPanel left= new JPanel(new InputLayout());
@@ -530,7 +689,7 @@ public class SciFOAF extends JFrame
 			addInputField(left, FOAF.firstName);
 			addInputField(left, FOAF.family_name);
 			addInputField(left, FOAF.givenname);
-			addInputField(left, FOAF.birthday).addPattern(Pattern.compile("[\\d\\d\\d\\d(\\-\\d\\d(\\-\\d\\d)?)?"));
+			addInputField(left, FOAF.birthday).addPattern(Pattern.compile("\\d\\d\\d\\d(\\-\\d\\d(\\-\\d\\d)?)?"));
 			addResourceField(left, FOAF.homepage);
 			addResourceField(left, FOAF.schoolHomepage);
 			
@@ -538,14 +697,16 @@ public class SciFOAF extends JFrame
 			
 			
 				{
-				/** foaf knows */
-				JPanel p= new JPanel(new BorderLayout());
 				PersonTableModel tm= new PersonTableModel(getModel().listSubjectsWithProperty(RDF.type, FOAF.Person));
-				JTable table= new JTable(tm);
-				table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-				p.add(new JScrollPane(table), BorderLayout.CENTER);
-				JPanel bot= new JPanel(new FlowLayout());
-				p.add(bot,BorderLayout.SOUTH);
+				tm.removeElement(getSubject());
+					
+				right.add(createTable(
+					"foaf:knows",
+					new SelectRsrcTableModel(tm,getSubject(),FOAF.knows,FOAF.knows),
+					FOAF.Person)
+					);
+				
+				
 				}
 			
 			
@@ -632,6 +793,100 @@ public class SciFOAF extends JFrame
 			}
 		}
 	
+	/** 
+	 * ImageTableModel
+	 */
+	private class ImageTableModel extends ResourceTableModel
+		{
+		private static final long serialVersionUID = 1L;
+	
+		ImageTableModel(ResIterator iter)
+			{
+			super(iter);
+			}
+		@Override
+		public int getColumnCount() {
+			return 1;
+			}
+		
+		@Override
+		public Class<?> getColumnClass(int col) {
+				return String.class;
+			}
+		
+		@Override
+		public String getColumnName(int col)
+			{
+			switch(col)
+				{
+				case 0 : return "Id";
+				}
+			return null;
+			}
+		
+		@Override
+		public Object getValueOf(Resource subject, int column)
+			{
+			switch(column)
+				{
+				case 0 : return subject.getURI();
+				}
+			return null;
+			}
+		}	
+	
+	/** 
+	 * PlaceTableModel
+	 */
+	private class PlaceTableModel extends ResourceTableModel
+		{
+		private static final long serialVersionUID = 1L;
+	
+		PlaceTableModel(ResIterator iter)
+			{
+			super(iter);
+			}
+		@Override
+		public int getColumnCount() {
+			return 4;
+			}
+		
+		@Override
+		public Class<?> getColumnClass(int col) {
+				return String.class;
+			}
+		
+		@Override
+		public String getColumnName(int col)
+			{
+			switch(col)
+				{
+				case 0 : return "Title";
+				case 1 : return "Country";
+				case 2 : return "Long";
+				case 3 : return "Lat";
+				}
+			return null;
+			}
+		
+		@Override
+		public Object getValueOf(Resource subject, int column)
+			{
+			switch(column)
+				{
+				case 0 : return getString(subject,Geo.placename);
+				case 1 : return getString(subject,Geo.country);
+				case 2 : return getString(subject,Geo.lon);
+				case 3 : return getString(subject,Geo.lat);
+				}
+			return null;
+			}
+		}
+	
+	/**
+	 * SelectRsrcTableModel
+	 *
+	 */
 	private class SelectRsrcTableModel extends AbstractTableModel
 		{
 		private static final long serialVersionUID = 1L;
@@ -680,6 +935,12 @@ public class SciFOAF extends JFrame
 		@Override
 		public int getRowCount() {
 			return getDelegate().getRowCount();
+			}
+		
+		@Override
+		public String getColumnName(int col) {
+			if(col==0) return "Sel.";
+			return getDelegate().getColumnName(col-1);
 			}
 		
 		@Override
@@ -795,6 +1056,10 @@ public class SciFOAF extends JFrame
 		installMainPane();
 		}
 	
+	private org.apache.commons.logging.Log log()
+		{
+		return this._log;
+		}
 	
 	private Model getModel()
 		{
@@ -809,74 +1074,148 @@ public class SciFOAF extends JFrame
 		this.contentPane.repaint();
 		}
 	
+	private JComponent createMainTab(
+			ResourceTableModel rtm,
+			Resource rdfType
+			)
+		{
+		String title= getModel().shortForm(rdfType.getURI());
+		/** person pane */
+		JPanel pane= new JPanel(new BorderLayout());
+		JTable table= new JTable(rtm);
+		table.setShowVerticalLines(false);
+		table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		pane.add(new JScrollPane(table));
+		
+		JPanel top= new JPanel(new FlowLayout(FlowLayout.LEADING));
+		pane.add(top,BorderLayout.NORTH);
+		
+		class Shuttle1 { JTable table; Resource rdfType;}
+		Shuttle1 sh1=new Shuttle1();
+		sh1.table = table;
+		sh1.rdfType = rdfType;
+		
+		
+		ConstrainedAction<Shuttle1> action=new ConstrainedAction<Shuttle1>(sh1,"Edit "+title)
+			{
+			private static final long serialVersionUID = 1L;
+			@Override
+			public void actionPerformed(ActionEvent ae)
+				{
+				int i= getObject().table.getSelectedRow();
+				if(i==-1) return;
+				Resource r= ResourceTableModel.class.cast(getObject().table.getModel()).elementAt(i);
+				installInstancePane(r, getObject().rdfType);
+				}
+			};
+			
+		action.mustHaveOneRowSelected(table);	
+		
+		top.add(new JButton(action));
+		
+		table.addMouseListener(new MouseAdapter()
+			{
+			@Override
+			public void mouseClicked(MouseEvent me)
+				{
+				if(me.getClickCount()<2) return;
+				JTable t=JTable.class.cast(me.getComponent());
+				int i= t.rowAtPoint(me.getPoint());
+				if(i==-1 || i!=t.getSelectedRow()) return;
+				//Resource r= ResourceTableModel.class.cast(getObject().table.getModel()).elementAt(i);
+				//installInstancePane(r, getObject().rdfType);
+				//TODO
+				}
+			});
+		
+		top.add(new JButton(new ObjectAction<Resource>(rdfType,"New "+title)
+			{
+			private static final long serialVersionUID = 1L;
+
+			@Override
+			public void actionPerformed(ActionEvent ae)
+				{
+				Resource uri=askNewURI(SciFOAF.this, "Enter a new URI for this "+getModel().shortForm(getObject().getURI()),getObject());
+				if(uri==null) return;
+				getModel().add(uri,RDF.type,getObject());
+				getModel().add(uri,DC.date,TimeUtils.toYYYYMMDD('-'));
+				installInstancePane(uri,getObject());
+				}
+			}));
+		return pane;
+		}
+	
+	
 	private void installMainPane()
 		{
 		JTabbedPane tabbed= new JTabbedPane();
 			
 			{
 			/** person pane */
-			JPanel pane= new JPanel(new BorderLayout());
-			tabbed.addTab("foaf:Person", pane);
 			PersonTableModel tm= new PersonTableModel(getModel().listSubjectsWithProperty(RDF.type, FOAF.Person));
-			JTable table= new JTable(tm);
-			table.setShowVerticalLines(false);
-			table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-			pane.add(new JScrollPane(table));
+			tabbed.addTab("foaf:Person",createMainTab(tm,FOAF.Person));
+			}
 			
-			JPanel top= new JPanel(new FlowLayout(FlowLayout.LEADING));
-			pane.add(top,BorderLayout.NORTH);
-			ConstrainedAction<JTable> action=new ConstrainedAction<JTable>(table,"Edit Person")
-				{
-				private static final long serialVersionUID = 1L;
-				@Override
-				public void actionPerformed(ActionEvent ae)
-					{
-					int i= getObject().getSelectedRow();
-					if(i==-1) return;
-					Resource r= ResourceTableModel.class.cast(getObject().getModel()).elementAt(i);
-					installInstancePane(r, PersonEditor.class, null);
-					}
-				};
-			action.mustHaveOneRowSelected(table);	
+			{
+			/** image pane */
+			ImageTableModel tm= new ImageTableModel(getModel().listSubjectsWithProperty(RDF.type, FOAF.Image));
+			tabbed.addTab("foaf:Image",createMainTab(tm,FOAF.Image));
+			}
 			
-			top.add(new JButton(action));
-			top.add(new JButton(new AbstractAction("New Person")
-				{
-				private static final long serialVersionUID = 1L;
-
-				@Override
-				public void actionPerformed(ActionEvent ae)
-					{
-					Resource uri=JenaUtils.askNewURI(getModel(), SciFOAF.this, "Enter a new URI for this Person");
-					if(uri==null) return;
-					getModel().add(uri,RDF.type,FOAF.Person);
-					getModel().add(uri,DC.date,TimeUtils.toYYYYMMDD('-'));
-					installInstancePane(uri,PersonEditor.class,null);
-					}
-				}));
+			{
+			/** place pane */
+			PlaceTableModel tm= new PlaceTableModel(getModel().listSubjectsWithProperty(RDF.type, FOAF.Image));
+			tabbed.addTab("geo:Place",createMainTab(tm,Geo.Place));
 			}
 			
 		installComponent(tabbed);
 		}
 	
-	/**  */
+	/**  installInstancePane */
 	private void installInstancePane(
 			Resource subject,			
-			Class<? extends InstanceEditor> editorClass,
-			EditHistory prev
+			Resource rdfType
 			)
 		{
-		try {
-			Constructor<? extends InstanceEditor> cst= editorClass.getConstructor(Resource.class,EditHistory.class);
-			InstanceEditor ed=cst.newInstance(subject,prev);
-			ed.loadFromModel();
-			installComponent(ed);
-			}
-		catch (Exception e)
+		InstanceEditor ed=null;
+		if(rdfType.equals(FOAF.Person))
 			{
-			e.printStackTrace();
+			ed= new PersonEditor(subject);
+			}
+		else if(rdfType.equals(FOAF.Image))
+			{
+			ed= new ImageEditor(subject);
+			}
+		else if(rdfType.equals(Geo.Place))
+			{
+			ed= new PlaceEditor(subject);
+			}
+		else
+			{
+			JOptionPane.showMessageDialog(this, "unknown rdf:type "+rdfType,"Error",JOptionPane.ERROR_MESSAGE,null);
+			}
+		if(ed==null) return;
+		ed.loadFromModel();
+		EditHistory event= new EditHistory();
+		event.subject=subject;
+		event.rdfType=rdfType;
+		this.history.push(event);
+		installComponent(ed);
+		}
+	
+	/** ask URI */
+	private Resource askNewURI(Component owner,String title,Resource rdfType)
+		{
+		if(rdfType.equals(FOAF.Image))
+			{
+			return JenaUtils.askNewURL(getModel(), owner, title);
+			}
+		else
+			{
+			return JenaUtils.askNewURI(getModel(), owner, title);
 			}
 		}
+	
 	
 	private boolean doMenuSave(File filename)
 		{
@@ -886,11 +1225,14 @@ public class SciFOAF extends JFrame
 			return true;
 			}
 		try {
+			log().info("saving as "+filename);
 			FileWriter fw= new FileWriter(filename);
 			getModel().write(fw);
 			fw.flush();
 			fw.close();
-		} catch (Exception e) {
+		} catch (Exception e)
+			{
+			log().warn(filename, e);
 			ThrowablePane.show(SciFOAF.this,e);
 			}
 		return true;
@@ -958,6 +1300,7 @@ public class SciFOAF extends JFrame
 					{
 					System.err.println("Creating a new FOAF profile in "+fileIn);
 					model.setNsPrefix("foaf", FOAF.NS);
+					model.setNsPrefix("geo", Geo.NS);
 					Resource me= JenaUtils.askNewURI(model, null, "Give yourself an URI");
 					if(me==null) return;
 					model.add(me,RDF.type,FOAF.Person);
@@ -978,6 +1321,9 @@ public class SciFOAF extends JFrame
 				System.err.println("Illegal number of arguments");
 				System.exit(-1);
 				}
+			JFrame.setDefaultLookAndFeelDecorated(true);
+			JDialog.setDefaultLookAndFeelDecorated(true);
+			
 			SciFOAF app= new SciFOAF(model,fileIn);
 			SwingUtilities.invokeAndWait(new RunnableObject<SciFOAF>(app)
 				{
