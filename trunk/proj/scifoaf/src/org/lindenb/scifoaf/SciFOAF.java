@@ -26,6 +26,7 @@ import java.util.regex.Pattern;
 
 import javax.swing.AbstractAction;
 import javax.swing.ComboBoxModel;
+import javax.swing.DefaultComboBoxModel;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -41,15 +42,19 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
+import javax.swing.JSpinner;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
+import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
 import javax.swing.border.TitledBorder;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableModel;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.apache.commons.logging.LogFactory;
 import org.lindenb.jena.JenaUtils;
@@ -64,6 +69,9 @@ import org.lindenb.swing.table.GenericTableModel;
 import org.lindenb.util.Compilation;
 import org.lindenb.util.NamedKey;
 import org.lindenb.util.TimeUtils;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 
 import com.hp.hpl.jena.rdf.model.AnonId;
 import com.hp.hpl.jena.rdf.model.Literal;
@@ -90,6 +98,27 @@ class Geo
 	public static final Property placename = m.createProperty(NS, "placename" );
 	public static final Property narrower = m.createProperty(NS, "narrower" );
 	public static final Property broader = m.createProperty(NS, "broader" );
+	}
+
+class NCBI
+	{
+	static final String PUBMED_PREFIX="http://www.ncbi.nlm.nih.gov/pubmed/";
+	static final String NS="http://www.ncbi.nlm.nih.gov/ontology#";
+	private static Model m = ModelFactory.createDefaultModel();
+	public static final Property pmid = m.createProperty(NS, "pmid" );
+	public static final Property doi = m.createProperty(NS, "doi" );
+	public static final Property pubdate = m.createProperty(NS, "pubdate" );
+	}
+
+class PRISM
+	{
+	static final String NS="http://prismstandard.org/namespaces/1.2/basic/";
+	private static Model m = ModelFactory.createDefaultModel();
+	public static final Property volume = m.createProperty(NS, "volume" );
+	public static final Property issue = m.createProperty(NS, "number" );
+	public static final Property pubdate = m.createProperty(NS, "pubdate" );
+	public static final Property journal = m.createProperty(NS, "publicationName" );
+	public static final Property issn = m.createProperty(NS, "issn" );
 	}
 
 /**
@@ -145,24 +174,43 @@ public class SciFOAF extends JFrame
 		public abstract void saveToModel();
 		}
 	
-	
-	private class ComboRDFEditor
-		extends RDFEditor
+	private  class ComboRDFEditor
+	extends RDFEditor
 		{
 		private JComboBox combo;
-		private ComboRDFEditor(NamedKey<String> keys[])
+		
+		public ComboRDFEditor(NamedKey<String> keys[])
 			{
 			this.combo= new JComboBox(keys);
 			}
-		public JComboBox getComboBox() {
-			return combo;
+		
+		
+		public ComboRDFEditor(Resource rdfType)
+			{
+			DefaultComboBoxModel cbm=new DefaultComboBoxModel();
+			cbm.addElement(null);
+			ResIterator iter= getModel().listSubjectsWithProperty(RDF.type, rdfType);
+			while(iter.hasNext())
+				{
+				Resource r= iter.nextResource();
+				String s= JenaUtils.findTitle(getModel(), r);
+				if(s==null) s= getModel().shortForm(r.getURI());
+				cbm.addElement(new NamedKey<String>(r.getURI(),s));
+				}
+			iter.close();
+			this.combo= new JComboBox(cbm);
 			}
+		
 		
 		@Override
 		public String getValidationMessage() {
 			return null;
 			}
-
+		
+		public JComboBox getComboBox() {
+			return combo;
+			}
+		
 		@Override
 		public void loadFromModel()
 			{
@@ -204,8 +252,8 @@ public class SciFOAF extends JFrame
 					getModel().createResource(((NamedKey<?>)s).getId().toString())
 					);
 			}
-		
 		}
+
 	
 	/**
 	 * AbstractTextRDFEditor
@@ -597,7 +645,7 @@ public class SciFOAF extends JFrame
 								getObject());
 						if(r==null) return;
 						InstanceEditor.this.saveToModel();
-						getModel().add(r,RDF.type,getObject());
+						createInstance(r, getObject());
 						installInstancePane(r, getObject());
 						}
 					};
@@ -1137,8 +1185,7 @@ public class SciFOAF extends JFrame
 				{
 				Resource uri=askNewURI(SciFOAF.this, "Enter a new URI for this "+getModel().shortForm(getObject().getURI()),getObject());
 				if(uri==null) return;
-				getModel().add(uri,RDF.type,getObject());
-				getModel().add(uri,DC.date,TimeUtils.toYYYYMMDD('-'));
+				createInstance(uri, getObject());
 				installInstancePane(uri,getObject());
 				}
 			}));
@@ -1169,6 +1216,90 @@ public class SciFOAF extends JFrame
 			}
 			
 		installComponent(tabbed);
+		}
+	
+	private static Element firstOf(Element root,String name)
+		{
+		if(root==null) return null;
+		for(Node n1=root.getFirstChild();n1!=null;n1=n1.getNextSibling())
+			{
+			if(n1.getNodeType()==Node.ELEMENT_NODE &&
+			   n1.getNodeName().equals(name))
+				{
+				return Element.class.cast(n1);
+				}
+			}
+		return null;
+		}
+	
+	private void addXML(Resource r,Property property,Element node)
+		{
+		if(node==null) return;
+		String s= node.getTextContent().trim();
+		if(s.length()==0) return ;
+		getModel().add(r,property,s);
+		}
+	
+	/** create instance */
+	private void createInstance(Resource subject,Resource rdfType)
+		{
+		getModel().add(subject,RDF.type,rdfType);
+		getModel().add(subject,DC.date,TimeUtils.toYYYYMMDD('-'));
+		if(rdfType.equals(FOAF.Document) && subject.getURI().startsWith(NCBI.PUBMED_PREFIX))
+			{
+			String pmid=subject.getURI().substring(NCBI.PUBMED_PREFIX.length()).trim();
+			getModel().add(subject,NCBI.pmid,pmid);
+			
+			try {
+				DocumentBuilderFactory f= DocumentBuilderFactory.newInstance();
+				f.setExpandEntityReferences(true);
+				f.setIgnoringComments(true);
+				f.setIgnoringElementContentWhitespace(true);
+				f.setValidating(false);
+				f.setXIncludeAware(false);
+				f.setCoalescing(true);
+				f.setNamespaceAware(false);
+				DocumentBuilder builder=f.newDocumentBuilder();
+				Document dom= builder.parse("http://www.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id="+pmid+"&retmode=xml&rettype=abstract");
+				Element root= dom.getDocumentElement();
+				if(root==null) return;
+				Element PubmedArticle = firstOf(root,"PubmedArticle");
+				Element  MedlineCitation =  firstOf(PubmedArticle,"MedlineCitation");
+				Element Article =  firstOf(MedlineCitation,"MedlineCitation");
+				Element Journal =  firstOf(Article,"Journal");
+				Element ISSN = firstOf(Journal,"ISSN");
+				addXML(subject, PRISM.issn, ISSN);
+				Element JournalIssue = firstOf(Journal,"JournalIssue");
+				Element Volume = firstOf(JournalIssue,"Volume");
+				addXML(subject,PRISM.volume,Volume);
+				Element Issue = firstOf(JournalIssue,"Issue");
+				addXML(subject,PRISM.issue,Issue);
+				Element PubDate = firstOf(JournalIssue,"PubDate");
+				StringBuilder sb= new StringBuilder();
+				for(Node n1=(PubDate==null?null:PubDate.getFirstChild());
+					n1!=null;n1=n1.getNextSibling())
+					{
+					if(n1.getNodeType()!=Node.ELEMENT_NODE) continue;
+					sb.append(" ");
+					sb.append(n1.getTextContent());
+					}
+				if(sb.toString().trim().length()>0)
+					{
+					getModel().add(subject,NCBI.pubdate,sb.toString().trim());
+					}
+				
+				Element JournalTitle = firstOf(Journal,"Title");
+				addXML(subject, NCBI.journal, JournalTitle);
+				Element ArticleTitle = firstOf(Article,"ArticleTitle");
+				addXML(subject,DC.title,ArticleTitle);
+				Element Pagination = firstOf(Article,"Pagination");
+				Element MedlinePgn = firstOf(Pagination,"MedlinePgn");
+			} catch (Exception e) {
+				ThrowablePane.show(SciFOAF.this, e);
+				}
+			
+			}
+		
 		}
 	
 	/**  installInstancePane */
@@ -1209,6 +1340,32 @@ public class SciFOAF extends JFrame
 		if(rdfType.equals(FOAF.Image))
 			{
 			return JenaUtils.askNewURL(getModel(), owner, title);
+			}
+		else if(rdfType.equals(FOAF.Document))
+			{
+			String pmid="0";
+			while(true)
+				{
+				pmid=JOptionPane.showInputDialog(owner, "Enter a PMID", pmid);
+				if(pmid==null) return null;
+				pmid=pmid.trim();
+				try {
+					new Integer(pmid);
+					} 
+				catch (NumberFormatException e) {
+					JOptionPane.showMessageDialog(owner, "Not an integer:"+pmid,"Error",JOptionPane.ERROR_MESSAGE,null);
+					continue;
+					}
+				Resource r= getModel().createResource(NCBI.PUBMED_PREFIX +pmid);
+				if(getModel().containsResource(r))
+					{
+					JOptionPane.showMessageDialog(owner,
+							"Resource already contains "+r.getURI(),
+							"Error",JOptionPane.ERROR_MESSAGE,null);
+					continue;
+					}
+				return r;
+				}
 			}
 		else
 			{
@@ -1299,8 +1456,7 @@ public class SciFOAF extends JFrame
 				else
 					{
 					System.err.println("Creating a new FOAF profile in "+fileIn);
-					model.setNsPrefix("foaf", FOAF.NS);
-					model.setNsPrefix("geo", Geo.NS);
+					
 					Resource me= JenaUtils.askNewURI(model, null, "Give yourself an URI");
 					if(me==null) return;
 					model.add(me,RDF.type,FOAF.Person);
@@ -1311,16 +1467,24 @@ public class SciFOAF extends JFrame
 					model.add(root,DC.date,TimeUtils.toYYYYMMDD('-'));
 					model.add(root,DC.creator,System.getProperty("user.name","me"));
 					}
+				
 				}
 			else if(optind+1==args.length)
 				{
 				fileIn= new File(args[optind+1]);
+				model.read(fileIn.toURI().toString());
 				}
 			else
 				{
 				System.err.println("Illegal number of arguments");
 				System.exit(-1);
 				}
+			
+			model.setNsPrefix("foaf", FOAF.NS);
+			model.setNsPrefix("geo", Geo.NS);
+			model.setNsPrefix("ncbi", NCBI.NS);
+			model.setNsPrefix("prism", PRISM.NS);
+			
 			JFrame.setDefaultLookAndFeelDecorated(true);
 			JDialog.setDefaultLookAndFeelDecorated(true);
 			
