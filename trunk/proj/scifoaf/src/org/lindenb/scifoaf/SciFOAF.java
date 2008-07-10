@@ -106,19 +106,23 @@ class NCBI
 	static final String NS="http://www.ncbi.nlm.nih.gov/ontology#";
 	private static Model m = ModelFactory.createDefaultModel();
 	public static final Property pmid = m.createProperty(NS, "pmid" );
-	public static final Property doi = m.createProperty(NS, "doi" );
-	public static final Property pubdate = m.createProperty(NS, "pubdate" );
+	
 	}
 
+/** see http://www.prismstandard.org/ */
 class PRISM
 	{
-	static final String NS="http://prismstandard.org/namespaces/1.2/basic/";
+	static final String NS="http://prismstandard.org/namespaces/basic/2.0/";
 	private static Model m = ModelFactory.createDefaultModel();
 	public static final Property volume = m.createProperty(NS, "volume" );
 	public static final Property issue = m.createProperty(NS, "number" );
 	public static final Property pubdate = m.createProperty(NS, "pubdate" );
-	public static final Property journal = m.createProperty(NS, "publicationName" );
+	public static final Property publicationName = m.createProperty(NS, "publicationName" );
 	public static final Property issn = m.createProperty(NS, "issn" );
+	public static final Property startingPage = m.createProperty(NS, "startingPage" );
+	public static final Property pageRange = m.createProperty(NS, "pageRange" );
+	public static final Property publicationDate = m.createProperty(NS, "publicationDate" );
+	public static final Property doi = m.createProperty(NS, "doi" );
 	}
 
 /**
@@ -1243,12 +1247,10 @@ public class SciFOAF extends JFrame
 	/** create instance */
 	private void createInstance(Resource subject,Resource rdfType)
 		{
-		getModel().add(subject,RDF.type,rdfType);
-		getModel().add(subject,DC.date,TimeUtils.toYYYYMMDD('-'));
 		if(rdfType.equals(FOAF.Document) && subject.getURI().startsWith(NCBI.PUBMED_PREFIX))
 			{
 			String pmid=subject.getURI().substring(NCBI.PUBMED_PREFIX.length()).trim();
-			getModel().add(subject,NCBI.pmid,pmid);
+			
 			
 			try {
 				DocumentBuilderFactory f= DocumentBuilderFactory.newInstance();
@@ -1285,20 +1287,25 @@ public class SciFOAF extends JFrame
 					}
 				if(sb.toString().trim().length()>0)
 					{
-					getModel().add(subject,NCBI.pubdate,sb.toString().trim());
+					getModel().add(subject,PRISM.publicationDate,sb.toString().trim());
 					}
 				
 				Element JournalTitle = firstOf(Journal,"Title");
-				addXML(subject, NCBI.journal, JournalTitle);
+				addXML(subject, PRISM.publicationName, JournalTitle);
 				Element ArticleTitle = firstOf(Article,"ArticleTitle");
 				addXML(subject,DC.title,ArticleTitle);
 				Element Pagination = firstOf(Article,"Pagination");
 				Element MedlinePgn = firstOf(Pagination,"MedlinePgn");
+				addXML(subject,PRISM.pageRange,MedlinePgn);
+				
+				
 			} catch (Exception e) {
 				ThrowablePane.show(SciFOAF.this, e);
 				}
-			
+			getModel().add(subject,NCBI.pmid,pmid);
 			}
+		getModel().add(subject,RDF.type,rdfType);
+		getModel().add(subject,DC.date,TimeUtils.toYYYYMMDD('-'));
 		
 		}
 	
