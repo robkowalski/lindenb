@@ -52,14 +52,14 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 | quotes = yes
 <xsl:apply-templates select=".//AuthorList"/>
 <xsl:apply-templates select=".//PubDate"/>
-<xsl:apply-templates select=".//ArticleTitle"/>
+<xsl:apply-templates select="MedlineCitation/Article/ArticleTitle"/>
 <xsl:apply-templates select=".//ISOAbbreviation"/>
 <xsl:if test="not(.//ISOAbbreviation)"><xsl:call-template name="periodical">
-<xsl:with-param name="J" select=".//Journal/Title"/>
+<xsl:with-param name="J" select="MedlineCitation/Article/Journal/Title"/>
 </xsl:call-template></xsl:if>
 <xsl:apply-templates select=".//JournalIssue"/>
 <xsl:apply-templates select=".//Pagination"/>
-| publisher = | location = | issn = 
+|publisher= |location = <xsl:if test="MedlineCitation/MedlineJournalInfo/Country">[[<xsl:value-of select="MedlineCitation/MedlineJournalInfo/Country"/>]]</xsl:if>| issn = <xsl:value-of select="MedlineCitation/Article/Journal/ISSN[@IssnType=&apos;Print&apos;]"/>
 <xsl:apply-templates select=".//PMID"/>
 <xsl:apply-templates select=".//ArticleId[@IdType=&apos;doi&apos;]"/>
 | bibcode = | oclc =| id = | url = | language = | format = | accessdate = | laysummary = | laysource = | laydate = | quote = 
@@ -95,7 +95,7 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 </xsl:template>
 
 <xsl:template match="PubDate">
-|year=[[<xsl:value-of select="Year"/>]]|month=<xsl:value-of select="Month"/>.
+|year=<xsl:if test="Year">[[<xsl:value-of select="Year"/>]]</xsl:if>|month=<xsl:if test="Month"><xsl:value-of select="Month"/>.</xsl:if>
 </xsl:template>
 
 
