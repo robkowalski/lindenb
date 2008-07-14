@@ -120,6 +120,7 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 <xsl:when test="$J='Endocrinology'">[[Endocrinology (journal)|Endocrinology]]</xsl:when>
 <xsl:when test="$J='Genetics'">[[Genetics (journal)|Genetics]]</xsl:when>
 <xsl:when test="$J='Lancet'">[[The_Lancet|Lancet]]</xsl:when>
+<xsl:when test="$J='Journal of medical biography'">[[Journal of Medical Biography]]</xsl:when>
 <xsl:when test="$J='Proc. Natl. Acad. Sci. U.S.A.'">[[PNAS|Proc. Natl. Acad. Sci. U.S.A.]]</xsl:when>
 <xsl:when test="$J='Journal of the Royal Society of Medicine'">[[Journal of the Royal Society of Medicine]]</xsl:when>
 <xsl:otherwise>[[<xsl:value-of select="$J"/>]]</xsl:otherwise>
