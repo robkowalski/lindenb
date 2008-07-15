@@ -16,6 +16,7 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.FileWriter;
+import java.io.PrintWriter;
 import java.lang.reflect.Constructor;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -61,6 +62,7 @@ import org.lindenb.jena.JenaUtils;
 import org.lindenb.jena.vocabulary.FOAF;
 import org.lindenb.lang.RunnableObject;
 import org.lindenb.lang.ThrowablePane;
+import org.lindenb.sw.vocabulary.KML;
 import org.lindenb.swing.ConstrainedAction;
 import org.lindenb.swing.ObjectAction;
 import org.lindenb.swing.SwingUtils;
@@ -69,6 +71,7 @@ import org.lindenb.swing.table.GenericTableModel;
 import org.lindenb.util.Compilation;
 import org.lindenb.util.Pair;
 import org.lindenb.util.TimeUtils;
+import org.lindenb.xml.XMLUtilities;
 import org.w3c.dom.Attr;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -78,6 +81,7 @@ import com.hp.hpl.jena.rdf.model.AnonId;
 import com.hp.hpl.jena.rdf.model.Literal;
 import com.hp.hpl.jena.rdf.model.Model;
 import com.hp.hpl.jena.rdf.model.ModelFactory;
+import com.hp.hpl.jena.rdf.model.NodeIterator;
 import com.hp.hpl.jena.rdf.model.Property;
 import com.hp.hpl.jena.rdf.model.RDFNode;
 import com.hp.hpl.jena.rdf.model.ResIterator;
@@ -85,6 +89,7 @@ import com.hp.hpl.jena.rdf.model.Resource;
 import com.hp.hpl.jena.rdf.model.Statement;
 import com.hp.hpl.jena.rdf.model.StmtIterator;
 import com.hp.hpl.jena.vocabulary.DC;
+import com.hp.hpl.jena.vocabulary.DCTerms;
 import com.hp.hpl.jena.vocabulary.RDF;
 import com.hp.hpl.jena.vocabulary.VCARD;
 
@@ -108,19 +113,19 @@ class Geo
 /** see bibiography ontology */
 class BIBO
 	{
-	static final String NS="http://prismstandard.org/namespaces/basic/2.0/";
-	static final String PUBMED_PREFIX="http://";
+	static final String NS="http://purl.org/ontology/bibo/";
+	static final String PUBMED_PREFIX="http://www.ncbi.nlm.nih.gov/pubmed/";
 	private static Model m = ModelFactory.createDefaultModel();
+	public static final Resource Article = m.createResource(NS+"Article" );
+	public static final Resource Journal = m.createResource(NS+"Journal" );
 	public static final Property volume = m.createProperty(NS, "volume" );
 	public static final Property issue = m.createProperty(NS, "number" );
-	public static final Property pubdate = m.createProperty(NS, "pubdate" );
-	public static final Property publicationName = m.createProperty(NS, "publicationName" );
 	public static final Property issn = m.createProperty(NS, "issn" );
-	public static final Property startingPage = m.createProperty(NS, "startingPage" );
-	public static final Property pageRange = m.createProperty(NS, "pageRange" );
-	public static final Property publicationDate = m.createProperty(NS, "publicationDate" );
+	public static final Property pages = m.createProperty(NS, "pages" );
 	public static final Property doi = m.createProperty(NS, "doi" );
 	public static final Property pmid = m.createProperty(NS, "pmid" );
+	public static final Property shortTitle = m.createProperty(NS, "shortTitle" );
+	
 	}
 
 /**
@@ -130,6 +135,9 @@ class BIBO
 public class SciFOAF extends JFrame
 	{
 	private static final long serialVersionUID = 1L;
+	/** world cat prefix */
+	private static final String WORLD_CAT_PREFIX="http://www.worldcat.org/issn/";
+	
 	/** model */
 	private Model rdfModel;
 	/** file */
@@ -152,6 +160,8 @@ public class SciFOAF extends JFrame
 			return object;
 			}
 		}
+	
+
 	
 	/** named Resource Pair(Resource,name for this resource ) */
 	private class NamedResource
@@ -667,7 +677,7 @@ public class SciFOAF extends JFrame
 			return true;
 			}
 		
-		private  AbstractTextRDFEditor addRDFField(JComponent input,Property prop,AbstractTextRDFEditor ed)
+		protected  AbstractTextRDFEditor addRDFField(JComponent input,Property prop,AbstractTextRDFEditor ed)
 			{
 			JLabel tf= new JLabel(shortForm(prop)+":",JTextField.RIGHT);
 			input.add(tf);
@@ -964,7 +974,73 @@ public class SciFOAF extends JFrame
 				return p;
 				}
 			
-			
+		/** create a simple table Table. Just option 'edit' is allowed */
+		protected JComponent createTable(
+				ResourceTableModel tm,
+				Resource targetRDFType
+				)
+				{
+				log().info("creating simple table from "+shortForm(targetRDFType));
+				JPanel p= new JPanel(new BorderLayout());
+				p.setBorder(new TitledBorder(shortForm(targetRDFType)));
+				JTable table= new JTable(tm);
+				table.setShowVerticalLines(false);
+				table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+				RDFTableCellRenderer render= new RDFTableCellRenderer();
+				
+				for(int i=0;i< table.getColumnModel().getColumnCount();++i)
+					{
+					table.getColumnModel().getColumn(i).setCellRenderer(render);
+					}
+				p.add(new JScrollPane(table), BorderLayout.CENTER);
+				JPanel bot= new JPanel(new FlowLayout(FlowLayout.TRAILING));
+				p.add(bot,BorderLayout.SOUTH);
+				
+				
+					{
+					class Shuttle1 { JTable table; Resource rdfType;}
+					Shuttle1 sh1= new Shuttle1();
+					sh1.table = table;
+					sh1.rdfType = targetRDFType;
+					ConstrainedAction<Shuttle1> action= new ConstrainedAction<Shuttle1>(sh1,"View")
+						{
+						private static final long serialVersionUID = 1L;
+
+						@Override
+						public void actionPerformed(ActionEvent ae)
+							{
+							if(!InstanceEditor.this.isEditorsValid()) return;
+							InstanceEditor.this.saveToModel();
+							int i= getObject().table.getSelectedRow();
+							if(i==-1) return;
+							log().info(getObject().table.getModel().getClass());
+							ResourceTableModel tm=ResourceTableModel.class.cast(getObject().table.getModel());
+							Resource r= tm.elementAt(i);
+							installInstancePane(r,getObject().rdfType);
+							}
+						};
+					action.mustHaveOneRowSelected(table);
+					bot.add(new JButton(action));
+					
+					table.addMouseListener(new  GenericMouseAdapter<Shuttle1>(sh1)
+						{
+						@Override
+						public void mousePressed(MouseEvent me) {
+							if(me.getClickCount()<2) return;
+							int i= getObject().table.getSelectedRow();
+							if(i==-1 || getObject().table.rowAtPoint(me.getPoint())!=i) return;
+							if(!InstanceEditor.this.isEditorsValid()) return;
+							InstanceEditor.this.saveToModel();
+							SelectRsrcTableModel tm=SelectRsrcTableModel.class.cast(getObject().table.getModel());
+							Resource r= tm.elementAt(i);
+							installInstancePane(r,getObject().rdfType);
+							}
+						});
+
+					}
+				SwingUtils.setFontDeep(p, new Font("Dialog",Font.PLAIN,9));
+				return p;
+				}	
 		
 		}
 	
@@ -977,7 +1053,7 @@ public class SciFOAF extends JFrame
 		public ImageEditor(Resource subject)
 			{
 			super(subject);
-			JPanel grid= new JPanel(new GridLayout(0,2,1,1));
+			JPanel grid= new JPanel(new GridLayout(1,0,1,1));
 			this.add(grid,BorderLayout.CENTER);
 			JPanel left= new JPanel(new GridLayout(2,0,1,1));
 			grid.add(left);
@@ -986,6 +1062,8 @@ public class SciFOAF extends JFrame
 				{
 				ImageIcon icn= new ImageIcon(new URL(getSubject().getURI()),getSubject().getURI());
 				label=new JLabel(icn);
+				label.setOpaque(true);
+				label.setBackground(Color.BLACK);
 				}
 			catch(Exception err)
 				{
@@ -998,18 +1076,17 @@ public class SciFOAF extends JFrame
 			
 			JPanel pane2= new JPanel(new InputLayout());
 			left.add(pane2);
-			TextRDFEditor ed=addInputField(pane2,FOAF.knows);
-			ed.getTextField().setEnabled(false);
-			ed=addInputField(pane2,FOAF.knows);
-			ed.getTextField().setEnabled(false);
+			TextRDFEditor ed=addInputField(pane2,DC.description);
+			
+			
 			
 			JPanel right= new JPanel(new GridLayout(0,1,1,1));
-			grid.add(pane2);
-			
-				{
-				
-				}
-			
+			grid.add(right);
+			PersonTableModel tm=new PersonTableModel(getModel().listResourcesWithProperty(RDF.type,FOAF.Person));
+			JComponent c=createSelectTable(shortForm(FOAF.depicts),
+					new SelectRsrcTableModel(tm,subject,FOAF.depicts,FOAF.depiction),
+					FOAF.Person);
+			right.add(c);
 			}
 		}
 	
@@ -1034,18 +1111,95 @@ public class SciFOAF extends JFrame
 		}
 	
 	/** PlaceEditor */
-	private class Article
+	private class ArticleEditor
 		extends InstanceEditor
 		{
 		private static final long serialVersionUID = 1L;
 
-		public Article(Resource subject)
+		public ArticleEditor(Resource subject)
 			{
 			super(subject);
 			JPanel pane= new JPanel(new GridLayout(0,2,1,1));
 			this.add(pane,BorderLayout.CENTER);
 			JPanel left= new JPanel(new InputLayout());
+			pane.add(left);
+			TextRDFEditor ed= addInputField(left, DC.title); ed.getTextField().setEditable(false);
+			ed= addInputField(left, DC.date);  ed.getTextField().setEditable(false);
+			ed= addInputField(left, BIBO.volume); ed.getTextField().setEditable(false);
+			ed= addInputField(left, BIBO.issue); ed.getTextField().setEditable(false);
+			ed= addInputField(left, BIBO.pages); ed.getTextField().setEditable(false);
+			ed= addInputField(left, BIBO.pmid); ed.getTextField().setEditable(false);
+			ed= addInputField(left, BIBO.doi); ed.getTextField().setEditable(false);
+			ed= addInputField(left, DC.description);
 			
+			//find journal
+			NodeIterator iter=getModel().listObjectsOfProperty(subject,DCTerms.isPartOf);
+			while(iter.hasNext())
+				{
+				RDFNode n= iter.nextNode();
+				if(!n.isResource()) continue;
+				Resource journal = Resource.class.cast(n);
+				if(!getModel().contains(journal,RDF.type,BIBO.Journal)) continue;
+
+				
+				left.add(new JLabel("Journal",JLabel.RIGHT));
+				JPanel journalPane= new JPanel(new InputLayout());
+				journalPane.setBorder(new TitledBorder("Journal Info."));
+				left.add(journalPane);
+				for(Property pred: new Property[]{
+						DC.title,
+						BIBO.shortTitle,
+						BIBO.issn})
+					{
+					journalPane.add(new JLabel(shortForm(pred),JLabel.RIGHT));
+					JTextField f= new JTextField(JenaUtils.getString(getModel(), journal, pred,""));
+					f.setEditable(false);
+					journalPane.add(f);
+					}
+				
+				break;
+				}
+			iter.close();
+			
+			}
+		}
+	
+	
+	/** PlaceEditor */
+	private class JournalEditor
+		extends InstanceEditor
+		{
+		private static final long serialVersionUID = 1L;
+
+		public JournalEditor(Resource subject)
+			{
+			super(subject);
+			JPanel pane= new JPanel(new GridLayout(0,2,1,1));
+			this.add(pane,BorderLayout.CENTER);
+			JPanel left= new JPanel(new InputLayout());
+			pane.add(left);
+			//Journal should be created from an article, set all fields disabled
+			TextRDFEditor ed=addInputField(left, DC.title);
+			ed.getTextField().setEnabled(false);
+			ed=addInputField(left, BIBO.shortTitle);
+			ed.getTextField().setEnabled(false);
+			ed=addInputField(left, BIBO.issn);
+			ed.getTextField().setEnabled(false);
+			
+			
+			JPanel right= new JPanel(new BorderLayout());
+			pane.add(right);
+			HashSet<Resource> set= new HashSet<Resource>();
+			ResIterator iter= getModel().listResourcesWithProperty(DCTerms.isPartOf,subject);
+			while(iter.hasNext())
+				{
+				Resource r= iter.nextResource();
+				if(!getModel().contains(r,RDF.type,BIBO.Article)) continue;
+				set.add(r);
+				}
+			iter.close();
+			
+			right.add( createTable(new ArticleTableModel(set), BIBO.Article) );
 			}
 		}
 	
@@ -1324,13 +1478,90 @@ public class SciFOAF extends JFrame
 	
 	
 	/** 
-	 * Article
+	 * ArticleTableModel
 	 */
 	private class ArticleTableModel extends ResourceTableModel
 		{
 		private static final long serialVersionUID = 1L;
 	
 		ArticleTableModel(ResIterator iter)
+			{
+			super(iter);
+			}
+		
+		ArticleTableModel(Collection<Resource> set)
+			{
+			super(set);
+			}
+		
+		@Override
+		public int getColumnCount() {
+			return 8;
+			}
+		
+		@Override
+		public Class<?> getColumnClass(int col) {
+				return String.class;
+			}
+		
+		@Override
+		public String getColumnName(int col)
+			{
+			switch(col)
+				{
+				case 0 : return "Date";
+				case 1 : return "Journal";
+				case 2 : return "Title";
+				case 3 : return "Vol.";
+				case 4 : return "Issue";
+				case 5 : return "pp.";
+				case 6 : return "PMID";
+				case 7 : return "doi";
+				}
+			return null;
+			}
+		
+		@Override
+		public Object getValueOf(Resource subject, int column)
+			{
+			switch(column)
+				{
+				case 0 : return getString(subject,DC.date);
+				case 1 :
+					{
+					String s=null;
+					NodeIterator iter=getModel().listObjectsOfProperty(subject, DCTerms.isPartOf);
+					while(iter.hasNext())
+						{
+						RDFNode n= iter.nextNode();
+						if(!n.isResource()) continue;
+						Resource r= Resource.class.cast(n);
+						if(!getModel().contains(r,RDF.type,BIBO.Journal)) continue;
+						s= JenaUtils.getString(getModel(), r, DC.title,null);
+						if(s!=null) break;
+						}
+					iter.close();
+					return s;
+					}
+				case 2 : return getString(subject,DC.title);
+				case 3 : return getString(subject,BIBO.volume);
+				case 4 : return getString(subject,BIBO.issue);
+				case 5 : return getString(subject,BIBO.pages);
+				case 6 : return getString(subject,BIBO.pmid);
+				case 7 : return getString(subject,BIBO.doi);
+				default: return null;
+				}
+			}
+		}
+	
+	/** 
+	 * JournalTableModel
+	 */
+	private class JournalTableModel extends ResourceTableModel
+		{
+		private static final long serialVersionUID = 1L;
+	
+		JournalTableModel(ResIterator iter)
 			{
 			super(iter);
 			}
@@ -1349,9 +1580,9 @@ public class SciFOAF extends JFrame
 			{
 			switch(col)
 				{
-				case 0 : return "Year";
-				case 1 : return "Journal";
-				case 2 : return "Title";
+				case 0 : return "Title";
+				case 1 : return "Abbr.";
+				case 2 : return "ISSN";
 				}
 			return null;
 			}
@@ -1361,13 +1592,14 @@ public class SciFOAF extends JFrame
 			{
 			switch(column)
 				{
-				case 0 : return getString(subject,Geo.placename);
-				case 1 : return getString(subject,Geo.country);
-				case 2 : return getString(subject,Geo.lon);
+				case 0 : return getString(subject,DC.title);
+				case 1 : return getString(subject,BIBO.shortTitle);
+				case 2 : return getString(subject,BIBO.issn);
 				default: return null;
 				}
 			}
 		}
+	
 	
 	/** 
 	 * Article
@@ -1452,9 +1684,10 @@ public class SciFOAF extends JFrame
 				Resource r= delegate.elementAt(i);
 				this.selected.put(r,Boolean.FALSE);
 				//test if statements (s,p,o) exists
-				if( getModel().contains(subject,property,r) ||
-					(reverseProperty!=null || getModel().contains(r,reverseProperty,subject)))
+				if( getModel().contains(this.subject,this.property,r) ||
+					(reverseProperty!=null && getModel().contains(r,reverseProperty,subject)))
 					{
+					log().info("exists("+subject+","+property+","+r+")");
 					this.selected.put(r,Boolean.TRUE);
 					}
 				}
@@ -1507,6 +1740,7 @@ public class SciFOAF extends JFrame
 			if(this.reverseProperty!=null) getModel().remove(getDelegate().elementAt(row),this.reverseProperty,this.subject);
 			if(b)
 				{
+				log().info("create("+this.subject+","+this.property+","+getDelegate().elementAt(row)+")");
 				getModel().add(this.subject, property,getDelegate().elementAt(row));
 				if(this.reverseProperty!=null) getModel().add(getDelegate().elementAt(row),this.reverseProperty,this.subject);
 				}
@@ -1577,6 +1811,15 @@ public class SciFOAF extends JFrame
 			public void actionPerformed(ActionEvent ae)
 				{
 				doMenuSave(SciFOAF.this.file);
+				}
+			}));
+		menu.add(new JMenuItem(new AbstractAction("Export as KML")
+			{
+			private static final long serialVersionUID = 1L;
+			@Override
+			public void actionPerformed(ActionEvent ae)
+				{
+				doMenuExportKML();
 				}
 			}));
 		menu.add(new JSeparator());
@@ -1737,17 +1980,25 @@ public class SciFOAF extends JFrame
 			
 			{
 			/** article pane */
-			ArticleTableModel tm= new ArticleTableModel(getModel().listSubjectsWithProperty(RDF.type, FOAF.Document));
-			tabbed.addTab(shortForm(FOAF.Document),createMainTab(tm, FOAF.Document));
+			ArticleTableModel tm= new ArticleTableModel(getModel().listSubjectsWithProperty(RDF.type, BIBO.Article));
+			tabbed.addTab(shortForm(BIBO.Article),createMainTab(tm, BIBO.Article));
 			}
+			
+			{
+			/** journals pane */
+			JournalTableModel tm= new JournalTableModel(getModel().listSubjectsWithProperty(RDF.type, BIBO.Journal));
+			tabbed.addTab(shortForm(BIBO.Journal),createMainTab(tm, BIBO.Journal));
+			}
+				
 			
 		installComponent(tabbed);
 		}
 	
 	/**  @return first child element with givek name */
-	private static Element firstOf(Element root,String name)
+	private Element firstOf(Element root,String name)
 		{
 		if(root==null) return null;
+		log().info("searching "+name+" in "+root.getNodeName());
 		for(Node n1=root.getFirstChild();n1!=null;n1=n1.getNextSibling())
 			{
 			if(n1.getNodeType()==Node.ELEMENT_NODE &&
@@ -1756,6 +2007,7 @@ public class SciFOAF extends JFrame
 				return Element.class.cast(n1);
 				}
 			}
+		log().info("searching "+name+" in "+root.getNodeName()+" returns null");
 		return null;
 		}
 	
@@ -1770,7 +2022,7 @@ public class SciFOAF extends JFrame
 	/** create instance */
 	private void createInstance(Resource subject,Resource rdfType)
 		{
-		if(rdfType.equals(FOAF.Document) && subject.getURI().startsWith(BIBO.PUBMED_PREFIX))
+		if(rdfType.equals(BIBO.Article) && subject.getURI().startsWith(BIBO.PUBMED_PREFIX))
 			{
 			String pmid=subject.getURI().substring(BIBO.PUBMED_PREFIX.length()).trim();
 			
@@ -1790,48 +2042,74 @@ public class SciFOAF extends JFrame
 				if(root==null) return;
 				Element PubmedArticle = firstOf(root,"PubmedArticle");
 				Element  MedlineCitation =  firstOf(PubmedArticle,"MedlineCitation");
-				Element Article =  firstOf(MedlineCitation,"MedlineCitation");
+				Element Article =  firstOf(MedlineCitation,"Article");
 				Element Journal =  firstOf(Article,"Journal");
 				Element ISSN = firstOf(Journal,"ISSN");
-				addXML(subject, BIBO.issn, ISSN);
+				
 				Element JournalIssue = firstOf(Journal,"JournalIssue");
+				
 				Element Volume = firstOf(JournalIssue,"Volume");
 				addXML(subject,BIBO.volume,Volume);
+				
 				Element Issue = firstOf(JournalIssue,"Issue");
 				addXML(subject,BIBO.issue,Issue);
+				
 				Element PubDate = firstOf(JournalIssue,"PubDate");
-				Element PubYear=null;
+				//Element PubYear=null;
 				StringBuilder sb= new StringBuilder();
 				for(Node n1=(PubDate==null?null:PubDate.getFirstChild());
 					n1!=null;n1=n1.getNextSibling())
 					{
 					if(n1.getNodeType()!=Node.ELEMENT_NODE) continue;
-					if(n1.getNodeName().equals("Year")) PubYear=Element.class.cast(n1);
+					//if(n1.getNodeName().equals("Year")) PubYear=Element.class.cast(n1);
 					sb.append(" ");
 					sb.append(n1.getTextContent());
 					}
 				if(sb.toString().trim().length()>0)
 					{
-					getModel().add(subject,BIBO.publicationDate,sb.toString().trim());
+					getModel().add(subject,DC.date,sb.toString().trim());
 					}
 				
-				Element JournalTitle = firstOf(Journal,"Title");
-				addXML(subject, BIBO.publicationName, JournalTitle);
+				
+				
+				Resource journalResource=null;
+				if(ISSN!=null)
+					{
+					//create journal
+					journalResource= getModel().createResource(WORLD_CAT_PREFIX+ISSN.getTextContent().trim());
+					getModel().add(journalResource,RDF.type,BIBO.Journal);
+					Element JournalTitle = firstOf(Journal,"Title");
+					Element ISOAbbreviation= firstOf(Journal,"ISOAbbreviation");
+					addXML(journalResource, DC.title, JournalTitle);
+					addXML(journalResource,BIBO.shortTitle,ISOAbbreviation);
+					addXML(journalResource, BIBO.issn, ISSN);
+					//link article to its journal
+					getModel().add(subject,DCTerms.isPartOf,journalResource);
+					}
+				
+				
+				
 				Element ArticleTitle = firstOf(Article,"ArticleTitle");
 				addXML(subject,DC.title,ArticleTitle);
 				Element Pagination = firstOf(Article,"Pagination");
 				Element MedlinePgn = firstOf(Pagination,"MedlinePgn");
-				addXML(subject,BIBO.pageRange,MedlinePgn);
+				addXML(subject,BIBO.pages,MedlinePgn);
 				
 				Element  PubmedData =  firstOf(PubmedArticle,"PubmedData");
 				Element ArticleIdList =  firstOf(PubmedData,"ArticleIdList");
 				for(Node n1=(ArticleIdList==null?null:ArticleIdList.getFirstChild());
 					n1!=null;n1=n1.getNextSibling())
 					{
+					System.err.println("A");
 					if(n1.getNodeType()!=Node.ELEMENT_NODE) continue;
-					if(n1.getNodeName().equals("ArticleId"))continue;
+					System.err.println("B");
+					if(!n1.getNodeName().equals("ArticleId"))continue;
 					Attr att= (Attr)n1.getAttributes().getNamedItem("IdType");
-					if(att==null) continue;
+					if(att==null)
+						{
+						log().info("Cannot find @IdType in "+n1.getNodeName());
+						continue;
+						}
 					if(att.getValue().equals("doi"))
 						{
 						getModel().add(subject,BIBO.doi,n1.getTextContent().trim());
@@ -1844,8 +2122,7 @@ public class SciFOAF extends JFrame
 			getModel().add(subject,BIBO.pmid,pmid);
 			}
 		getModel().add(subject,RDF.type,rdfType);
-		getModel().add(subject,DC.date,TimeUtils.toYYYYMMDD('-'));
-		
+		//getModel().add(subject,DC.date,TimeUtils.toYYYYMMDD('-')); no because article uses DC.date 
 		}
 	
 	/**  installInstancePane */
@@ -1871,6 +2148,14 @@ public class SciFOAF extends JFrame
 			{
 			ed= new OnlineAccountEditor(subject);
 			}
+		else if(rdfType.equals(BIBO.Article))
+			{
+			ed= new ArticleEditor(subject);
+			}
+		else if(rdfType.equals(BIBO.Journal))
+			{
+			ed= new JournalEditor(subject);
+			}
 		else
 			{
 			JOptionPane.showMessageDialog(this, "unknown rdf:type "+rdfType,"Error",JOptionPane.ERROR_MESSAGE,null);
@@ -1891,7 +2176,12 @@ public class SciFOAF extends JFrame
 			{
 			return JenaUtils.askNewURL(getModel(), owner, title);
 			}
-		else if(rdfType.equals(FOAF.Document))
+		else if(rdfType.equals(BIBO.Journal))
+			{
+			JOptionPane.showMessageDialog(owner, "Journal are created from articles");
+			return null;
+			}
+		else if(rdfType.equals(BIBO.Article))
 			{
 			String pmid="0";
 			while(true)
@@ -1945,25 +2235,80 @@ public class SciFOAF extends JFrame
 		return true;
 		}
 	
-	/** save menu as ... */
-	private void doMenuSaveAs()
+	private File askFile(File file)
 		{
-		JFileChooser chooser= new JFileChooser(this.file);
-		if( chooser.showSaveDialog(SciFOAF.this)!=JFileChooser.APPROVE_OPTION) return;
+		JFileChooser chooser= new JFileChooser(file);
+		if( chooser.showSaveDialog(SciFOAF.this)!=JFileChooser.APPROVE_OPTION) return null;
 		File f= chooser.getSelectedFile();
 		if(f.exists() &&
 			JOptionPane.showConfirmDialog(SciFOAF.this, f.toString()+" exists. Overwrite ?","Overwrite ?",JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE,null)!=JOptionPane.OK_OPTION
 			)
 			{
-			return;
+			return null;
 			}
+		return f;
+		}
+	
+	/** save menu as ... */
+	private void doMenuSaveAs()
+		{
+		File f=askFile(this.file);
+		if(f==null) return;
 		if(doMenuSave(f))
 			{
 			this.file=f;
 			}
 		}	
 	
-	
+	private void doMenuExportKML()
+		{
+		File f=askFile(null);
+		if(f==null) return;
+		try {
+			PrintWriter w= new PrintWriter(new FileWriter(f));
+			w.println("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+			w.println("<kml xmlns=\""+KML.NS+"\">");
+			w.println("<Document>");
+            w.println("<name>SciFOAF KML</name>");
+            
+            ResIterator iter1= getModel().listSubjectsWithProperty(RDF.type, Geo.Place);
+            while(iter1.hasNext())
+            	{
+            	Resource place= iter1.nextResource();
+            	String longitude=  JenaUtils.getString(getModel(), place, Geo.lon, null);
+            	if(longitude==null) continue;
+            	String latitude = JenaUtils.getString(getModel(), place, Geo.lat, null);
+            	if(latitude==null) continue;
+            	
+            	ResIterator iter2= getModel().listSubjectsWithProperty(FOAF.based_near, place);
+                while(iter2.hasNext())
+                	{
+                	Resource person= iter2.nextResource();
+                	String name=JenaUtils.getString(getModel(), person, FOAF.name);
+                	if(name==null) continue;
+                	if(!getModel().contains(person,RDF.type,FOAF.Person)) continue;
+                    w.println("<Placemark>");
+                    w.println("<name>"+XMLUtilities.escape(name)+"</name>");
+                    w.print("<description>");
+                    w.print(XMLUtilities.escape("<div><a href=\""+XMLUtilities.escape(person.getURI()) +"\">"+name+"</a></div>"));
+                    w.println("</description>");
+                    w.print("<Point><coordinates>");
+                    w.print(XMLUtilities.escape(longitude)+","+XMLUtilities.escape(latitude));
+                    w.println("</coordinates></Point>");
+                    w.println("</Placemark>");
+                	}
+                iter2.close();
+            	}
+            iter1.close();
+            w.println("</Document>");
+			w.println("</kml>");
+			w.flush();
+			w.close();
+			} 
+		catch (Exception e) {
+			ThrowablePane.show(SciFOAF.this, e);
+			}
+		}
 	
 	/**
 	 * @param args
@@ -2035,7 +2380,7 @@ public class SciFOAF extends JFrame
 			model.setNsPrefix("geo", Geo.NS);
 			model.setNsPrefix("bib", BIBO.NS);
 			model.setNsPrefix("vcard", VCARD.getURI());
-			
+			model.setNsPrefix("dcterms", DCTerms.getURI());
 			JFrame.setDefaultLookAndFeelDecorated(true);
 			JDialog.setDefaultLookAndFeelDecorated(true);
 			

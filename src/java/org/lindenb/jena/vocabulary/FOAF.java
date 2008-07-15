@@ -29,4 +29,7 @@ public class FOAF extends org.lindenb.sw.vocabulary.FOAF
 	public static final Property accountServiceHomepage = m.createProperty(NS, "accountServiceHomepage" );
 	public static final Property accountName = m.createProperty(NS, "accountName" );
 	public static final Property holdsAccount = m.createProperty(NS, "holdsAccount" );
+	public static final Property depicts = m.createProperty(NS, "depicts" );
+	public static final Property depiction = m.createProperty(NS, "depiction" );
+	
 	}
