@@ -8,14 +8,20 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.Graphics2D;
 import java.awt.GridLayout;
+import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.lang.reflect.Constructor;
 import java.net.MalformedURLException;
@@ -27,10 +33,14 @@ import java.util.Set;
 import java.util.Stack;
 import java.util.Vector;
 import java.util.regex.Pattern;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
+import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
 import javax.swing.ComboBoxModel;
 import javax.swing.DefaultComboBoxModel;
+import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -58,8 +68,10 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.apache.commons.logging.LogFactory;
+import org.lindenb.io.IOUtils;
 import org.lindenb.jena.JenaUtils;
 import org.lindenb.jena.vocabulary.FOAF;
+import org.lindenb.lang.ResourceUtils;
 import org.lindenb.lang.RunnableObject;
 import org.lindenb.lang.ThrowablePane;
 import org.lindenb.sw.vocabulary.KML;
@@ -68,8 +80,11 @@ import org.lindenb.swing.ObjectAction;
 import org.lindenb.swing.SwingUtils;
 import org.lindenb.swing.layout.InputLayout;
 import org.lindenb.swing.table.GenericTableModel;
+import org.lindenb.util.C;
 import org.lindenb.util.Compilation;
+import org.lindenb.util.Couple;
 import org.lindenb.util.Pair;
+import org.lindenb.util.SHA1;
 import org.lindenb.util.TimeUtils;
 import org.lindenb.xml.XMLUtilities;
 import org.w3c.dom.Attr;
@@ -148,6 +163,10 @@ public class SciFOAF extends JFrame
 	private Stack<EditHistory> history=new Stack<EditHistory>();
 	/** log **/
 	private org.apache.commons.logging.Log _log= LogFactory.getLog(SciFOAF.class); 
+	/** tmp File */
+	private File tmpDirectory=new File("/tmp/");
+	/** icon size */
+	private int iconSize=64;
 	
 	
 	/** GenericMouseAdapter */
@@ -734,6 +753,11 @@ public class SciFOAF extends JFrame
 			label.setToolTipText(subject.getURI());
 			top.add(label);
 			
+			//find depiction
+			ImageIcon icon= findDepiction(subject);
+			if(icon!=null) label.setIcon(icon);
+					
+			
 			JPanel bot= new JPanel(new FlowLayout(FlowLayout.TRAILING));
 			this.add(bot,BorderLayout.SOUTH);
 			
@@ -803,6 +827,11 @@ public class SciFOAF extends JFrame
 			/** starting from 1 because first column is select on/off */
 			for(int i=1;i< table.getColumnModel().getColumnCount();++i)
 				{
+				if(Icon.class.equals(tm.getColumnClass(i)))
+					{
+					table.setRowHeight(SciFOAF.this.getIconSize());
+					continue;
+					}
 				table.getColumnModel().getColumn(i).setCellRenderer(render);
 				}
 			p.add(new JScrollPane(table), BorderLayout.CENTER);
@@ -898,6 +927,11 @@ public class SciFOAF extends JFrame
 				
 				for(int i=0;i< table.getColumnModel().getColumnCount();++i)
 					{
+					if(Icon.class.equals(tm.getColumnClass(i)))
+						{
+						table.setRowHeight(SciFOAF.this.getIconSize());
+						continue;
+						}
 					table.getColumnModel().getColumn(i).setCellRenderer(render);
 					}
 				p.add(new JScrollPane(table), BorderLayout.CENTER);
@@ -990,6 +1024,11 @@ public class SciFOAF extends JFrame
 				
 				for(int i=0;i< table.getColumnModel().getColumnCount();++i)
 					{
+					if(Icon.class.equals(tm.getColumnClass(i)))
+						{
+						table.setRowHeight(SciFOAF.this.getIconSize());
+						continue;
+						}
 					table.getColumnModel().getColumn(i).setCellRenderer(render);
 					}
 				p.add(new JScrollPane(table), BorderLayout.CENTER);
@@ -1344,19 +1383,29 @@ public class SciFOAF extends JFrame
 	private class PersonTableModel extends ResourceTableModel
 		{
 		private static final long serialVersionUID = 1L;
-
+		private HashMap<Resource, Icon> rsrc2icn;
+		
 		PersonTableModel(ResIterator iter)
 			{
 			super(iter);
+			this.rsrc2icn=new HashMap<Resource, Icon>(this.getElementCount());
+			for(int i=0;i< this.getElementCount();++i)
+				{
+				ImageIcon icn=SciFOAF.this.findDepiction(this.elementAt(i));
+				if(icn==null) continue;
+				this.rsrc2icn.put(this.elementAt(i), icn);
+				}
 			}
 		@Override
 		public int getColumnCount() {
-			return 4;
+			return 5;
 			}
 		
 		@Override
-		public Class<?> getColumnClass(int col) {
-				return String.class;
+		public Class<?> getColumnClass(int col)
+			{
+			if(col==0) return Icon.class;
+			return String.class;
 			}
 		
 		@Override
@@ -1364,10 +1413,11 @@ public class SciFOAF extends JFrame
 			{
 			switch(col)
 				{
-				case 0 : return "Id";
-				case 1 : return "foaf:name";
-				case 2 : return "foaf:firstName";
-				case 3 : return "foaf:family_name";
+				case 0: return "Icon";
+				case 1 : return "Id";
+				case 2 : return "foaf:name";
+				case 3 : return "foaf:firstName";
+				case 4 : return "foaf:family_name";
 				}
 			return null;
 			}
@@ -1377,10 +1427,11 @@ public class SciFOAF extends JFrame
 			{
 			switch(column)
 				{
-				case 0 : return subject.getURI();
-				case 1 : return getString(subject,FOAF.name);
-				case 2 : return getString(subject,FOAF.firstName);
-				case 3 : return getString(subject,FOAF.family_name);
+				case 0 : return this.rsrc2icn.get(subject);
+				case 1 : return subject.getURI();
+				case 2 : return getString(subject,FOAF.name);
+				case 3 : return getString(subject,FOAF.firstName);
+				case 4 : return getString(subject,FOAF.family_name);
 				}
 			return null;
 			}
@@ -1392,19 +1443,27 @@ public class SciFOAF extends JFrame
 	private class ImageTableModel extends ResourceTableModel
 		{
 		private static final long serialVersionUID = 1L;
-	
+		private HashMap<Resource, Icon> rsrc2icon;
 		ImageTableModel(ResIterator iter)
 			{
 			super(iter);
+			this.rsrc2icon= new HashMap<Resource, Icon>( this.getElementCount());
+			for(int i=0;i< this.getElementCount();++i)
+				{
+				Icon icn= findDepiction(this.elementAt(i));
+				if(icn!=null) this.rsrc2icon.put(this.elementAt(i),icn);
+				}
 			}
 		@Override
 		public int getColumnCount() {
-			return 1;
+			return 2;
 			}
 		
 		@Override
-		public Class<?> getColumnClass(int col) {
-				return String.class;
+		public Class<?> getColumnClass(int col)
+			{
+			if(col==0) return Icon.class;
+			return String.class;
 			}
 		
 		@Override
@@ -1412,7 +1471,8 @@ public class SciFOAF extends JFrame
 			{
 			switch(col)
 				{
-				case 0 : return "Id";
+				case 0 : return "Icon";
+				case 1 : return "Id";
 				}
 			return null;
 			}
@@ -1422,7 +1482,8 @@ public class SciFOAF extends JFrame
 			{
 			switch(column)
 				{
-				case 0 : return subject.getURI();
+				case 0: return this.rsrc2icon.get(subject);
+				case 1 : return subject.getURI();
 				}
 			return null;
 			}
@@ -1756,6 +1817,7 @@ public class SciFOAF extends JFrame
 		super("SciFOAF");
 		this.rdfModel = model;
 		this.file=file;
+		this.tmpDirectory= new File(System.getProperty("java.io.tmpdir"),"scifoaf");
 		this.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 		JPanel mainPane= new JPanel(new BorderLayout());
 		this.setContentPane(mainPane);
@@ -1870,6 +1932,16 @@ public class SciFOAF extends JFrame
 		return this.rdfModel;
 		}
 	
+	private File getTmpDirectory()
+		{
+		return this.tmpDirectory;
+		}
+	
+	private int getIconSize() 
+		{
+		return this.iconSize;
+		}
+	
 	private String shortForm(Resource rsrc)
 		{
 		if(rsrc==null) return null;
@@ -1895,6 +1967,16 @@ public class SciFOAF extends JFrame
 		JTable table= new JTable(rtm);
 		table.setFont(new Font("Dialog",Font.BOLD,24));
 		table.setRowHeight(26);
+		
+		for(int i=0;i< rtm.getColumnCount();++i)
+			{
+			if(Icon.class.equals(rtm.getColumnClass(i)))
+				{
+				table.setRowHeight(SciFOAF.this.getIconSize());
+				break;
+				}
+			}
+		
 		table.setShowVerticalLines(false);
 		table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		pane.add(new JScrollPane(table));
@@ -2249,6 +2331,74 @@ public class SciFOAF extends JFrame
 		return f;
 		}
 	
+	/** find a ImageIcon for the given Resource */
+	private ImageIcon findDepiction(Resource subject)
+		{
+		if(subject==null) return null;
+		
+		if(getModel().contains(subject,RDF.type,FOAF.Image))
+			{
+			return getIcon(subject);
+			}
+		
+		ImageIcon icon=null;
+		NodeIterator iter= getModel().listObjectsOfProperty(
+				subject,
+				FOAF.depiction);
+		while(iter.hasNext())
+			{
+			RDFNode n= iter.nextNode();
+			if(!n.isResource()) continue;
+			Resource r= Resource.class.cast(n);
+			if(!getModel().contains(r,RDF.type,FOAF.Image)) continue;
+			try {
+				icon= getIcon(r);
+				if(icon!=null) break;
+				break;
+				}
+			catch (Exception e)
+				{
+				//ignore
+				}
+			}
+		iter.close();
+		return icon;
+		}
+	
+	/** find a ImageIcon for the given Resource */
+	private File findDepictionFile(Resource subject)
+		{
+		if(subject==null) return null;
+		
+		if(getModel().contains(subject,RDF.type,FOAF.Image))
+			{
+			return makeIcon(subject);
+			}
+		
+		File icon=null;
+		NodeIterator iter= getModel().listObjectsOfProperty(
+				subject,
+				FOAF.depiction);
+		while(iter.hasNext())
+			{
+			RDFNode n= iter.nextNode();
+			if(!n.isResource()) continue;
+			Resource r= Resource.class.cast(n);
+			if(!getModel().contains(r,RDF.type,FOAF.Image)) continue;
+			try {
+				icon= makeIcon(r);
+				if(icon!=null) break;
+				break;
+				}
+			catch (Exception e)
+				{
+				//ignore
+				}
+			}
+		iter.close();
+		return icon;
+		}
+	
 	/** save menu as ... */
 	private void doMenuSaveAs()
 		{
@@ -2260,6 +2410,93 @@ public class SciFOAF extends JFrame
 			}
 		}	
 	
+	private ImageIcon getIcon(Resource url)
+		{
+		try {
+			URL u=new URL(url.getURI());
+			File f= makeIcon(u);
+			if(f==null) return null;
+			return new ImageIcon(f.toString());
+		} catch (Exception e) {
+			log().warn("cannot get Icon",e);
+			return null;
+			}
+		
+		}
+	
+	
+	 private File makeIcon(Resource r)
+	 	{
+		 try {
+				URL u=new URL(r.getURI());
+				return makeIcon(u);
+			} catch (MalformedURLException e) {
+				return null;
+				}
+	 	}
+
+	
+    /** takes as input a freebase image id and save it into this.tmpFolder */
+    private File makeIcon(URL url)
+		{
+    	if(!getTmpDirectory().exists())
+    		{
+    		if(!getTmpDirectory().mkdir())
+    			{
+    			log().warn("Cannot create "+getTmpDirectory());
+    			return null;
+    			}
+    		log().info("Created tmp directory in "+getTmpDirectory());
+    		}
+    	String id= SHA1.encrypt(url.toString())+".png";
+    	File dest= new File(getTmpDirectory(),id);
+		
+		//ignore if exists
+		if(dest.exists()) return dest;
+		
+		try {
+			//load image
+			BufferedImage src= ImageIO.read(url);
+			//create icon
+			BufferedImage img=new BufferedImage(getIconSize(),getIconSize(),BufferedImage.TYPE_INT_RGB);
+			Graphics2D g= img.createGraphics();
+			g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+			g.setRenderingHint(RenderingHints.KEY_RENDERING,RenderingHints.VALUE_RENDER_QUALITY);
+			g.setColor(Color.BLACK);
+			g.fillRect(0, 0, getIconSize(), getIconSize());
+	
+			//center the icon
+			if(src.getWidth()< src.getHeight())
+				{
+				double ratio= src.getWidth()/(double)src.getHeight();//<0
+				int len=  (int)(getIconSize()*ratio);
+				int x= (getIconSize()-len)/2;
+				int y=0;
+				g.drawImage(src,x,y,len,getIconSize(),null);
+				}
+			else
+				{
+				double ratio= src.getHeight()/(double)src.getWidth();//<0
+				int len=  (int)(getIconSize()*ratio);
+				int y= (getIconSize()-len)/2;
+				int x=0;
+				g.drawImage(src,x,y,getIconSize(),len,null);
+				}
+			
+			g.dispose();
+			//save the icon
+			ImageIO.write(img, "png", dest);
+			//return the newly created icon
+			return dest;
+			} 
+		catch (Exception e) {
+			log().warn("Cannot create icon for "+id+" at url="+url,e);
+			return null;
+			}
+		
+		}
+	
+	/**  doMenuExportKML */
 	private void doMenuExportKML()
 		{
 		File f=askFile(null);
@@ -2306,6 +2543,159 @@ public class SciFOAF extends JFrame
 			w.close();
 			} 
 		catch (Exception e) {
+			ThrowablePane.show(SciFOAF.this, e);
+			}
+		}
+	
+	/**  doMenuExportXHTML */
+	private void doMenuExportXHTML()
+		{
+		File f=null;
+		
+		while(true)
+			{
+			f=askFile(f);
+			if(f==null) return;
+			if(f.getName().toLowerCase().endsWith(".zip")) break;
+			JOptionPane.showMessageDialog(this, "Filename should end with *.zip","Error",JOptionPane.WARNING_MESSAGE,null);
+			}
+		FileOutputStream fout=null;
+		HashSet<File> iconFiles= new HashSet<File>();
+		try {
+			boolean found=false;
+			fout= new FileOutputStream(f);
+			ZipOutputStream zout= new ZipOutputStream(fout);
+			ZipEntry entry= new ZipEntry("scifoaf/nn.js");
+			zout.putNextEntry(entry);
+			PrintWriter out= new PrintWriter(new OutputStreamWriter(zout));
+			out.println("var network={");
+			//save FOAF.Person
+			found=false;
+			out.println("\"profile\":[");
+			ResIterator iter= getModel().listResourcesWithProperty(RDF.type,FOAF.Person);
+			while(iter.hasNext())
+				{
+				Resource r= iter.nextResource();
+				if(found) out.print(",");
+				found=true;
+				File iconFile = findDepictionFile(r);
+				
+				out.println("{");
+				out.println("\"id\":\""+ C.escape(r.getURI())+"\",");
+				out.println("\"name\":\""+ C.escape(JenaUtils.getString(getModel(), r, FOAF.name, r.getURI()))+"\",");
+				out.println("\"job\":\"\",");
+				out.println("\"affiliation\":\"\",");
+				out.println("\"www\":\"\",");
+				if(iconFile==null)
+					{
+					out.println("\"img\":\"\",");
+					}
+				else
+					{
+					iconFiles.add(iconFile);
+					out.println("\"img\":\""+ C.escape(iconFile.getName()) +"\",");
+					}
+				
+				out.println("\"tags\":[],");
+				out.println("\"pos\":{\"x\":0,\"y\":0},");
+				out.println("\"goal\":{\"x\":0,\"y\":0},");
+				out.println("\"g\":null");
+				out.println("}");
+				}
+			iter.close();
+			out.println("],");
+			
+			//save FOAF.Group
+			found=false;
+			out.println("\"group\":[");
+			iter= getModel().listResourcesWithProperty(RDF.type,FOAF.Group);
+			while(iter.hasNext())
+				{
+				Resource r= iter.nextResource();
+				if(found) out.print(",");
+				found=true;
+				out.println("{");
+				out.println("\"uri\":\""+ C.escape(r.getURI())+"\",");
+				out.println("\"name\":\""+ C.escape(JenaUtils.getString(getModel(), r, FOAF.name, r.getURI()))+"\",");
+				out.println("\"members\":[");
+				boolean found2=false;
+				StmtIterator iter2=getModel().listStatements(r, FOAF.member, (RDFNode)null);
+				while(iter2.hasNext())
+					{
+					Statement stmt= iter2.nextStatement();
+					if(!stmt.getObject().isResource()) continue;
+					if(found2) out.print(",");
+					found2=true;
+					out.print("\""+C.escape(stmt.getResource().getURI())+"\"");
+					}
+				iter2.close();
+				out.println("]");
+				out.println("}");
+				}
+			iter.close();
+			out.println("],");
+			
+			//save FOAF.knows
+			found=false;
+			out.println("\"link\":[");
+			HashSet<Couple<Resource>> links= new HashSet<Couple<Resource>>();
+			StmtIterator iter3= getModel().listStatements(null,FOAF.knows,(RDFNode)null);
+			while(iter3.hasNext())
+				{
+				Statement stmt= iter3.nextStatement();
+				if(!stmt.getObject().isResource()) continue;
+				if(!getModel().contains(stmt.getSubject(),RDF.type,FOAF.Person)) continue;
+				if(!getModel().contains(stmt.getResource(),RDF.type,FOAF.Person)) continue;
+				links.add(new Couple<Resource>(stmt.getSubject(),stmt.getResource()));
+				}
+			iter3.close();
+			
+			for(Couple<Resource> c: links)
+				{
+				if(found) out.println(",");
+				found=true;
+				out.print("[\""+ C.escape(c.first().getURI())+ "\",\"" +C.escape(c.second().getURI())+"\"]");
+				}
+			
+			out.println("]");
+			
+			out.println("}");
+			out.flush();
+			zout.closeEntry();
+			
+			/* save images */
+			for(File icn: iconFiles)
+				{
+				entry= new ZipEntry("scifoaf/"+icn.getName());
+				zout.putNextEntry(entry);
+				FileInputStream fin=new FileInputStream(icn);
+				IOUtils.copyTo(fin, zout);
+				fin.close();
+				zout.flush();
+				zout.closeEntry();
+				}
+			
+			/* save main page */
+			entry= new ZipEntry("scifoaf/index.xml");
+			zout.putNextEntry(entry);
+			//save xhtml
+			out= new PrintWriter(new OutputStreamWriter(zout));
+			String html=ResourceUtils.getContent(SciFOAF.class, "network.xml");
+			out.print(html);
+			out.flush();
+			zout.closeEntry();
+			
+			
+			zout.flush();
+			fout.close();
+			} 
+		catch (Exception e)
+			{
+			if(f!=null)
+				{
+				IOUtils.safeClose(fout);
+				f.delete();
+				}
 			ThrowablePane.show(SciFOAF.this, e);
 			}
 		}
