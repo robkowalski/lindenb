@@ -1,0 +1,481 @@
+<html
+	xmlns="http://www.w3.org/1999/xhtml"
+	>
+<head>
+<title>Nature Network With SVG: Pierre Lindenbaum</title>
+
+<script type="text/javascript" src="nn.js"/>
+<script type="text/javascript"><![CDATA[
+/** the HTML namespace */
+var HTML={
+	"NS":"http://www.w3.org/1999/xhtml"
+	};
+/** the SVG namespace */
+var SVG={
+	"NS":"http://www.w3.org/2000/svg"
+	};
+/** the XLINK namespace */
+var XLINK={
+	"NS":"http://www.w3.org/1999/xlink"
+	};
+
+
+/** the html document */
+var htmldoc=null;
+/** the svg root */
+var svgroot=null;
+/** map uri2user */
+var uri2user= new Array();
+/** animation running */
+var animated=false;
+/** screen width */
+var viewWidth=0.0;
+/** ratio for animation */
+var RATIO_ANIME=0.8;
+/** time for animated */
+var ELAPSED_TIME=10;
+
+/** initialise the whole document */
+function init()
+ {
+ htmldoc= this.document;
+ svgroot= document.getElementById("svgdoc");
+ var svgrect =document.getElementById("frameSVGRect");
+ 
+ viewWidth=this.innerWidth-30;
+ 
+ svgrect.setAttribute("width",viewWidth);
+ svgrect.setAttribute("height",this.innerHeight-100);
+ svgroot.setAttribute("width",1+viewWidth);
+ svgroot.setAttribute("height",1+this.innerHeight-100);
+ 
+ var v= network.profile;
+ var cosf= Math.cos;
+ var sinf= Math.sin;
+ 
+ //loop over users
+ for(var i=0;i< v.length;++i)
+  {
+  //initialize the uri2user array
+  uri2user[v[i].id]=v[i];
+  var angle= Math.random()*6.2;
+  v[i].pos.x= this.innerWidth/2.0 + this.innerWidth*cosf(angle);
+  v[i].pos.y= this.innerHeight/2.0 + this.innerHeight*sinf(angle);
+  var g = htmldoc.createElementNS(SVG.NS,"g");
+  v[i].g = g;
+  g.setAttribute("title",v[i].name+" "+v[i].job+" "+v[i].affiliation);
+  g.setAttribute("onmousedown","focusProfile(this);");
+  g.setAttribute("transform","translate(-50,-50)");
+  g.setAttribute("cursor","pointer");
+  g.setAttribute("id",v[i].id);
+  var r1= htmldoc.createElementNS(SVG.NS,"rect");
+  r1.setAttribute("x",0);
+  r1.setAttribute("y",0);
+  r1.setAttribute("width",41);
+  r1.setAttribute("height",50);
+  r1.setAttribute("fill","gray");
+  r1.setAttribute("stroke","black");
+  g.appendChild(r1);
+  
+  if(v[i].img.length>0)
+	 {
+  	var img= htmldoc.createElementNS(SVG.NS,"image");
+	img.setAttributeNS(XLINK.NS,"xlink:href",v[i].img);
+	img.setAttribute("x",4);
+	img.setAttribute("y",4);
+	img.setAttribute("width",41-8);
+	img.setAttribute("height",50-8);
+	g.appendChild(img);
+	}
+else
+	{
+	
+	}
+  svgroot.appendChild(g);
+  }
+ focusProfileID("lindenb");
+ }
+
+function focusProfile(g)
+{
+focusProfileID(g.id);
+}
+
+function createProfileShown()
+{
+var profileShown= new Array();
+var v= network.profile;
+for(var i=0;i< v.length;++i)
+ {
+ profileShown[v[i].id]=0;
+ }
+return profileShown;
+}
+
+function focusProfileID( id)
+{
+if(animated) return;
+showLayer("profileLayer");
+var profileShown= createProfileShown();
+
+
+
+profileShown[id]=1;
+
+var user=uri2user[id];
+if(user==null) return;
+var a=null;
+var tag = document.getElementById("profileImg");
+if(user.img.length==0)
+	{
+	tag.setAttribute("src","http://network.nature.com/images/user_generic_large.gif");
+	}
+else
+	{
+	tag.setAttribute("src",user.img);
+	}
+tag = document.getElementById("profileAnchor");
+tag.setAttribute("href","http://network.nature.com/profile/"+user.id);
+tag.setAttribute("title","Go to http://network.nature.com/profile/"+user.id);
+tag.setAttribute("target",user.id);
+
+tag = document.getElementById("profileName");
+tag.innerHTML= user.name;
+tag = document.getElementById("profileJob");
+tag.innerHTML="";
+a= htmldoc.createElementNS(HTML.NS,"a");
+tag.appendChild(a);
+a.setAttribute("href","javascript:focusJob(\""+user.job+"\");");
+a.setAttribute("title",user.job);
+a.appendChild(htmldoc.createTextNode(user.job));
+
+
+tag = document.getElementById("profileAffiliation");
+tag.innerHTML="";
+a= htmldoc.createElementNS(HTML.NS,"a");
+tag.appendChild(a);
+a.setAttribute("href","javascript:focusAffiliation(\""+user.affiliation+"\");");
+a.setAttribute("title",user.affiliation);
+a.appendChild(htmldoc.createTextNode(user.affiliation));
+
+
+tag = document.getElementById("profileWWW");
+tag.innerHTML= ""
+if(user.www.length>0)
+ {
+ a= htmldoc.createElementNS(HTML.NS,"a");
+ tag.appendChild(a);
+ a.setAttribute("href",user.www);
+ a.setAttribute("title",user.www);
+ a.setAttribute("target",user.www);
+ a.appendChild(htmldoc.createTextNode(user.www));
+ }
+tag = document.getElementById("profileTags");
+tag.innerHTML= ""
+for(var i=0;i< user.tags.length;i++)
+ {
+ var a= htmldoc.createElementNS(HTML.NS,"a");
+ tag.appendChild(a);
+ a.setAttribute("href","javascript:focusTag(\""+user.tags[i]+"\");");
+ a.setAttribute("title",user.tags[i]);
+ a.appendChild(htmldoc.createTextNode(user.tags[i]));
+ if(i+1!= user.tags.length) tag.appendChild(htmldoc.createTextNode(" "));
+ }
+
+var link=network.link;
+for(var i=0;i< link.length;++i)
+ {
+ var L= link[i];
+ var other=null;
+ if(L[0]==id)
+ 	{
+	other =uri2user[L[1]];
+	}
+ else if(L[1]==id)
+	{
+	other =uri2user[L[0]];
+	}
+ if(other==null) continue;
+ profileShown[other.id]=1;
+ }
+
+tag = document.getElementById("profileGroups"); 
+tag.innerHTML= ""
+var group=network.group;
+for(var i=0;i< group.length;++i)
+ {
+ for(var j=0;j< group[i].members.length;++j)
+  {
+  if(	group[i].members[j]==id)
+    {
+    var a= htmldoc.createElementNS(HTML.NS,"a");
+    tag.appendChild(a);
+    a.setAttribute("href","javascript:focusGroupID(\""+group[i].uri+"\");");
+    a.setAttribute("title",group[i].name);
+    a.appendChild(htmldoc.createTextNode(group[i].name));
+    tag.appendChild(htmldoc.createTextNode(" "));
+    break;
+    }
+  }
+ }
+launchAnimation(profileShown);
+}
+
+
+function focusGroupID(id)
+{
+if(animated) return;
+showLayer("groupLayer");
+var group=network.group;
+tag = document.getElementById("groupLayer");
+tag.innerHTML= ""
+for(var i=0;i< group.length;++i)
+ {
+ if(group[i].uri!=id) continue;
+ var e= htmldoc.createElementNS(HTML.NS,"b");
+ e.appendChild(htmldoc.createTextNode("Group: "));
+ tag.appendChild(e);
+ var e= htmldoc.createElementNS(HTML.NS,"a");
+ e.setAttribute("href","http://network.nature.com/group/"+group[i].uri);
+ e.setAttribute("title","http://network.nature.com/group/"+group[i].uri);
+ e.setAttribute("target",group[i].uri);
+ e.appendChild(htmldoc.createTextNode(group[i].name));
+ tag.appendChild(e);
+ 
+ var profileShown= createProfileShown();
+ for(var j=0;j< group[i].members.length;++j)
+	{
+	profileShown[group[i].members[j]]=1;
+	}
+ 
+ 
+ break;
+ }
+launchAnimation(profileShown);
+}
+
+function focusTag(id)
+{
+if(animated) return;
+showLayer("tagLayer");
+
+tag = document.getElementById("tagLayer");
+tag.innerHTML= ""
+var e= htmldoc.createElementNS(HTML.NS,"b");
+e.appendChild(htmldoc.createTextNode("Tag: "));
+tag.appendChild(e);
+tag.appendChild(htmldoc.createTextNode(id));
+
+var profileShown= createProfileShown();
+
+var v= network.profile;
+id=id.toLowerCase();
+for(var i=0;i< v.length;++i)
+	{
+	var t=v[i].tags;
+	for(var j=0;j< t.length;++j)
+		{
+		if(t[j].toLowerCase()==id)
+			{
+			profileShown[v[i].id]=1;
+			break;
+			}
+		}
+	}
+launchAnimation(profileShown);
+}
+
+
+function focusJob(id)
+{
+if(animated) return;
+showLayer("jobLayer");
+
+tag = document.getElementById("jobLayer");
+tag.innerHTML= ""
+var e= htmldoc.createElementNS(HTML.NS,"b");
+e.appendChild(htmldoc.createTextNode("Job : "));
+tag.appendChild(e);
+tag.appendChild(htmldoc.createTextNode(id));
+focusOnProperty("job",id);
+}
+
+function focusAffiliation(id)
+{
+if(animated) return;
+showLayer("affiliationLayer");
+
+tag = document.getElementById("affiliationLayer");
+tag.innerHTML= ""
+var e= htmldoc.createElementNS(HTML.NS,"b");
+e.appendChild(htmldoc.createTextNode("Affiliation : "));
+tag.appendChild(e);
+tag.appendChild(htmldoc.createTextNode(id));
+focusOnProperty("affiliation",id);
+}
+
+function focusOnProperty(prop,id)
+{
+var profileShown= createProfileShown();
+var v= network.profile;
+id=id.toLowerCase();
+for(var i=0;i< v.length;++i)
+	{
+	var p = v[i][prop].toLowerCase();
+	if(p==id)
+		{
+		profileShown[v[i].id]=1;
+		}
+	}
+launchAnimation(profileShown);
+}
+
+
+function showLayer(id)
+{
+var a=["profileLayer","groupLayer","tagLayer","affiliationLayer","jobLayer"];
+for(var i=0;i< a.length;i++)
+ {
+ document.getElementById(a[i]).style.visibility=(a[i]==id?"visible":"hidden");
+ }
+}
+
+
+function launchAnimation(profileShown)
+{
+if(animated) return;
+var v= network.profile;
+var x=5;
+var y=5;
+var cosf= Math.cos;
+var sinf= Math.sin;
+//loop over users
+for(var i=0;i< v.length;++i)
+ {
+ if(profileShown[v[i].id]==1)
+ 	{
+	v[i].goal.x=x;
+	v[i].goal.y=y;
+	x+=(5+41);
+	if(x+41>viewWidth)
+		{
+		x=5;
+		y+=(5+50);
+		} 
+ 	}
+ else
+	{
+	var angle= Math.random()*6.2;
+	v[i].goal.x= this.innerWidth/2.0 + this.innerWidth*cosf(angle);
+	v[i].goal.y= this.innerHeight/2.0 + this.innerHeight*sinf(angle);
+	}
+
+ }
+
+animated=true;
+setTimeout('nextStep()', ELAPSED_TIME);
+}
+
+
+function nextStep()
+{
+if(animated==false) return;
+var continueAnimation=0;
+var v= network.profile;
+var sqrt= Math.sqrt;
+for(var i=0;i< v.length;++i)
+ {
+ var curr=v[i];
+ var x0= curr.pos.x;
+ var y0= curr.pos.y;
+ var x1= curr.goal.x;
+ var y1= curr.goal.y;
+ 
+ var dx= x1-x0;
+ var dy= y1-y0;
+ 
+ curr.pos.x = x0+ (dx-dx*RATIO_ANIME);
+ curr.pos.y = y0+ (dy-dy*RATIO_ANIME);
+ 
+ dx= x1-x0;
+ dy= y1-y0;
+ var dist = sqrt(dx*dx+dy*dy);
+ 
+ if(dist<4)
+  {
+  curr.pos.x= x1;
+  curr.pos.y= y1;
+  }
+ else
+  {
+  continueAnimation++;
+  }
+ v[i].g.setAttribute("transform","translate("+ v[i].pos.x+","+v[i].pos.y+")");
+ }
+if(continueAnimation>0)
+ {
+ setTimeout('nextStep()', ELAPSED_TIME);
+ }
+else
+ {
+ animated=false;
+ }
+}
+
+
+ 
+ ]]></script>
+
+</head>
+<body onload="init()">
+	<div style="font-size:10pt;"><span style="font-size:18pt;"><b>The Nature Network</b></span>  created by <a href="http://plindenbaum.blogspot.com">Pierre Lindenbaum  PhD 2007</a>. <cite>Learning a little more javascript and <a href="http://en.wikipedia.org/wiki/JSON">JSON</a> I've used the <a href="nn.js">data</a> available from the <a href="http://network.nature.com/">Nature Network</a> on May 13, 2007 to display an interactive map of the network based on <a href="http://www.w3.org/Graphics/SVG/">SVG</a>, <a href="http://en.wikipedia.org/wiki/JSON">JSON</a> and javascript</cite>. This page was tested on <a href="http://www.mozilla.com/en-US/firefox/">Firefox 2</a></div>
+<div id="layers" style="position:relative;width:100%; height:100px; background:lightgray;">
+
+<div id="groupLayer" style="position:absolute; top:0px; left:0px;width:100%;visibility:hidden; "/>
+<div id="tagLayer" style="position:absolute; top:0px; left:0px;width:100%;visibility:hidden; "/>
+<div id="jobLayer" style="position:absolute; top:0px; left:0px;width:100%;visibility:hidden; "/>
+<div id="affiliationLayer" style="position:absolute; top:0px; left:0px;width:100%;visibility:hidden; "/>
+<div id="profileLayer" style="position:absolute; top:0px; left:0px;width:100%; font-size:9pt;">
+<table width="100%"><tr>
+<td width="33">
+<a id="profileAnchor">
+<img id="profileImg" width="33" height="42" src="http://network.nature.com/images/user_generic_large.gif"/>
+</a>
+</td>
+<td>
+<b>Name :</b> <span id="profileName"></span> 
+<b>Job :</b> <span id="profileJob"></span> 
+<b>Affiliation :</b> <span id="profileAffiliation"></span> 
+<b>www :</b> <span id="profileWWW"></span> 
+<b>Tags :</b> <span id="profileTags"></span>  
+<b>Groups :</b> <span id="profileGroups"></span> 
+</td></tr></table></div>
+
+</div><br/>
+<svg id="svgdoc" xmlns="http://www.w3.org/2000/svg" version="1.1" width="100" height="100">
+ <defs>
+  <linearGradient id = "gradient1" x1 = "50%" y1 = "0%" x2 = "50%" y2 = "100%">
+   <stop stop-color = "white" offset = "0%"/>
+   <stop stop-color = "black" offset = "100%"/>
+  </linearGradient>	
+ </defs>
+
+<rect id="frameSVGRect" x="0" y="0" width="100" height="100" fill="lightgray" stroke="black"/>
+
+</svg>
+<div>Pierre Lindenbaum:  plindenbaum ( a t ) yahoo ( d o t ) fr </div>
+
+<!-- google analytics -->
+
+<script src="http://www.google-analytics.com/urchin.js" type="text/javascript">
+</script>
+<script type="text/javascript">
+_uacct = "UA-307413-2";
+urchinTracker();
+</script>
+
+<!-- google analytics -->
+
+</body>
+
+</html>
