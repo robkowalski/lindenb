@@ -9,6 +9,7 @@ public class FOAF extends org.lindenb.sw.vocabulary.FOAF
 	{
 	private static Model m = ModelFactory.createDefaultModel();
 	public static final Resource Person = m.createResource(NS+ "Person" );
+	public static final Resource Group = m.createResource(NS+ "Group" );
 	public static final Resource Document = m.createResource(NS+ "Document" );
 	public static final Resource Image = m.createResource(NS+ "Image" );
 	public static final Resource PersonalProfileDocument = m.createResource(NS+ "PersonalProfileDocument" );
@@ -31,5 +32,5 @@ public class FOAF extends org.lindenb.sw.vocabulary.FOAF
 	public static final Property holdsAccount = m.createProperty(NS, "holdsAccount" );
 	public static final Property depicts = m.createProperty(NS, "depicts" );
 	public static final Property depiction = m.createProperty(NS, "depiction" );
-	
+	public static final Property member = m.createProperty(NS, "member" );
 	}
