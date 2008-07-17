@@ -11,6 +11,7 @@ import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.GridLayout;
 import java.awt.RenderingHints;
+import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -25,8 +26,11 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.lang.reflect.Constructor;
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
@@ -40,6 +44,7 @@ import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
 import javax.swing.ComboBoxModel;
 import javax.swing.DefaultComboBoxModel;
+import javax.swing.DefaultListModel;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
@@ -49,6 +54,7 @@ import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
@@ -76,6 +82,9 @@ import org.lindenb.lang.ResourceUtils;
 import org.lindenb.lang.RunnableObject;
 import org.lindenb.lang.ThrowablePane;
 import org.lindenb.sw.vocabulary.KML;
+import org.lindenb.sw.vocabulary.SVG;
+import org.lindenb.sw.vocabulary.XHTML;
+import org.lindenb.sw.vocabulary.XLINK;
 import org.lindenb.swing.ConstrainedAction;
 import org.lindenb.swing.ObjectAction;
 import org.lindenb.swing.SwingUtils;
@@ -107,6 +116,7 @@ import com.hp.hpl.jena.rdf.model.StmtIterator;
 import com.hp.hpl.jena.vocabulary.DC;
 import com.hp.hpl.jena.vocabulary.DCTerms;
 import com.hp.hpl.jena.vocabulary.RDF;
+import com.hp.hpl.jena.vocabulary.RDFTest;
 import com.hp.hpl.jena.vocabulary.VCARD;
 
 
@@ -182,6 +192,7 @@ public class SciFOAF extends JFrame
 		}
 	
 
+
 	
 	/** named Resource Pair(Resource,name for this resource ) */
 	private class NamedResource
@@ -223,6 +234,7 @@ public class SciFOAF extends JFrame
 		public Property getProperty() {
 			return property;
 			}
+		public abstract JComponent getComponent();
 		public abstract boolean isEmpty();
 		public boolean isValid() { return getValidationMessage()==null;}
 		public abstract String getValidationMessage();
@@ -253,6 +265,11 @@ public class SciFOAF extends JFrame
 		protected RDFEditorsList getEditorsList()
 			{
 			return this.editorList;
+			}
+		
+		@Override
+		public JComponent getComponent() {
+			return getEditorsList();
 			}
 		
 		@Override
@@ -335,6 +352,11 @@ public class SciFOAF extends JFrame
 		public ComboRDFEditor()
 			{
 			this.combo= new JComboBox(new DefaultComboBoxModel());
+			}
+		
+		@Override
+		public JComponent getComponent() {
+			return this.combo;
 			}
 		
 		public void setModel(NamedResource keys[])
@@ -427,6 +449,158 @@ public class SciFOAF extends JFrame
 		
 		}
 
+	private abstract class AbstractListEditor
+	extends RDFEditor
+		{
+		private JPanel pane;
+		private JTextField inputField;
+		protected JList list;
+		AbstractListEditor()
+			{
+			this.pane= new JPanel(new BorderLayout());
+			JPanel top=new JPanel(new FlowLayout(FlowLayout.LEADING));
+			this.pane.add(top,BorderLayout.NORTH);
+			top.add(new JLabel("Add:",JLabel.RIGHT));
+			this.inputField= new JTextField(10);
+			top.add(this.inputField);
+			AbstractAction action= new AbstractAction("OK")
+				{
+				@Override
+				public void actionPerformed(ActionEvent arg0) {
+					String s=inputField.getText().trim();
+					if(!accept(s))
+						{
+						Toolkit.getDefaultToolkit().beep();
+						return;
+						}
+					DefaultListModel model= DefaultListModel.class.cast(list.getModel());
+					int i=0;
+					for(i=0;i< model.getSize();++i)
+						{
+						String x=String.class.cast(model.elementAt(i));
+						if(x.equalsIgnoreCase(s))
+							{
+							Toolkit.getDefaultToolkit().beep();
+							return;
+							}
+						}
+					model.addElement(s);
+					inputField.setText("");
+					}
+				};
+			this.inputField.addActionListener(action);
+			top.add(new JButton(action));
+			this.list= new JList(new DefaultListModel());
+			this.pane.add(new JScrollPane(this.list),BorderLayout.CENTER);
+			}
+		
+		@Override
+		public JComponent getComponent() {
+			return this.pane;
+			}
+		
+		@Override
+		public String getValidationMessage() {
+			return null;
+			}
+		@Override
+		public boolean isEmpty() {
+			return this.list.getModel().getSize()==0;
+			}
+		
+		protected abstract void loadNode(RDFNode node);
+		protected abstract void saveNode(String s);
+		protected abstract boolean accept(String s);
+		
+		@Override
+		public void loadFromModel() {
+			DefaultListModel model= DefaultListModel.class.cast(list.getModel());
+			inputField.setText("");
+			model.setSize(0);
+			NodeIterator iter=getModel().listObjectsOfProperty(getSubject(),getProperty());
+			while(iter.hasNext())
+				{
+				loadNode(iter.nextNode());
+				}
+			iter.close();
+			}
+		
+		@Override
+		public void saveToModel()
+			{
+			DefaultListModel model= DefaultListModel.class.cast(list.getModel());
+			JenaUtils.remove(getModel(), getSubject(), getProperty(), null);
+			for(int i=0;i< model.getSize();++i)
+				{
+				saveNode(String.class.cast(model.elementAt(i)));
+				}
+			}
+		}
+	
+	
+	private class LiteralListEditor
+	extends AbstractListEditor
+		{
+		LiteralListEditor()
+			{
+			}
+		
+		@Override
+		protected boolean accept(String s) {
+			return s!=null && s.length()>0;
+			}
+		
+		@Override
+		protected void loadNode(RDFNode node)
+			{
+			DefaultListModel model= DefaultListModel.class.cast(list.getModel());
+			if(!node.isLiteral()) return;
+			model.addElement(Literal.class.cast(node).getString());
+			}
+
+		@Override
+		protected void saveNode(String s)
+			{
+			if(s==null) return;
+			getModel().add(getSubject(),getProperty(),getModel().createLiteral(String.class.cast(s)));
+			}
+		}
+	
+	private class ResourceListEditor
+	extends AbstractListEditor
+		{
+		ResourceListEditor()
+			{
+			}
+		
+		@Override
+		protected boolean accept(String s)
+			{
+			try {
+				new URI(s);
+				return true;
+				} 
+			catch (URISyntaxException e) {
+				return false;
+				}			
+			}
+		
+		@Override
+		protected void loadNode(RDFNode node)
+			{
+			DefaultListModel model= DefaultListModel.class.cast(list.getModel());
+			if(!node.isResource()) return;
+			model.addElement(Resource.class.cast(node).getURI());
+			}
+
+		@Override
+		protected void saveNode(String s)
+			{
+			if(s==null) return;
+			getModel().add(getSubject(),getProperty(),getModel().createResource(String.class.cast(s)));
+			}
+		}
+	
 	
 	/**
 	 * AbstractTextRDFEditor
@@ -448,6 +622,11 @@ public class SciFOAF extends JFrame
 		@Override
 		public boolean isEmpty() {
 			return getTextField().getText().trim().length()==0;
+			}
+		
+		@Override
+		public JComponent getComponent() {
+			return getTextField();
 			}
 		}
 	
@@ -700,21 +879,21 @@ public class SciFOAF extends JFrame
 			return true;
 			}
 		
-		protected  AbstractTextRDFEditor addRDFField(JComponent input,Property prop,AbstractTextRDFEditor ed)
+		protected  RDFEditor addRDFField(JComponent input,Property prop,RDFEditor ed)
 			{
 			JLabel tf= new JLabel(shortForm(prop)+":",JTextField.RIGHT);
 			input.add(tf);
 			tf.setToolTipText(prop.getURI());
-			tf.addMouseListener(new GenericMouseAdapter<AbstractTextRDFEditor>(ed)
+			tf.addMouseListener(new GenericMouseAdapter<RDFEditor>(ed)
 				{
 				@Override
 				public void mousePressed(MouseEvent arg0) {
-					getObject().tf.requestFocus();
+					getObject().getComponent().requestFocus();
 					}
 				});
 			ed.setSubject(getSubject());
 			ed.setProperty(prop);
-			input.add(ed.tf);
+			input.add(ed.getComponent());
 			this.editors.add(ed);
 			return ed;
 			}
@@ -1262,6 +1441,40 @@ public class SciFOAF extends JFrame
 		
 		}
 	
+	/** GroupEditor */
+	private class GroupEditor
+		extends InstanceEditor
+		{
+		private static final long serialVersionUID = 1L;
+		public GroupEditor(Resource subject)
+			{
+			super(subject);
+			JPanel pane= new JPanel(new GridLayout(0,2,1,1));
+			this.add(pane,BorderLayout.CENTER);
+			JPanel left= new JPanel(new InputLayout());
+			pane.add(left);
+			addInputField(left, FOAF.name);
+			addResourceField(left, FOAF.homepage);
+			addInputField(left, DC.description);
+			
+			JPanel right= new JPanel(new GridLayout(0,1,1,1));
+			pane.add(right);
+			
+				{
+				PersonTableModel tm= new PersonTableModel(getModel().listSubjectsWithProperty(RDF.type, FOAF.Person));
+				tm.removeElement(getSubject());
+					
+				right.add(createSelectTable(
+					shortForm(FOAF.member),
+					new SelectRsrcTableModel(tm,getSubject(),FOAF.member,null),
+					FOAF.Person)
+					);
+				}
+			
+			
+			}
+		}
+	
 	/** PersonEditor */
 	private class PersonEditor
 		extends InstanceEditor
@@ -1332,7 +1545,47 @@ public class SciFOAF extends JFrame
 		extends GenericTableModel<Resource>
 		{
 		private static final long serialVersionUID = 1L;
-		ResourceTableModel(ResIterator iter)
+		
+		private class ResourceComparator
+			implements Comparator<Resource>
+			{
+			private Property properties[];
+			
+			ResourceComparator(Property properties[])
+				{
+				this.properties=properties;
+				}
+			
+			@Override
+			public int compare(Resource a1, Resource a2)
+				{
+				for(Property p:this.properties)
+					{
+					RDFNode n1=getProperty(a1,p);
+					RDFNode n2=getProperty(a2,p);
+					int i= JenaUtils.compare(n1, n2);
+					if(i!=0) return i;
+					}	
+				return 0;
+				}
+			
+			private RDFNode getProperty(Resource subject,Property p)
+				{
+				RDFNode rez=null;
+				NodeIterator iter=getModel().listObjectsOfProperty(subject, p);
+				while(iter.hasNext())
+					{
+					rez=iter.nextNode();
+					break;
+					}
+				iter.close();
+				return rez;
+				}
+			
+			}
+		
+		
+		protected ResourceTableModel(ResIterator iter)
 			{
 			while(iter.hasNext())
 				{
@@ -1341,12 +1594,17 @@ public class SciFOAF extends JFrame
 			iter.close();
 			}
 		
-		ResourceTableModel(Collection<Resource> col)
+		protected ResourceTableModel(Collection<Resource> col)
 			{
 			for(Resource r: col)
 				{
 				this.addElement(r);
 				}
+			}
+		
+		protected void sort(Property...properties )
+			{
+			this.sort(new ResourceComparator(properties));
 			}
 		
 		/** returns a literal string from the given subject/prop */
@@ -1399,6 +1657,7 @@ public class SciFOAF extends JFrame
 				if(icn==null) continue;
 				this.rsrc2icn.put(this.elementAt(i), icn);
 				}
+			sort(FOAF.family_name,FOAF.firstName,FOAF.name);
 			}
 		@Override
 		public int getColumnCount() {
@@ -1441,6 +1700,47 @@ public class SciFOAF extends JFrame
 			}
 		}
 	
+	private class GroupTableModel  extends ResourceTableModel
+		{
+		private static final long serialVersionUID = 1L;
+		GroupTableModel(ResIterator iter)
+			{
+			super(iter);
+			}
+		@Override
+		public String getColumnName(int col) {
+			switch(col)
+				{
+				case 0: return "Id";
+				case 1 : return "Name";
+				}
+			return null;
+			}
+		
+		@Override
+		public Class<?> getColumnClass(int columnIndex) {
+			return String.class;
+			}
+		
+		@Override
+		public Object getValueOf(Resource subject, int column)
+			{
+			switch(column)
+				{
+				case 0 : return subject.getURI();
+				case 1 : return getString(subject,FOAF.name);
+				}
+			return null;
+			}
+
+		@Override
+		public int getColumnCount()
+			{
+			return 2;
+			}
+		
+		}
+	
 	/** 
 	 * ImageTableModel
 	 */
@@ -1457,6 +1757,7 @@ public class SciFOAF extends JFrame
 				Icon icn= findDepiction(this.elementAt(i));
 				if(icn!=null) this.rsrc2icon.put(this.elementAt(i),icn);
 				}
+			sort(DC.title);
 			}
 		@Override
 		public int getColumnCount() {
@@ -1503,6 +1804,7 @@ public class SciFOAF extends JFrame
 		PlaceTableModel(ResIterator iter)
 			{
 			super(iter);
+			sort(Geo.country,Geo.placename,DC.title);
 			}
 		@Override
 		public int getColumnCount() {
@@ -1552,6 +1854,7 @@ public class SciFOAF extends JFrame
 		ArticleTableModel(ResIterator iter)
 			{
 			super(iter);
+			sort(DC.date,DC.title);
 			}
 		
 		ArticleTableModel(Collection<Resource> set)
@@ -1629,6 +1932,7 @@ public class SciFOAF extends JFrame
 		JournalTableModel(ResIterator iter)
 			{
 			super(iter);
+			sort(DC.title);
 			}
 		@Override
 		public int getColumnCount() {
@@ -1676,6 +1980,7 @@ public class SciFOAF extends JFrame
 		OnlineAccountTableModel(Set<Resource> set)
 			{
 			super(set);
+			sort(FOAF.accountServiceHomepage,FOAF.accountName);
 			}
 		@Override
 		public int getColumnCount() {
@@ -1854,7 +2159,12 @@ public class SciFOAF extends JFrame
 			@Override
 			public void actionPerformed(ActionEvent ae)
 				{
-				JOptionPane.showMessageDialog(SciFOAF.this, Compilation.getLabel(),"About",JOptionPane.PLAIN_MESSAGE,null);
+				JOptionPane.showMessageDialog(SciFOAF.this,
+					"<html><body>"+
+					"<h1>SciFOAF</h1>"+
+					Compilation.getLabel()+
+					"</body></html>",
+					"About",JOptionPane.PLAIN_MESSAGE,null);
 				}
 			});
 		
@@ -2120,7 +2430,11 @@ public class SciFOAF extends JFrame
 			tabbed.addTab(shortForm(BIBO.Journal),createMainTab(tm, BIBO.Journal));
 			}
 				
-			
+			{
+			/** group pane */
+			GroupTableModel tm= new GroupTableModel(getModel().listSubjectsWithProperty(RDF.type, FOAF.Group));
+			tabbed.addTab(shortForm(FOAF.Group),createMainTab(tm, FOAF.Group));
+			}
 		installComponent(tabbed);
 		}
 	
@@ -2298,6 +2612,10 @@ public class SciFOAF extends JFrame
 			{
 			ed= new JournalEditor(subject);
 			}
+		else if(rdfType.equals(FOAF.Group))
+			{
+			ed= new GroupEditor(subject);
+			}
 		else
 			{
 			JOptionPane.showMessageDialog(this, "unknown rdf:type "+rdfType,"Error",JOptionPane.ERROR_MESSAGE,null);
@@ -2365,6 +2683,27 @@ public class SciFOAF extends JFrame
 			}
 		try {
 			log().info("saving as "+filename);
+			if(SHA1.hasSHA())
+				{
+				//replace mail by sha1
+				Vector<Statement> mails=new Vector<Statement>();
+				StmtIterator iter= getModel().listStatements(null,FOAF.mbox,(RDFNode)null);
+				while(iter.hasNext())
+					{
+					Statement stmt= iter.nextStatement();
+					if(!stmt.getResource().isLiteral()) continue;
+					mails.addElement(stmt);
+					}
+				iter.close();
+				getModel().remove(mails);
+				for(Statement stmt: mails)
+					{
+					String s= stmt.getLiteral().getString().trim();
+					s="mailto:"+s;
+					getModel().add(stmt.getSubject(),FOAF.mbox_sha1sum,getModel().createLiteral(SHA1.encrypt(s)));
+					}
+				}
+			
 			FileWriter fw= new FileWriter(filename);
 			getModel().write(fw);
 			fw.flush();
@@ -2741,6 +3080,10 @@ public class SciFOAF extends JFrame
 			//save xhtml
 			out= new PrintWriter(new OutputStreamWriter(zout));
 			String html=ResourceUtils.getContent(SciFOAF.class, "network.xml");
+			html=html.replaceAll("__HTML_NS__", XHTML.NS)
+					.replaceAll("__SVG_NS__", SVG.NS)
+					.replaceAll("__XLINK_NS__", XLINK.NS)
+					;
 			out.print(html);
 			out.flush();
 			zout.closeEntry();
