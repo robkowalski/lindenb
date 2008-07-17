@@ -6,6 +6,7 @@ package org.lindenb.scifoaf;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Graphics2D;
@@ -13,6 +14,7 @@ import java.awt.GridLayout;
 import java.awt.RenderingHints;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
@@ -68,6 +70,7 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
+import javax.swing.border.LineBorder;
 import javax.swing.border.TitledBorder;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -338,6 +341,9 @@ public class SciFOAF extends JFrame
 		}
 	
 	
+	
+	
+	
 	/**
 	 * 
 	 * ComboRDFEditor
@@ -349,9 +355,15 @@ public class SciFOAF extends JFrame
 		private JComboBox combo;
 		private Property reverseProperty;
 		
-		public ComboRDFEditor()
+		private ComboRDFEditor()
 			{
 			this.combo= new JComboBox(new DefaultComboBoxModel());
+			}
+		
+		public ComboRDFEditor(Resource rdfType)
+			{
+			this();
+			setModel(rdfType);
 			}
 		
 		@Override
@@ -359,14 +371,15 @@ public class SciFOAF extends JFrame
 			return this.combo;
 			}
 		
-		public void setModel(NamedResource keys[])
+		private void setModel(NamedResource keys[])
 			{
 			this.combo.setModel(new DefaultComboBoxModel(keys));
 			}
 		
-		public void setModel(Resource rdfType)
+		private void setModel(Resource rdfType)
 			{
 			DefaultComboBoxModel cbm=new DefaultComboBoxModel();
+			//first always null
 			cbm.addElement(null);
 			ResIterator iter= getModel().listSubjectsWithProperty(RDF.type, rdfType);
 			while(iter.hasNext())
@@ -411,7 +424,7 @@ public class SciFOAF extends JFrame
 				{
 				Statement stmt= iter.nextStatement();
 				if(!stmt.getObject().isResource()) continue;
-				if(!stmt.getResource().isAnon()) continue;
+				if(stmt.getResource().isAnon()) continue;
 				boolean found=false;
 				for(int i=0;i< comboModel.getSize();++i)
 					{
@@ -449,6 +462,8 @@ public class SciFOAF extends JFrame
 		
 		}
 
+
+	
 	private abstract class AbstractListEditor
 	extends RDFEditor
 		{
@@ -458,6 +473,7 @@ public class SciFOAF extends JFrame
 		AbstractListEditor()
 			{
 			this.pane= new JPanel(new BorderLayout());
+			this.pane.setBorder(new LineBorder(Color.GRAY));
 			JPanel top=new JPanel(new FlowLayout(FlowLayout.LEADING));
 			this.pane.add(top,BorderLayout.NORTH);
 			top.add(new JLabel("Add:",JLabel.RIGHT));
@@ -465,6 +481,8 @@ public class SciFOAF extends JFrame
 			top.add(this.inputField);
 			AbstractAction action= new AbstractAction("OK")
 				{
+				private static final long serialVersionUID = 1L;
+
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
 					String s=inputField.getText().trim();
@@ -489,9 +507,29 @@ public class SciFOAF extends JFrame
 					}
 				};
 			this.inputField.addActionListener(action);
+			
+			
+			
 			top.add(new JButton(action));
 			this.list= new JList(new DefaultListModel());
 			this.pane.add(new JScrollPane(this.list),BorderLayout.CENTER);
+			
+			
+			ConstrainedAction<JList> remove= new ConstrainedAction<JList>(this.list,"Remove")
+				{
+				private static final long serialVersionUID = 1L;
+				@Override
+				public void actionPerformed(ActionEvent arg0)
+					{
+					int i= list.getSelectedIndex();
+					if(i==-1) return;
+					DefaultListModel m= DefaultListModel.class.cast(list.getModel());
+					m.removeElementAt(i);
+					}
+				};
+			top.add(new JButton(remove));
+			remove.mustHaveOneRowSelected(list);
+			SwingUtils.setFontDeep(this.pane, new Font("Dialog",Font.PLAIN,9));
 			}
 		
 		@Override
@@ -601,6 +639,22 @@ public class SciFOAF extends JFrame
 			}
 		}
 	
+	private class URLListEditor
+	extends ResourceListEditor
+		{
+		@Override
+		protected boolean accept(String s)
+			{
+			if(s==null) return false;
+			try {
+				new URL(s);
+				return true;
+				} 
+			catch (MalformedURLException e) {
+				return false;
+				}			
+			}
+		}
 	
 	/**
 	 * AbstractTextRDFEditor
@@ -1002,6 +1056,7 @@ public class SciFOAF extends JFrame
 			)
 			{
 			JPanel p= new JPanel(new BorderLayout());
+			p.setPreferredSize(new Dimension(100,getIconSize()*4));
 			p.setBorder(new TitledBorder(title));
 			JTable table= new JTable(tm);
 			table.setShowVerticalLines(false);
@@ -1102,6 +1157,7 @@ public class SciFOAF extends JFrame
 				)
 				{
 				JPanel p= new JPanel(new BorderLayout());
+				p.setPreferredSize(new Dimension(100,getIconSize()*4));
 				p.setBorder(new TitledBorder(shortForm(predicate)));
 				JTable table= new JTable(tm);
 				table.setShowVerticalLines(false);
@@ -1199,6 +1255,7 @@ public class SciFOAF extends JFrame
 				{
 				log().info("creating simple table from "+shortForm(targetRDFType));
 				JPanel p= new JPanel(new BorderLayout());
+				p.setPreferredSize(new Dimension(100,getIconSize()*4));
 				p.setBorder(new TitledBorder(shortForm(targetRDFType)));
 				JTable table= new JTable(tm);
 				table.setShowVerticalLines(false);
@@ -1495,19 +1552,20 @@ public class SciFOAF extends JFrame
 			addInputField(left, FOAF.birthday).addPattern(Pattern.compile("\\d\\d\\d\\d(\\-\\d\\d(\\-\\d\\d)?)?"));
 			addResourceField(left, FOAF.homepage);
 			addResourceField(left, FOAF.schoolHomepage);
-			
-			
+			addRDFField(left, FOAF.interest, new URLListEditor());
+			addRDFField(left, FOAF.based_near,new ComboRDFEditor(Geo.Place));
 			
 			AnonymousResource adrs=new AnonymousResource(VCARD.ADRTYPES);
 			adrs.setProperty(VCARD.AGENT);
 			adrs.setSubject(subject);
 			this.editors.add(adrs);
-			left.add(new JLabel("Adresses:"));
+			left.add(new JLabel("Adresses:",JLabel.RIGHT));
 			
 			JPanel input2= new JPanel(new InputLayout());
 			input2.setBorder(new TitledBorder("Hello world"));
-			adrs.getEditorsList().addInputField(input2,VCARD.BDAY);
-			adrs.getEditorsList().addInputField(input2,VCARD.Country);
+			adrs.getEditorsList().addInputField(input2,VCARD.TITLE);
+			adrs.getEditorsList().addInputField(input2,VCARD.ROLE);
+			adrs.getEditorsList().addInputField(input2,VCARD.TEL);
 			left.add(input2);
 			
 			JPanel right= new JPanel(new GridLayout(0,1,1,1));
@@ -1536,7 +1594,28 @@ public class SciFOAF extends JFrame
 					);
 				}
 			
-			pane.add(right);
+				
+				{
+				ImageTableModel tm= new ImageTableModel();
+					
+				right.add(createSelectTable(
+					shortForm(FOAF.depiction),
+					new SelectRsrcTableModel(tm,getSubject(),FOAF.depiction,FOAF.depicts),
+					FOAF.Image)
+					);
+				}
+				
+				{
+				ArticleTableModel tm= new ArticleTableModel();
+					
+				right.add(createSelectTable(
+					shortForm(FOAF.made),
+					new SelectRsrcTableModel(tm,getSubject(),FOAF.made,FOAF.maker),
+					BIBO.Article)
+					);
+				}
+				
+			pane.add(new JScrollPane(right));
 			}
 		}
 	
@@ -1748,6 +1827,12 @@ public class SciFOAF extends JFrame
 		{
 		private static final long serialVersionUID = 1L;
 		private HashMap<Resource, Icon> rsrc2icon;
+		
+		ImageTableModel()
+			{
+			this(getModel().listSubjectsWithProperty(RDF.type, FOAF.Image));
+			}
+		
 		ImageTableModel(ResIterator iter)
 			{
 			super(iter);
@@ -1806,6 +1891,11 @@ public class SciFOAF extends JFrame
 			super(iter);
 			sort(Geo.country,Geo.placename,DC.title);
 			}
+		
+		public PlaceTableModel() {
+			this(getModel().listSubjectsWithProperty(RDF.type, Geo.Place));
+			}
+		
 		@Override
 		public int getColumnCount() {
 			return 4;
@@ -1851,6 +1941,11 @@ public class SciFOAF extends JFrame
 		{
 		private static final long serialVersionUID = 1L;
 	
+		ArticleTableModel()
+			{
+			this(getModel().listSubjectsWithProperty(RDF.type, BIBO.Article));
+			}
+		
 		ArticleTableModel(ResIterator iter)
 			{
 			super(iter);
@@ -2414,13 +2509,13 @@ public class SciFOAF extends JFrame
 			
 			{
 			/** place pane */
-			PlaceTableModel tm= new PlaceTableModel(getModel().listSubjectsWithProperty(RDF.type, FOAF.Image));
+			PlaceTableModel tm= new PlaceTableModel();
 			tabbed.addTab(shortForm(Geo.Place),createMainTab(tm,Geo.Place));
 			}
 			
 			{
 			/** article pane */
-			ArticleTableModel tm= new ArticleTableModel(getModel().listSubjectsWithProperty(RDF.type, BIBO.Article));
+			ArticleTableModel tm= new ArticleTableModel();
 			tabbed.addTab(shortForm(BIBO.Article),createMainTab(tm, BIBO.Article));
 			}
 			

@@ -22,6 +22,7 @@ public class FOAF extends org.lindenb.sw.vocabulary.FOAF
 	public static final Property knows = m.createProperty(NS, "knows" );
 	public static final Property primaryTopic = m.createProperty(NS, "primaryTopic" );
 	public static final Property maker = m.createProperty(NS, "maker" );
+	public static final Property made = m.createProperty(NS, "made" );
 	public static final Property gender = m.createProperty(NS, "gender" );
 	public static final Property birthday = m.createProperty(NS, "birthday" );
 	public static final Property schoolHomepage = m.createProperty(NS, "schoolHomepage" );
@@ -35,4 +36,6 @@ public class FOAF extends org.lindenb.sw.vocabulary.FOAF
 	public static final Property member = m.createProperty(NS, "member" );
 	public static final Property mbox_sha1sum = m.createProperty(NS, "mbox_sha1sum" );
 	public static final Property mbox = m.createProperty(NS, "mbox" );
+	public static final Property interest = m.createProperty(NS, "interest" );
+	
 	}
