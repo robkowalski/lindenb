@@ -33,4 +33,6 @@ public class FOAF extends org.lindenb.sw.vocabulary.FOAF
 	public static final Property depicts = m.createProperty(NS, "depicts" );
 	public static final Property depiction = m.createProperty(NS, "depiction" );
 	public static final Property member = m.createProperty(NS, "member" );
+	public static final Property mbox_sha1sum = m.createProperty(NS, "mbox_sha1sum" );
+	public static final Property mbox = m.createProperty(NS, "mbox" );
 	}

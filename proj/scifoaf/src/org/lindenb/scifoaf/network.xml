@@ -1,5 +1,5 @@
 <html
-	xmlns="http://www.w3.org/1999/xhtml"
+	xmlns="__HTML_NS__"
 	>
 <head>
 <title>Nature Network With SVG: Pierre Lindenbaum</title>
@@ -8,15 +8,15 @@
 <script type="text/javascript"><![CDATA[
 /** the HTML namespace */
 var HTML={
-	"NS":"http://www.w3.org/1999/xhtml"
+	"NS":"__HTML_NS__"
 	};
 /** the SVG namespace */
 var SVG={
-	"NS":"http://www.w3.org/2000/svg"
+	"NS":"__SVG_NS__"
 	};
 /** the XLINK namespace */
 var XLINK={
-	"NS":"http://www.w3.org/1999/xlink"
+	"NS":"__XLINK_NS__"
 	};
 
 

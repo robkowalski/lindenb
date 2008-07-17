@@ -11,6 +11,7 @@ import javax.swing.JOptionPane;
 
 import org.lindenb.jena.vocabulary.FOAF;
 
+import com.hp.hpl.jena.rdf.model.Literal;
 import com.hp.hpl.jena.rdf.model.Model;
 import com.hp.hpl.jena.rdf.model.Property;
 import com.hp.hpl.jena.rdf.model.RDFNode;
@@ -178,4 +179,39 @@ public static String findTitle(Model model,Resource rsrc)
 		}
 	return rsrc.getURI();
 	}
+
+/** compare two RDF nodes */
+public static int compare(RDFNode n1, RDFNode n2)
+	{
+	if(n1==null && n2==null)
+		{
+		return 0;
+		}
+	else if(n1==null && n2!=null)
+		{
+		return -1;
+		}
+	else if(n1!=null && n2==null)
+		{
+		return 1;
+		}
+	else if(n1.isResource() && !n2.isResource())
+		{
+		return -1;
+		}
+	else if(!n1.isResource() && n2.isResource())
+		{
+		return 1;
+		}
+	else if(n1.isResource() && n2.isResource())
+		{
+		return Resource.class.cast(n1).getURI().compareTo(Resource.class.cast(n2).getURI());
+		}
+	else if(n1.isLiteral() && n2.isLiteral())
+		{
+		return Literal.class.cast(n1).getString().compareToIgnoreCase(Literal.class.cast(n2).getString());
+		}
+	return n1.toString().compareTo(n2.toString());
+	}
+
 }
