@@ -58,6 +58,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
@@ -481,6 +482,7 @@ public class SciFOAF extends JFrame
 				if(!stmt.getObject().isResource()) continue;
 				if(!stmt.getResource().isAnon()) continue;
 				getTextField().setText(stmt.getResource().getURI());
+				getTextField().setCaretPosition(0);
 				break;
 				}
 			iter.close();
@@ -529,6 +531,7 @@ public class SciFOAF extends JFrame
 				}
 			iter.close();
 			getTextField().setText(b.toString());
+			getTextField().setCaretPosition(0);
 			}
 		@Override
 		public void saveToModel() {
@@ -593,6 +596,7 @@ public class SciFOAF extends JFrame
 				Statement stmt= iter.nextStatement();
 				if(!stmt.getObject().isLiteral()) continue;
 				getTextField().setText(stmt.getLiteral().getString());
+				getTextField().setCaretPosition(0);
 				break;
 				}
 			iter.close();
@@ -1962,7 +1966,7 @@ public class SciFOAF extends JFrame
 			)
 		{
 		String title= shortForm(rdfType);
-		/** person pane */
+		/**  pane */
 		JPanel pane= new JPanel(new BorderLayout());
 		JTable table= new JTable(rtm);
 		table.setFont(new Font("Dialog",Font.BOLD,24));
@@ -1980,6 +1984,10 @@ public class SciFOAF extends JFrame
 		table.setShowVerticalLines(false);
 		table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		pane.add(new JScrollPane(table));
+		
+		JPanel bottom=new JPanel(new FlowLayout(FlowLayout.LEADING));
+		bottom.add(new JLabel(String.valueOf(rtm.getRowCount())+" items."));
+		pane.add(bottom,BorderLayout.NORTH);
 		
 		JPanel top= new JPanel(new FlowLayout(FlowLayout.LEADING));
 		pane.add(top,BorderLayout.NORTH);
@@ -2034,6 +2042,46 @@ public class SciFOAF extends JFrame
 				installInstancePane(uri,getObject());
 				}
 			}));
+		
+		if(BIBO.Article.equals(rdfType))
+			{
+			top.add(new JButton(new AbstractAction("Load Batch")
+				{
+				private static final long serialVersionUID = 1L;
+				@Override
+				public void actionPerformed(ActionEvent ae)
+					{
+					String s="";
+					while(true)
+						{
+						JTextArea area= new JTextArea(s,25,10);
+						if(JOptionPane.showConfirmDialog(SciFOAF.this,new JScrollPane(area),"Insert PMID",JOptionPane.OK_CANCEL_OPTION,JOptionPane.QUESTION_MESSAGE,null)!=JOptionPane.OK_OPTION) return;
+						s=area.getText();
+						String ss[]=s.split("[\n\r ]");
+						for(String pmid:ss)
+							{
+							try {
+								new Integer(pmid);
+								if(getModel().containsResource(getModel().createResource(BIBO.PUBMED_PREFIX+pmid)))
+									{
+									log().info("pmid "+pmid+" already in model");
+									}
+								loadPMID(pmid);
+								}
+							catch (NumberFormatException e)
+								{
+								JOptionPane.showMessageDialog(SciFOAF.this, "Illegal pmid: "+pmid);
+								continue;
+								}
+							}
+						break;
+						}
+					
+					}
+				}));
+			}
+		
+		
 		return pane;
 		}
 	
@@ -2093,6 +2141,7 @@ public class SciFOAF extends JFrame
 		return null;
 		}
 	
+	/** add XML text node */
 	private void addXML(Resource r,Property property,Element node)
 		{
 		if(node==null) return;
@@ -2101,110 +2150,121 @@ public class SciFOAF extends JFrame
 		getModel().add(r,property,s);
 		}
 	
+	/** load PMID */
+	private Resource loadPMID(String pmid)
+		{
+		Resource subject= getModel().createResource(BIBO.PUBMED_PREFIX+pmid);
+		try {
+			DocumentBuilderFactory f= DocumentBuilderFactory.newInstance();
+			f.setExpandEntityReferences(true);
+			f.setIgnoringComments(true);
+			f.setIgnoringElementContentWhitespace(true);
+			f.setValidating(false);
+			f.setXIncludeAware(false);
+			f.setCoalescing(true);
+			f.setNamespaceAware(false);
+			DocumentBuilder builder=f.newDocumentBuilder();
+			Document dom= builder.parse("http://www.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id="+pmid+"&retmode=xml&rettype=abstract");
+			Element root= dom.getDocumentElement();
+			if(root==null) return subject;
+			Element PubmedArticle = firstOf(root,"PubmedArticle");
+			Element  MedlineCitation =  firstOf(PubmedArticle,"MedlineCitation");
+			Element Article =  firstOf(MedlineCitation,"Article");
+			Element Journal =  firstOf(Article,"Journal");
+			Element ISSN = firstOf(Journal,"ISSN");
+			
+			Element JournalIssue = firstOf(Journal,"JournalIssue");
+			
+			Element Volume = firstOf(JournalIssue,"Volume");
+			addXML(subject,BIBO.volume,Volume);
+			
+			Element Issue = firstOf(JournalIssue,"Issue");
+			addXML(subject,BIBO.issue,Issue);
+			
+			Element PubDate = firstOf(JournalIssue,"PubDate");
+			//Element PubYear=null;
+			StringBuilder sb= new StringBuilder();
+			for(Node n1=(PubDate==null?null:PubDate.getFirstChild());
+				n1!=null;n1=n1.getNextSibling())
+				{
+				if(n1.getNodeType()!=Node.ELEMENT_NODE) continue;
+				//if(n1.getNodeName().equals("Year")) PubYear=Element.class.cast(n1);
+				sb.append(" ");
+				sb.append(n1.getTextContent());
+				}
+			if(sb.toString().trim().length()>0)
+				{
+				getModel().add(subject,DC.date,sb.toString().trim());
+				}
+			
+			
+			
+			Resource journalResource=null;
+			if(ISSN!=null)
+				{
+				//create journal
+				journalResource= getModel().createResource(WORLD_CAT_PREFIX+ISSN.getTextContent().trim());
+				getModel().add(journalResource,RDF.type,BIBO.Journal);
+				Element JournalTitle = firstOf(Journal,"Title");
+				Element ISOAbbreviation= firstOf(Journal,"ISOAbbreviation");
+				addXML(journalResource, DC.title, JournalTitle);
+				addXML(journalResource,BIBO.shortTitle,ISOAbbreviation);
+				addXML(journalResource, BIBO.issn, ISSN);
+				//link article to its journal
+				getModel().add(subject,DCTerms.isPartOf,journalResource);
+				}
+			
+			
+			
+			Element ArticleTitle = firstOf(Article,"ArticleTitle");
+			addXML(subject,DC.title,ArticleTitle);
+			Element Pagination = firstOf(Article,"Pagination");
+			Element MedlinePgn = firstOf(Pagination,"MedlinePgn");
+			addXML(subject,BIBO.pages,MedlinePgn);
+			
+			Element  PubmedData =  firstOf(PubmedArticle,"PubmedData");
+			Element ArticleIdList =  firstOf(PubmedData,"ArticleIdList");
+			for(Node n1=(ArticleIdList==null?null:ArticleIdList.getFirstChild());
+				n1!=null;n1=n1.getNextSibling())
+				{
+				System.err.println("A");
+				if(n1.getNodeType()!=Node.ELEMENT_NODE) continue;
+				System.err.println("B");
+				if(!n1.getNodeName().equals("ArticleId"))continue;
+				Attr att= (Attr)n1.getAttributes().getNamedItem("IdType");
+				if(att==null)
+					{
+					log().info("Cannot find @IdType in "+n1.getNodeName());
+					continue;
+					}
+				if(att.getValue().equals("doi"))
+					{
+					getModel().add(subject,BIBO.doi,n1.getTextContent().trim());
+					}
+				}
+			
+		} catch (Exception e) {
+			ThrowablePane.show(SciFOAF.this, e);
+			}
+		getModel().add(subject,BIBO.pmid,pmid);
+		getModel().add(subject,RDF.type,BIBO.Article);
+		return subject;
+		}
+	
+	
 	/** create instance */
 	private void createInstance(Resource subject,Resource rdfType)
 		{
 		if(rdfType.equals(BIBO.Article) && subject.getURI().startsWith(BIBO.PUBMED_PREFIX))
 			{
 			String pmid=subject.getURI().substring(BIBO.PUBMED_PREFIX.length()).trim();
-			
-			
-			try {
-				DocumentBuilderFactory f= DocumentBuilderFactory.newInstance();
-				f.setExpandEntityReferences(true);
-				f.setIgnoringComments(true);
-				f.setIgnoringElementContentWhitespace(true);
-				f.setValidating(false);
-				f.setXIncludeAware(false);
-				f.setCoalescing(true);
-				f.setNamespaceAware(false);
-				DocumentBuilder builder=f.newDocumentBuilder();
-				Document dom= builder.parse("http://www.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id="+pmid+"&retmode=xml&rettype=abstract");
-				Element root= dom.getDocumentElement();
-				if(root==null) return;
-				Element PubmedArticle = firstOf(root,"PubmedArticle");
-				Element  MedlineCitation =  firstOf(PubmedArticle,"MedlineCitation");
-				Element Article =  firstOf(MedlineCitation,"Article");
-				Element Journal =  firstOf(Article,"Journal");
-				Element ISSN = firstOf(Journal,"ISSN");
-				
-				Element JournalIssue = firstOf(Journal,"JournalIssue");
-				
-				Element Volume = firstOf(JournalIssue,"Volume");
-				addXML(subject,BIBO.volume,Volume);
-				
-				Element Issue = firstOf(JournalIssue,"Issue");
-				addXML(subject,BIBO.issue,Issue);
-				
-				Element PubDate = firstOf(JournalIssue,"PubDate");
-				//Element PubYear=null;
-				StringBuilder sb= new StringBuilder();
-				for(Node n1=(PubDate==null?null:PubDate.getFirstChild());
-					n1!=null;n1=n1.getNextSibling())
-					{
-					if(n1.getNodeType()!=Node.ELEMENT_NODE) continue;
-					//if(n1.getNodeName().equals("Year")) PubYear=Element.class.cast(n1);
-					sb.append(" ");
-					sb.append(n1.getTextContent());
-					}
-				if(sb.toString().trim().length()>0)
-					{
-					getModel().add(subject,DC.date,sb.toString().trim());
-					}
-				
-				
-				
-				Resource journalResource=null;
-				if(ISSN!=null)
-					{
-					//create journal
-					journalResource= getModel().createResource(WORLD_CAT_PREFIX+ISSN.getTextContent().trim());
-					getModel().add(journalResource,RDF.type,BIBO.Journal);
-					Element JournalTitle = firstOf(Journal,"Title");
-					Element ISOAbbreviation= firstOf(Journal,"ISOAbbreviation");
-					addXML(journalResource, DC.title, JournalTitle);
-					addXML(journalResource,BIBO.shortTitle,ISOAbbreviation);
-					addXML(journalResource, BIBO.issn, ISSN);
-					//link article to its journal
-					getModel().add(subject,DCTerms.isPartOf,journalResource);
-					}
-				
-				
-				
-				Element ArticleTitle = firstOf(Article,"ArticleTitle");
-				addXML(subject,DC.title,ArticleTitle);
-				Element Pagination = firstOf(Article,"Pagination");
-				Element MedlinePgn = firstOf(Pagination,"MedlinePgn");
-				addXML(subject,BIBO.pages,MedlinePgn);
-				
-				Element  PubmedData =  firstOf(PubmedArticle,"PubmedData");
-				Element ArticleIdList =  firstOf(PubmedData,"ArticleIdList");
-				for(Node n1=(ArticleIdList==null?null:ArticleIdList.getFirstChild());
-					n1!=null;n1=n1.getNextSibling())
-					{
-					System.err.println("A");
-					if(n1.getNodeType()!=Node.ELEMENT_NODE) continue;
-					System.err.println("B");
-					if(!n1.getNodeName().equals("ArticleId"))continue;
-					Attr att= (Attr)n1.getAttributes().getNamedItem("IdType");
-					if(att==null)
-						{
-						log().info("Cannot find @IdType in "+n1.getNodeName());
-						continue;
-						}
-					if(att.getValue().equals("doi"))
-						{
-						getModel().add(subject,BIBO.doi,n1.getTextContent().trim());
-						}
-					}
-				
-			} catch (Exception e) {
-				ThrowablePane.show(SciFOAF.this, e);
-				}
-			getModel().add(subject,BIBO.pmid,pmid);
+			loadPMID(pmid);
 			}
 		getModel().add(subject,RDF.type,rdfType);
-		//getModel().add(subject,DC.date,TimeUtils.toYYYYMMDD('-')); no because article uses DC.date 
+		if(!BIBO.Article.equals(rdfType))
+			{
+			getModel().add(subject,DC.date,TimeUtils.toYYYYMMDD('-'));
+			}
 		}
 	
 	/**  installInstancePane */
