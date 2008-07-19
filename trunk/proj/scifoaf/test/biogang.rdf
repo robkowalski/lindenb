@@ -21,9 +21,9 @@
     <foaf:knows rdf:resource="http://mndoci.com/blog/"/>
     <foaf:title>Dr</foaf:title>
     <event:isAgentIn rdf:resource="http://network.nature.com/group/scifoo"/>
-    <foaf:mbox_sha1sum>241d75b771a4997d7ace212f145726218cbba6e1</foaf:mbox_sha1sum>
-    <foaf:name>Duncan Hull</foaf:name>
     <foaf:knows rdf:resource="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf"/>
+    <foaf:name>Duncan Hull</foaf:name>
+    <foaf:mbox_sha1sum>241d75b771a4997d7ace212f145726218cbba6e1</foaf:mbox_sha1sum>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.ncbi.nlm.nih.gov/pubmed/17887743">
     <dc:subject>Internet</dc:subject>
@@ -37,15 +37,13 @@
     <dc:subject>Spectrum Analysis</dc:subject>
     <dc:date>2007 Nov-Dec</dc:date>
     <bib:volume>47</bib:volume>
-    <bib:pmid>17887743</bib:pmid>
     <dcterms:isPartOf rdf:resource="http://www.worldcat.org/issn/1549-9596"/>
+    <bib:pmid>17887743</bib:pmid>
     <bib:pages>2015-34</bib:pages>
   </rdf:Description>
   <rdf:Description rdf:about="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf">
-    <foaf:mbox_sha1sum>2cf55183200d03309d8c2b9fa352b7b24e92cb2b</foaf:mbox_sha1sum>
     <foaf:based_near rdf:resource="http://en.wikipedia.org/wiki/%C3%89vry%2C_Essonne"/>
     <foaf:holdsAccount rdf:resource="http://www.last.fm/user/plindenbaum"/>
-    <foaf:mbox_sha1sum>72b989f15449a699877d5116426abb71a461514d</foaf:mbox_sha1sum>
     <foaf:family_name>Lindenbaum</foaf:family_name>
     <foaf:holdsAccount rdf:resource="http://www.flickr.com/photos/lindenb/"/>
     <foaf:schoolHomepage rdf:resource="http://www.u-psud.fr/"/>
@@ -53,13 +51,14 @@
     <foaf:interest rdf:resource="http://en.wikipedia.org/wiki/Bioinformatics"/>
     <foaf:homepage rdf:resource="http://plindenbaum.blogspot.com"/>
     <foaf:holdsAccount rdf:resource="http://del.icio.us/lindenb"/>
-    <foaf:holdsAccount rdf:resource="http://friendfeed.com/yokofakun"/>
-    <foaf:holdsAccount rdf:resource="http://www.facebook.com/profile.php?id=501154465"/>
     <foaf:knows rdf:resource="http://blueobelisk.sourceforge.net/people/egonw/foaf.xrdf#me"/>
+    <foaf:holdsAccount rdf:resource="http://www.facebook.com/profile.php?id=501154465"/>
+    <foaf:holdsAccount rdf:resource="http://friendfeed.com/yokofakun"/>
     <foaf:holdsAccount rdf:resource="http://www.linkedin.com/in/lindenbaum"/>
     <foaf:depiction rdf:resource="http://photos-h.ak.facebook.com/photos-ak-sf2p/v154/46/25/501154465/n501154465_323143_8653.jpg"/>
     <foaf:knows rdf:resource="http://duncan.hull.name/"/>
     <foaf:knows rdf:resource="http://mndoci.com/blog/"/>
+    <foaf:nick>lindenb</foaf:nick>
     <foaf:firstName>Pierre</foaf:firstName>
     <foaf:title>Dr</foaf:title>
     <foaf:knows rdf:resource="http://nsaunders.wordpress.com/"/>
@@ -68,6 +67,7 @@
     <foaf:name>Pierre Lindenbaum</foaf:name>
     <foaf:weblog rdf:resource="http://plindenbaum.blogspot.com"/>
     <dc:date>2008-07-19</dc:date>
+    <foaf:gender>M</foaf:gender>
     <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Person"/>
     <foaf:holdsAccount rdf:resource="http://www.slideshare.net/lindenb"/>
     <foaf:workInfoHomepage rdf:resource="http://www.integragen.com"/>
@@ -75,15 +75,15 @@
     <foaf:interest rdf:resource="http://en.wikipedia.org/wiki/Semantic_Web"/>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.linkedin.com/in/lindenbaum">
-    <foaf:accountName>1510707</foaf:accountName>
-    <foaf:accountServiceHomepage rdf:resource="http://www.linkedin.com"/>
-    <dc:date>2008-07-20</dc:date>
     <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/OnlineAccount"/>
+    <dc:date>2008-07-20</dc:date>
+    <foaf:accountServiceHomepage rdf:resource="http://www.linkedin.com"/>
+    <foaf:accountName>1510707</foaf:accountName>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.worldcat.org/issn/1549-9596">
-    <bib:issn>1549-9596</bib:issn>
-    <dc:title>Journal of chemical information and modeling</dc:title>
     <rdf:type rdf:resource="http://purl.org/ontology/bibo/Journal"/>
+    <dc:title>Journal of chemical information and modeling</dc:title>
+    <bib:issn>1549-9596</bib:issn>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.ncbi.nlm.nih.gov/pubmed/16845108">
     <bib:volume>34</bib:volume>
@@ -95,8 +95,8 @@
     <dc:subject>Software</dc:subject>
     <dcterms:isPartOf rdf:resource="http://www.worldcat.org/issn/1362-4962"/>
     <dc:subject>Computational Biology</dc:subject>
-    <bib:number>Web Server issue</bib:number>
     <dc:date>2006 Jul 1</dc:date>
+    <bib:number>Web Server issue</bib:number>
     <rdf:type rdf:resource="http://purl.org/ontology/bibo/Article"/>
     <foaf:maker rdf:resource="http://duncan.hull.name/"/>
     <bib:doi>10.1093/nar/gkl320</bib:doi>
@@ -115,11 +115,11 @@
     <dcterms:isPartOf rdf:resource="http://www.worldcat.org/issn/1549-9596"/>
     <foaf:maker rdf:resource="http://blueobelisk.sourceforge.net/people/egonw/foaf.xrdf#me"/>
     <bib:pmid>16711717</bib:pmid>
-    <dc:subject>Informatics</dc:subject>
     <dc:subject>Algorithms</dc:subject>
+    <dc:subject>Informatics</dc:subject>
     <bib:volume>46</bib:volume>
-    <dc:date>2006 May-Jun</dc:date>
     <dc:subject>Internet</dc:subject>
+    <dc:date>2006 May-Jun</dc:date>
     <dc:subject>Chemistry</dc:subject>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.ncbi.nlm.nih.gov/pubmed/15047801">
@@ -142,41 +142,48 @@
     <dc:subject>RNA, Messenger</dc:subject>
     <dc:date>2004 Apr</dc:date>
     <dc:subject>Rotavirus Infections</dc:subject>
-    <dc:subject>COS Cells</dc:subject>
-    <dc:subject>Eukaryotic Initiation Factor-4G</dc:subject>
     <rdf:type rdf:resource="http://purl.org/ontology/bibo/Article"/>
-    <bib:pages>3851-62</bib:pages>
+    <dc:subject>Eukaryotic Initiation Factor-4G</dc:subject>
+    <dc:subject>COS Cells</dc:subject>
     <dc:subject>Animals</dc:subject>
+    <bib:pages>3851-62</bib:pages>
     <bib:number>8</bib:number>
     <dc:subject>Base Sequence</dc:subject>
-    <dc:subject>Amino Acid Motifs</dc:subject>
     <dc:subject>Evolution, Molecular</dc:subject>
+    <dc:subject>Amino Acid Motifs</dc:subject>
     <bib:pmid>15047801</bib:pmid>
     <dc:subject>Humans</dc:subject>
     <dc:subject>Rotavirus</dc:subject>
   </rdf:Description>
+  <rdf:Description rdf:nodeID="A0">
+    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/PersonalProfileDocument"/>
+    <foaf:maker rdf:resource="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf"/>
+    <foaf:primaryTopic rdf:resource="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf"/>
+    <dc:date>2008-07-19</dc:date>
+    <dc:creator>pierre</dc:creator>
+  </rdf:Description>
   <rdf:Description rdf:about="http://www.flickr.com/photos/lindenb/">
-    <foaf:accountName>lindenb</foaf:accountName>
-    <foaf:accountServiceHomepage rdf:resource="http://www.flickr.com"/>
-    <dc:date>2008-07-20</dc:date>
     <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/OnlineAccount"/>
+    <dc:date>2008-07-20</dc:date>
+    <foaf:accountServiceHomepage rdf:resource="http://www.flickr.com"/>
+    <foaf:accountName>lindenb</foaf:accountName>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.worldcat.org/issn/1362-4962">
-    <bib:issn>1362-4962</bib:issn>
-    <bib:shortTitle>Nucleic Acids Res.</bib:shortTitle>
-    <dc:title>Nucleic acids research</dc:title>
     <rdf:type rdf:resource="http://purl.org/ontology/bibo/Journal"/>
+    <dc:title>Nucleic acids research</dc:title>
+    <bib:shortTitle>Nucleic Acids Res.</bib:shortTitle>
+    <bib:issn>1362-4962</bib:issn>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.connotea.org/user/lindenb">
-    <foaf:accountName>lindenb</foaf:accountName>
-    <foaf:accountServiceHomepage rdf:resource="http://www.connotea.org"/>
-    <dc:date>2008-07-20</dc:date>
     <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/OnlineAccount"/>
+    <dc:date>2008-07-20</dc:date>
+    <foaf:accountServiceHomepage rdf:resource="http://www.connotea.org"/>
+    <foaf:accountName>lindenb</foaf:accountName>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.worldcat.org/issn/0095-2338">
-    <bib:issn>0095-2338</bib:issn>
-    <dc:title>Journal of chemical information and computer sciences</dc:title>
     <rdf:type rdf:resource="http://purl.org/ontology/bibo/Journal"/>
+    <dc:title>Journal of chemical information and computer sciences</dc:title>
+    <bib:issn>0095-2338</bib:issn>
   </rdf:Description>
   <rdf:Description rdf:about="http://blueobelisk.sourceforge.net/people/egonw/foaf.xrdf#me">
     <foaf:weblog rdf:resource="http://chem-bla-ics.blogspot.com/"/>
@@ -219,21 +226,21 @@
     <dc:date>1998 Jun</dc:date>
   </rdf:Description>
   <rdf:Description rdf:about="http://openwetware.org/wiki/Biogang">
-    <foaf:homepage rdf:resource="http://openwetware.org/wiki/Biogang"/>
-    <foaf:name>Biogang</foaf:name>
-    <foaf:member rdf:resource="http://blueobelisk.sourceforge.net/people/egonw/foaf.xrdf#me"/>
-    <foaf:member rdf:resource="http://mndoci.com/blog/"/>
-    <foaf:member rdf:resource="http://nsaunders.wordpress.com/"/>
-    <foaf:member rdf:resource="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf"/>
-    <foaf:member rdf:resource="http://duncan.hull.name/"/>
-    <dc:date>2008-07-20</dc:date>
     <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Group"/>
+    <dc:date>2008-07-20</dc:date>
+    <foaf:member rdf:resource="http://duncan.hull.name/"/>
+    <foaf:member rdf:resource="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf"/>
+    <foaf:member rdf:resource="http://nsaunders.wordpress.com/"/>
+    <foaf:member rdf:resource="http://mndoci.com/blog/"/>
+    <foaf:member rdf:resource="http://blueobelisk.sourceforge.net/people/egonw/foaf.xrdf#me"/>
+    <foaf:name>Biogang</foaf:name>
+    <foaf:homepage rdf:resource="http://openwetware.org/wiki/Biogang"/>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.worldcat.org/issn/1381-6128">
-    <bib:issn>1381-6128</bib:issn>
-    <bib:shortTitle>Curr. Pharm. Des.</bib:shortTitle>
-    <dc:title>Current pharmaceutical design</dc:title>
     <rdf:type rdf:resource="http://purl.org/ontology/bibo/Journal"/>
+    <dc:title>Current pharmaceutical design</dc:title>
+    <bib:shortTitle>Curr. Pharm. Des.</bib:shortTitle>
+    <bib:issn>1381-6128</bib:issn>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.ncbi.nlm.nih.gov/pubmed/16027742">
     <bib:number>10</bib:number>
@@ -247,9 +254,9 @@
     <dc:subject>Family</dc:subject>
     <dc:subject>Chromosomes, Human, Pair 16</dc:subject>
     <bib:volume>10</bib:volume>
-    <dc:title>Haplotypes in the gene encoding protein kinase c-beta (PRKCB1) on chromosome 16 are associated with autism.</dc:title>
-    <bib:doi>10.1038/sj.mp.4001704</bib:doi>
     <bib:pmid>16027742</bib:pmid>
+    <bib:doi>10.1038/sj.mp.4001704</bib:doi>
+    <dc:title>Haplotypes in the gene encoding protein kinase c-beta (PRKCB1) on chromosome 16 are associated with autism.</dc:title>
     <dc:subject>Autistic Disorder</dc:subject>
     <dc:date>2005 Oct</dc:date>
   </rdf:Description>
@@ -261,17 +268,17 @@
     <dc:subject>Pharmaceutical Preparations</dc:subject>
     <dc:subject>Models, Molecular</dc:subject>
     <dc:subject>User-Computer Interface</dc:subject>
-    <bib:volume>12</bib:volume>
+    <dc:date>2006</dc:date>
     <rdf:type rdf:resource="http://purl.org/ontology/bibo/Article"/>
     <dc:subject>Protein Conformation</dc:subject>
-    <dc:date>2006</dc:date>
+    <bib:volume>12</bib:volume>
     <dc:subject>Programming Languages</dc:subject>
     <dc:subject>Databases, Protein</dc:subject>
     <bib:pmid>16796559</bib:pmid>
     <dc:title>Recent developments of the chemistry development kit (CDK) - an open-source java library for chemo- and bioinformatics.</dc:title>
     <dcterms:isPartOf rdf:resource="http://www.worldcat.org/issn/1381-6128"/>
-    <dc:subject>Software Design</dc:subject>
     <bib:number>17</bib:number>
+    <dc:subject>Software Design</dc:subject>
     <foaf:maker rdf:resource="http://blueobelisk.sourceforge.net/people/egonw/foaf.xrdf#me"/>
     <bib:pages>2111-20</bib:pages>
     <dc:subject>Database Management Systems</dc:subject>
@@ -279,10 +286,10 @@
     <dc:subject>Molecular Structure</dc:subject>
   </rdf:Description>
   <rdf:Description rdf:about="http://friendfeed.com/yokofakun">
-    <foaf:accountName>yokofakun</foaf:accountName>
-    <foaf:accountServiceHomepage rdf:resource="http://friendfeed.com"/>
-    <dc:date>2008-07-20</dc:date>
     <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/OnlineAccount"/>
+    <dc:date>2008-07-20</dc:date>
+    <foaf:accountServiceHomepage rdf:resource="http://friendfeed.com"/>
+    <foaf:accountName>yokofakun</foaf:accountName>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.ncbi.nlm.nih.gov/pubmed/15032525">
     <foaf:maker rdf:resource="http://blueobelisk.sourceforge.net/people/egonw/foaf.xrdf#me"/>
@@ -297,10 +304,10 @@
     <bib:pmid>15032525</bib:pmid>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.slideshare.net/lindenb">
-    <foaf:accountName>lindenb</foaf:accountName>
-    <foaf:accountServiceHomepage rdf:resource="http://www.slideshare.net"/>
-    <dc:date>2008-07-20</dc:date>
     <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/OnlineAccount"/>
+    <dc:date>2008-07-20</dc:date>
+    <foaf:accountServiceHomepage rdf:resource="http://www.slideshare.net"/>
+    <foaf:accountName>lindenb</foaf:accountName>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.ncbi.nlm.nih.gov/pubmed/18154664">
     <dc:subject>Internet</dc:subject>
@@ -320,32 +327,32 @@
     <dc:subject>Education, Distance</dc:subject>
     <foaf:maker rdf:resource="http://blueobelisk.sourceforge.net/people/egonw/foaf.xrdf#me"/>
     <dc:subject>Information Services</dc:subject>
-    <dc:subject>Artificial Intelligence</dc:subject>
     <dc:subject>Humans</dc:subject>
+    <dc:subject>Artificial Intelligence</dc:subject>
     <dc:subject>Computer-Assisted Instruction</dc:subject>
     <dcterms:isPartOf rdf:resource="http://www.worldcat.org/issn/1471-2105"/>
     <bib:pmid>18154664</bib:pmid>
   </rdf:Description>
   <rdf:Description rdf:about="http://media.linkedin.com/mpr/mpr/shrink_80_80/p/3/000/008/0a9/3b22ea8.jpg">
-    <foaf:depicts rdf:resource="http://nsaunders.wordpress.com/"/>
-    <dc:date>2008-07-19</dc:date>
-    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Image"/>
-    <foaf:name>Neil Saunder</foaf:name>
-    <dc:description>Neil Saunder on LinkedIn</dc:description>
-    <img:height>80</img:height>
     <img:width>80</img:width>
+    <img:height>80</img:height>
+    <dc:description>Neil Saunder on LinkedIn</dc:description>
+    <foaf:name>Neil Saunder</foaf:name>
+    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Image"/>
+    <dc:date>2008-07-19</dc:date>
+    <foaf:depicts rdf:resource="http://nsaunders.wordpress.com/"/>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.worldcat.org/issn/0022-538X">
-    <rdf:type rdf:resource="http://purl.org/ontology/bibo/Journal"/>
-    <dc:title>Journal of virology</dc:title>
-    <bib:shortTitle>J. Virol.</bib:shortTitle>
     <bib:issn>0022-538X</bib:issn>
+    <bib:shortTitle>J. Virol.</bib:shortTitle>
+    <dc:title>Journal of virology</dc:title>
+    <rdf:type rdf:resource="http://purl.org/ontology/bibo/Journal"/>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.last.fm/user/plindenbaum">
-    <foaf:accountName>plindenbaum</foaf:accountName>
-    <foaf:accountServiceHomepage rdf:resource="http://www.last.fm"/>
-    <dc:date>2008-07-20</dc:date>
     <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/OnlineAccount"/>
+    <dc:date>2008-07-20</dc:date>
+    <foaf:accountServiceHomepage rdf:resource="http://www.last.fm"/>
+    <foaf:accountName>plindenbaum</foaf:accountName>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.ncbi.nlm.nih.gov/pubmed/8985320">
     <dc:subject>Mice</dc:subject>
@@ -361,13 +368,13 @@
     <dc:subject>Phosphorylation</dc:subject>
     <dc:subject>Cell Line</dc:subject>
     <dc:subject>Viral Proteins</dc:subject>
-    <bib:volume>71</bib:volume>
-    <dcterms:isPartOf rdf:resource="http://www.worldcat.org/issn/0022-538X"/>
     <dc:subject>Protein Kinases</dc:subject>
+    <dcterms:isPartOf rdf:resource="http://www.worldcat.org/issn/0022-538X"/>
+    <bib:volume>71</bib:volume>
     <dc:title>In vivo and in vitro phosphorylation of rotavirus NSP5 correlates with its localization in viroplasms.</dc:title>
     <dc:subject>COS Cells</dc:subject>
-    <dc:subject>Animals</dc:subject>
     <dc:subject>Rotavirus</dc:subject>
+    <dc:subject>Animals</dc:subject>
   </rdf:Description>
   <rdf:Description rdf:about="http://nsaunders.wordpress.com/">
     <foaf:knows rdf:resource="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf"/>
@@ -384,19 +391,19 @@
     <foaf:firstName>Neil</foaf:firstName>
   </rdf:Description>
   <rdf:Description rdf:about="http://media.linkedin.com/mpr/mpr/shrink_80_80/p/3/000/001/0f9/36e713e.jpg">
-    <dc:date>2008-07-19</dc:date>
-    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Image"/>
-    <foaf:name>Duncan Hull</foaf:name>
-    <dc:description>Duncan Hull on LinkedIn</dc:description>
-    <img:height>80</img:height>
-    <img:width>80</img:width>
     <foaf:depicts rdf:resource="http://duncan.hull.name/"/>
+    <img:width>80</img:width>
+    <img:height>80</img:height>
+    <dc:description>Duncan Hull on LinkedIn</dc:description>
+    <foaf:name>Duncan Hull</foaf:name>
+    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Image"/>
+    <dc:date>2008-07-19</dc:date>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.worldcat.org/issn/1359-4184">
-    <rdf:type rdf:resource="http://purl.org/ontology/bibo/Journal"/>
-    <dc:title>Molecular psychiatry</dc:title>
-    <bib:shortTitle>Mol. Psychiatry</bib:shortTitle>
     <bib:issn>1359-4184</bib:issn>
+    <bib:shortTitle>Mol. Psychiatry</bib:shortTitle>
+    <dc:title>Molecular psychiatry</dc:title>
+    <rdf:type rdf:resource="http://purl.org/ontology/bibo/Journal"/>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.ncbi.nlm.nih.gov/pubmed/18053270">
     <dc:subject>Sex Distribution</dc:subject>
@@ -410,39 +417,32 @@
     <dc:subject>Gene Frequency</dc:subject>
     <dc:subject>Siblings</dc:subject>
     <dc:subject>Histones</dc:subject>
-    <dc:subject>DNA Mutational Analysis</dc:subject>
-    <bib:doi>10.1186/1471-2350-8-74</bib:doi>
     <bib:pmid>18053270</bib:pmid>
+    <bib:doi>10.1186/1471-2350-8-74</bib:doi>
+    <dc:subject>DNA Mutational Analysis</dc:subject>
     <dc:date>2007</dc:date>
     <bib:pages>74</bib:pages>
     <dc:subject>Genes, Homeobox</dc:subject>
     <dc:subject>Haplotypes</dc:subject>
-    <dc:subject>Genetic Markers</dc:subject>
-    <bib:volume>8</bib:volume>
-    <dc:subject>Chromosomes, Human, Pair 5</dc:subject>
-    <dc:subject>Male</dc:subject>
     <dc:subject>Point Mutation</dc:subject>
+    <dc:subject>Male</dc:subject>
+    <dc:subject>Chromosomes, Human, Pair 5</dc:subject>
+    <bib:volume>8</bib:volume>
+    <dc:subject>Genetic Markers</dc:subject>
     <dc:subject>Child</dc:subject>
     <dc:subject>Genetic Predisposition to Disease</dc:subject>
     <dc:subject>Humans</dc:subject>
     <dc:subject>Paired Box Transcription Factors</dc:subject>
     <rdf:type rdf:resource="http://purl.org/ontology/bibo/Article"/>
     <dc:subject>Autistic Disorder</dc:subject>
-    <dc:title>Association of autism with polymorphisms in the paired-like homeodomain transcription factor 1 (PITX1) on chromosome 5q31: a candidate gene analysis.</dc:title>
     <dc:subject>Case-Control Studies</dc:subject>
-  </rdf:Description>
-  <rdf:Description rdf:nodeID="A0">
-    <dc:creator>pierre</dc:creator>
-    <dc:date>2008-07-19</dc:date>
-    <foaf:primaryTopic rdf:resource="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf"/>
-    <foaf:maker rdf:resource="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf"/>
-    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/PersonalProfileDocument"/>
+    <dc:title>Association of autism with polymorphisms in the paired-like homeodomain transcription factor 1 (PITX1) on chromosome 5q31: a candidate gene analysis.</dc:title>
   </rdf:Description>
   <rdf:Description rdf:about="http://del.icio.us/lindenb">
-    <foaf:accountName>lindenb</foaf:accountName>
-    <foaf:accountServiceHomepage rdf:resource="http://del.icio.us"/>
-    <dc:date>2008-07-20</dc:date>
     <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/OnlineAccount"/>
+    <dc:date>2008-07-20</dc:date>
+    <foaf:accountServiceHomepage rdf:resource="http://del.icio.us"/>
+    <foaf:accountName>lindenb</foaf:accountName>
   </rdf:Description>
   <rdf:Description rdf:about="http://en.wikipedia.org/wiki/Googleplex">
     <geo:placename>Mountain View</geo:placename>
@@ -473,28 +473,28 @@
     <geo:adminCode2>91</geo:adminCode2>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.worldcat.org/issn/1471-2105">
-    <bib:issn>1471-2105</bib:issn>
-    <bib:shortTitle>BMC Bioinformatics</bib:shortTitle>
-    <dc:title>BMC bioinformatics</dc:title>
     <rdf:type rdf:resource="http://purl.org/ontology/bibo/Journal"/>
+    <dc:title>BMC bioinformatics</dc:title>
+    <bib:shortTitle>BMC Bioinformatics</bib:shortTitle>
+    <bib:issn>1471-2105</bib:issn>
   </rdf:Description>
   <rdf:Description rdf:about="http://media.linkedin.com/mpr/mpr/shrink_80_80/p/1/000/000/27f/2b1089b.jpg">
-    <foaf:depicts rdf:resource="http://blueobelisk.sourceforge.net/people/egonw/foaf.xrdf#me"/>
-    <dc:date>2008-07-19</dc:date>
-    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Image"/>
-    <foaf:name>Egon Willighagen</foaf:name>
-    <dc:description>Egon Willighagen on LinkedIn</dc:description>
-    <img:height>80</img:height>
     <img:width>80</img:width>
+    <img:height>80</img:height>
+    <dc:description>Egon Willighagen on LinkedIn</dc:description>
+    <foaf:name>Egon Willighagen</foaf:name>
+    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Image"/>
+    <dc:date>2008-07-19</dc:date>
+    <foaf:depicts rdf:resource="http://blueobelisk.sourceforge.net/people/egonw/foaf.xrdf#me"/>
   </rdf:Description>
   <rdf:Description rdf:about="http://photos-h.ak.facebook.com/photos-ak-sf2p/v154/46/25/501154465/n501154465_323143_8653.jpg">
-    <img:width>145</img:width>
-    <img:height>200</img:height>
-    <dc:date>2008-07-19</dc:date>
-    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Image"/>
-    <dc:description>My picture on facebook</dc:description>
-    <foaf:name>P Lindenbaum on facebook</foaf:name>
     <foaf:depicts rdf:resource="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf"/>
+    <foaf:name>P Lindenbaum on facebook</foaf:name>
+    <dc:description>My picture on facebook</dc:description>
+    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Image"/>
+    <dc:date>2008-07-19</dc:date>
+    <img:height>200</img:height>
+    <img:width>145</img:width>
   </rdf:Description>
   <rdf:Description rdf:about="http://mndoci.com/blog/">
     <foaf:mbox_sha1sum>bc1da48245bc6b3aa0d270a060c9f6d57d18b272</foaf:mbox_sha1sum>
@@ -512,15 +512,15 @@
     <event:isAgentIn rdf:resource="http://network.nature.com/group/scifoo"/>
   </rdf:Description>
   <rdf:Description rdf:about="http://network.nature.com/group/scifoo">
-    <rdf:type rdf:resource="http://purl.org/NET/c4dm/event.owl#Event"/>
-    <event:place rdf:resource="http://en.wikipedia.org/wiki/Googleplex"/>
-    <event:agent rdf:resource="http://duncan.hull.name/"/>
-    <event:agent rdf:resource="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf"/>
-    <event:agent rdf:resource="http://mndoci.com/blog/"/>
-    <dc:title>SciFoo 2007</dc:title>
-    <dc:date>2008-07-19</dc:date>
-    <dc:description>Science Friends Of O'Reilly 2007</dc:description>
     <dc:subject>science</dc:subject>
+    <dc:description>Science Friends Of O'Reilly 2007</dc:description>
+    <dc:date>2008-07-19</dc:date>
+    <dc:title>SciFoo 2007</dc:title>
+    <event:agent rdf:resource="http://mndoci.com/blog/"/>
+    <event:agent rdf:resource="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf"/>
+    <event:agent rdf:resource="http://duncan.hull.name/"/>
+    <event:place rdf:resource="http://en.wikipedia.org/wiki/Googleplex"/>
+    <rdf:type rdf:resource="http://purl.org/NET/c4dm/event.owl#Event"/>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.ncbi.nlm.nih.gov/pubmed/17316423">
     <dc:date>2007</dc:date>
@@ -542,10 +542,10 @@
     <dc:subject>Software</dc:subject>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.worldcat.org/issn/1367-4803">
-    <rdf:type rdf:resource="http://purl.org/ontology/bibo/Journal"/>
-    <dc:title>Bioinformatics (Oxford, England)</dc:title>
-    <bib:shortTitle>Bioinformatics</bib:shortTitle>
     <bib:issn>1367-4803</bib:issn>
+    <bib:shortTitle>Bioinformatics</bib:shortTitle>
+    <dc:title>Bioinformatics (Oxford, England)</dc:title>
+    <rdf:type rdf:resource="http://purl.org/ontology/bibo/Journal"/>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.ncbi.nlm.nih.gov/pubmed/12653513">
     <dc:title>The Chemistry Development Kit (CDK): an open-source Java library for Chemo- and Bioinformatics.</dc:title>
@@ -560,36 +560,36 @@
     <rdf:type rdf:resource="http://purl.org/ontology/bibo/Article"/>
   </rdf:Description>
   <rdf:Description rdf:about="http://lindenb.tumblr.com/">
-    <foaf:accountName>lindenb</foaf:accountName>
-    <foaf:accountServiceHomepage rdf:resource="http://www.tumblr.com/"/>
-    <dc:date>2008-07-20</dc:date>
     <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/OnlineAccount"/>
+    <dc:date>2008-07-20</dc:date>
+    <foaf:accountServiceHomepage rdf:resource="http://www.tumblr.com/"/>
+    <foaf:accountName>lindenb</foaf:accountName>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.facebook.com/profile.php?id=501154465">
-    <foaf:accountName>501154465</foaf:accountName>
-    <foaf:accountServiceHomepage rdf:resource="http://www.facebook.com"/>
-    <dc:date>2008-07-20</dc:date>
     <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/OnlineAccount"/>
+    <dc:date>2008-07-20</dc:date>
+    <foaf:accountServiceHomepage rdf:resource="http://www.facebook.com"/>
+    <foaf:accountName>501154465</foaf:accountName>
   </rdf:Description>
   <rdf:Description rdf:about="http://media.linkedin.com/mpr/mpr/shrink_80_80/p/2/000/001/150/35dfccd.jpg">
-    <dc:date>2008-07-19</dc:date>
-    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Image"/>
-    <foaf:name>Deepak Singh</foaf:name>
-    <dc:description>Deepak Singh on LinkedIn</dc:description>
-    <img:height>80</img:height>
-    <img:width>80</img:width>
     <foaf:depicts rdf:resource="http://mndoci.com/blog/"/>
+    <img:width>80</img:width>
+    <img:height>80</img:height>
+    <dc:description>Deepak Singh on LinkedIn</dc:description>
+    <foaf:name>Deepak Singh</foaf:name>
+    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Image"/>
+    <dc:date>2008-07-19</dc:date>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.worldcat.org/issn/1471-2350">
-    <rdf:type rdf:resource="http://purl.org/ontology/bibo/Journal"/>
-    <dc:title>BMC medical genetics</dc:title>
-    <bib:shortTitle>BMC Med. Genet.</bib:shortTitle>
     <bib:issn>1471-2350</bib:issn>
+    <bib:shortTitle>BMC Med. Genet.</bib:shortTitle>
+    <dc:title>BMC medical genetics</dc:title>
+    <rdf:type rdf:resource="http://purl.org/ontology/bibo/Journal"/>
   </rdf:Description>
   <rdf:Description rdf:about="http://twitter.com/yokofakun">
-    <foaf:accountName>yokofakun</foaf:accountName>
-    <foaf:accountServiceHomepage rdf:resource="http://twitter.com"/>
-    <dc:date>2008-07-20</dc:date>
     <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/OnlineAccount"/>
+    <dc:date>2008-07-20</dc:date>
+    <foaf:accountServiceHomepage rdf:resource="http://twitter.com"/>
+    <foaf:accountName>yokofakun</foaf:accountName>
   </rdf:Description>
 </rdf:RDF>
