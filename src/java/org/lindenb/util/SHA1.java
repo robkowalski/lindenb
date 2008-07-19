@@ -9,7 +9,7 @@ public class SHA1
 {
 private static final String ALGORITHM="SHA-1";
 private static final String ENCODING="UTF-8";
-public static boolean hasSHA()
+public static boolean isImplemented()
 	{
 	try {
 		MessageDigest.getInstance(ALGORITHM);
@@ -48,7 +48,7 @@ public static String encrypt(String string)
 	}
 public static void main(String[] args)
 	{
-	if(!hasSHA())
+	if(!isImplemented())
 		{
 		System.err.println("Doesn't support "+ALGORITHM);
 		System.exit(-1);

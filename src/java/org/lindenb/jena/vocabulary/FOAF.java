@@ -38,5 +38,13 @@ public class FOAF extends org.lindenb.sw.vocabulary.FOAF
 	public static final Property mbox_sha1sum = m.createProperty(NS, "mbox_sha1sum" );
 	public static final Property mbox = m.createProperty(NS, "mbox" );
 	public static final Property interest = m.createProperty(NS, "interest" );
-	
+	public static final Property weblog = m.createProperty(NS, "weblog" );
+	public static final Property workInfoHomepage = m.createProperty(NS, "workInfoHomepage" );
+	public static final Property geekcode = m.createProperty(NS, "geekcode" );
+	public static final Property myersBriggs = m.createProperty(NS, "myersBriggs" );
+	public static final Property dnaChecksum = m.createProperty(NS, "dnaChecksum" );
+	public static final Property pastProject = m.createProperty(NS, "pastProject" );
+	public static final Property currentProject = m.createProperty(NS, "currentProject" );
+	public static final Property nick = m.createProperty(NS, "nick" );
+	public static final Property title = m.createProperty(NS, "title" );
 	}
