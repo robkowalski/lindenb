@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="lindenb" default="all">
+ <property environment="env"/><!-- prefix for environnement properties -->
+ <property name="derby.lib" value="${env.JAVA_HOME}/db/lib"/>
+ <property name="rootdir" value="../.."/>
+ <property name="builddir" value="${rootdir}/build"/>
+ <property name="compiledir" value="${builddir}/compile"/>
+ <property name="jenalib" value="/usr/local/package/Jena/lib"/>
+	
+	
+<path id="jena.class.path">
+	<pathelement path="${jenalib}/antlr-2.7.5.jar"/>
+	<pathelement path="${jenalib}/arq-extra.jar"/>
+	<pathelement path="${jenalib}/arq.jar"/>
+	<pathelement path="${jenalib}/commons-logging-1.1.1.jar"/>
+	<pathelement path="${jenalib}/concurrent.jar"/>
+	<pathelement path="${jenalib}/icu4j_3_4.jar"/>
+	<pathelement path="${jenalib}/iri.jar"/>
+	<pathelement path="${jenalib}/jena.jar"/>
+	<pathelement path="${jenalib}/jenatest.jar"/>
+	<pathelement path="${jenalib}/json.jar"/>
+	<pathelement path="${jenalib}/junit.jar"/>
+	<pathelement path="${jenalib}/log4j-1.2.12.jar"/>
+	<pathelement path="${jenalib}/lucene-core-2.3.1.jar"/>
+	<pathelement path="${jenalib}/stax-api-1.0.jar"/>
+	<pathelement path="${jenalib}/wstx-asl-3.0.0.jar"/>
+	<pathelement path="${jenalib}/xercesImpl.jar"/>
+	<pathelement path="${jenalib}/xml-apis.jar"/>
+ </path> 	   	
+	
+<target name="all" depends="scifoaf">
+</target>
+
+ <target name="build-ant-tasks">
+	 <mkdir dir="${builddir}/ant"/>
+	 <javac destdir="${builddir}/ant">
+	 <src path="${rootdir}/src/java"/>
+	  <include name="org/lindenb/ant/*.java"/>
+	</javac>
+ </target>
+
+ <target name="declare-ant-tasks" depends="build-ant-tasks">
+    <taskdef name="compileInfoTask"
+        	 classname="org.lindenb.ant.CompileInfoTask"
+		 classpath="${rootdir}/build/ant"/>
+    <taskdef name="makeSplash"
+	     classname="org.lindenb.ant.SplashTask"
+	     classpath="${rootdir}/build/ant"/>
+ </target>
+
+
+ 
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ 
+ <target name="scifoaf" depends="declare-ant-tasks">
+	 <mkdir dir="${compiledir}"/>
+	 <mkdir dir="${compiledir}/images"/>
+	 
+	 
+	 <copy todir="${compiledir}" includeEmptyDirs="false">
+		 <fileset dir="src"/>
+		 <fileset dir="${rootdir}/src/java">
+			 <filename name="**/*.java"/>
+		 </fileset>
+	 </copy>
+	 
+	 <compileInfoTask
+		name="SciFOAF"
+		package="org.lindenb.util"
+		dir="${compiledir}"
+		/>
+	 
+	 <makeSplash title="SciFOAF" file="${compiledir}/images/splash.jpeg"/>
+	 
+	 <javac srcdir="${compiledir}"
+		destdir="${compiledir}"
+		debug="true"
+		source="1.6"
+		target="1.6">
+		 <include name="**/scifoaf/SciFOAF.java"/>
+	 	<classpath refid="jena.class.path"/>
+	 </javac>
+	 
+	 <delete includeEmptyDirs="true">
+		 <fileset dir="${compiledir}" includes="**/*.java"/>
+	 </delete>
+	 <jar destfile="${rootdir}/build/scifoaf.jar"
+	      basedir="${compiledir}">
+		 <manifest>
+			 <attribute
+				name="Main-Class"
+				value="org.lindenb.scifoaf.SciFOAF"
+				/>
+			 <attribute
+				name="SplashScreen-Image"
+				value="images/splash.jpeg"
+				/>
+		 </manifest>
+	 </jar>
+ 	
+	<delete dir="${compiledir}"/>
+ 	
+ </target>
+
+<target name="run" depends="scifoaf">
+	
+	<path id="run.path">
+	      <path refid="jena.class.path"/>
+	      <pathelement location="${rootdir}/build/scifoaf.jar"/>
+	</path>
+
+	
+	<java classname="org.lindenb.scifoaf.SciFOAF"
+		classpathref="run.path"
+		fork="true"
+		>
+
+	</java>
+</target>
+	
+</project>

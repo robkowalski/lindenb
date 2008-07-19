@@ -11,10 +11,10 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.GridLayout;
+import java.awt.MediaTracker;
 import java.awt.RenderingHints;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
@@ -119,10 +119,36 @@ import com.hp.hpl.jena.rdf.model.StmtIterator;
 import com.hp.hpl.jena.vocabulary.DC;
 import com.hp.hpl.jena.vocabulary.DCTerms;
 import com.hp.hpl.jena.vocabulary.RDF;
-import com.hp.hpl.jena.vocabulary.RDFTest;
 import com.hp.hpl.jena.vocabulary.VCARD;
 
+class Event
+	{
+	public static final String NS="http://purl.org/NET/c4dm/event.owl#";
+	private static Model m = ModelFactory.createDefaultModel();
+	public static final Resource Event = m.createResource(NS+ "Event" );
+	public static final Property place = m.createProperty(NS, "place" );
+	public static final Property agent = m.createProperty(NS, "agent" );
+	public static final Property isAgentIn = m.createProperty(NS, "isAgentIn" );
+	public static final Property sub_event = m.createProperty(NS, "sub_event" );
+	}
 
+/** description of a project */
+class DOAP
+	{
+	public static final String NS="http://usefulinc.com/ns/doap#";
+	private static Model m = ModelFactory.createDefaultModel();
+	public static final Resource Project = m.createResource(NS+ "Project" );
+	public static final Property name = m.createProperty(NS, "name" );
+	public static final Property homepage = m.createProperty(NS, "homepage" );
+	public static final Property shortdesc = m.createProperty(NS, "shortdesc" );
+	public static final Property description = m.createProperty(NS, "description" );
+	public static final Property created = m.createProperty(NS, "created" );
+	public static final Property maintainer = m.createProperty(NS, "description" );
+	public static final Property developer = m.createProperty(NS, "developer" );
+	public static final Property documenter = m.createProperty(NS, "documenter" );
+	public static final Property translator = m.createProperty(NS, "translator" );
+	public static final Property screenshots = m.createProperty(NS, "screenshots" );
+	}
 
 class Geo
 	{
@@ -137,7 +163,13 @@ class Geo
 	public static final Property broader = m.createProperty(NS, "broader" );
 	}
 
-
+class Image
+	{
+	static final String NS="http://ontology.lindenb.org/img#";
+	private static Model m = ModelFactory.createDefaultModel();
+	public static final Property width = m.createProperty(NS, "width" );
+	public static final Property height = m.createProperty(NS, "height" );
+	}
 
 /** see bibiography ontology */
 class BIBO
@@ -983,16 +1015,16 @@ public class SciFOAF extends JFrame
 		protected InstanceEditor(Resource subject)
 			{
 			this.subject=subject;
-			JPanel top= new JPanel(new FlowLayout(FlowLayout.CENTER));
+			JPanel top= new JPanel(new BorderLayout());
 			this.add(top,BorderLayout.NORTH);
 			JLabel label= new JLabel(shortForm(subject));
 			label.setFont(new Font("Helvetica",Font.BOLD,24));
 			label.setToolTipText(subject.getURI());
-			top.add(label);
+			top.add(label,BorderLayout.CENTER);
 			
 			//find depiction
 			ImageIcon icon= findDepiction(subject);
-			if(icon!=null) label.setIcon(icon);
+			if(icon!=null) top.add(new JLabel(icon),BorderLayout.WEST);
 					
 			
 			JPanel bot= new JPanel(new FlowLayout(FlowLayout.TRAILING));
@@ -1020,13 +1052,17 @@ public class SciFOAF extends JFrame
 			}
 		
 		
-		
-		protected void doOKPressed()
+		/* right bottom button in editor call this method */
+		protected boolean doOKPressed()
 			{
 			log().info("OK pressed");
-			if(!isEditorsValid()) return;
+			//cancel action if one editor is not valide
+			if(!isEditorsValid()) return false;
+			//save all editors in model
 			saveToModel();
+			//pop history
 			SciFOAF.this.history.pop();
+			//history is empty
 			if(SciFOAF.this.history.isEmpty())
 				{
 				log().info("Go back to main Pane");
@@ -1041,6 +1077,7 @@ public class SciFOAF extends JFrame
 					eh.rdfType
 					);
 				}
+			return true;
 			}
 		
 
@@ -1329,6 +1366,7 @@ public class SciFOAF extends JFrame
 		extends InstanceEditor
 		{
 		private static final long serialVersionUID = 1L;
+		private ImageIcon icn=null;
 		public ImageEditor(Resource subject)
 			{
 			super(subject);
@@ -1339,8 +1377,8 @@ public class SciFOAF extends JFrame
 			JLabel label=null;
 			try 
 				{
-				ImageIcon icn= new ImageIcon(new URL(getSubject().getURI()),getSubject().getURI());
-				label=new JLabel(icn);
+				this.icn= new ImageIcon(new URL(getSubject().getURI()),getSubject().getURI());
+				label=new JLabel(this.icn);
 				label.setOpaque(true);
 				label.setBackground(Color.BLACK);
 				}
@@ -1355,9 +1393,9 @@ public class SciFOAF extends JFrame
 			
 			JPanel pane2= new JPanel(new InputLayout());
 			left.add(pane2);
-			TextRDFEditor ed=addInputField(pane2,DC.description);
-			
-			
+			TextRDFEditor ed=addInputField(pane2,FOAF.name);
+			ed=addInputField(pane2,DC.description);
+			addRDFField(pane2, DC.subject, new LiteralListEditor());
 			
 			JPanel right= new JPanel(new GridLayout(0,1,1,1));
 			grid.add(right);
@@ -1367,6 +1405,28 @@ public class SciFOAF extends JFrame
 					FOAF.Person);
 			right.add(c);
 			}
+		
+		@Override
+		protected void saveToModel()
+			{
+			log().info("save 2 model for image");
+			super.saveToModel();
+			JenaUtils.remove(getModel(), this.getSubject(), Image.width, null);
+			JenaUtils.remove(getModel(), this.getSubject(), Image.height, null);
+			log().info(""+(this.icn!=null)+" "+ this.icn.getImageLoadStatus()+"="+MediaTracker.COMPLETE);
+			if(this.icn!=null && this.icn.getImageLoadStatus()==MediaTracker.COMPLETE)
+				{
+				int height=this.icn.getImage().getHeight(null);
+				int width=this.icn.getImage().getWidth(null);
+				log().info(height+" "+width);
+				if(height>0 && width>0)
+					{
+					getModel().add(getSubject(),Image.height,String.valueOf(height));
+					getModel().add(getSubject(),Image.width,String.valueOf(width));
+					}
+				}
+			}
+		
 		}
 	
 	/** PlaceEditor */
@@ -1410,6 +1470,9 @@ public class SciFOAF extends JFrame
 			ed= addInputField(left, BIBO.pmid); ed.getTextField().setEditable(false);
 			ed= addInputField(left, BIBO.doi); ed.getTextField().setEditable(false);
 			ed= addInputField(left, DC.description);
+			addRDFField(left, DC.subject, new LiteralListEditor());
+			
+			
 			
 			//find journal
 			NodeIterator iter=getModel().listObjectsOfProperty(subject,DCTerms.isPartOf);
@@ -1497,7 +1560,57 @@ public class SciFOAF extends JFrame
 			}
 		
 		}
-	
+	/** EventEditor */
+	private class EventEditor
+		extends InstanceEditor
+		{
+		private static final long serialVersionUID = 1L;
+		public EventEditor(Resource subject)
+			{
+			super(subject);
+			JPanel pane= new JPanel(new GridLayout(0,2,1,1));
+			this.add(pane,BorderLayout.CENTER);
+			JPanel left= new JPanel(new InputLayout());
+			pane.add(left);
+			addInputField(left, DC.title);
+			addInputField(left, DC.date);
+			addInputField(left, DC.description);
+			addRDFField(left, DC.subject, new LiteralListEditor());
+			
+			JPanel right= new JPanel(new GridLayout(0,1,1,1));
+			pane.add(right);
+			
+				{
+				PersonTableModel tm= new PersonTableModel(getModel().listSubjectsWithProperty(RDF.type, FOAF.Person));
+					
+				right.add(createSelectTable(
+					shortForm(Event.agent),
+					new SelectRsrcTableModel(tm,getSubject(),Event.agent,Event.isAgentIn),
+					FOAF.Person)
+					);
+				}
+			
+				{
+				PlaceTableModel tm= new PlaceTableModel();
+				right.add(createSelectTable(
+					shortForm(Event.place),
+					new SelectRsrcTableModel(tm,getSubject(),Event.place,null),
+					Geo.Place)
+					);
+				}
+				
+				
+				{
+				EventTableModel tm= new EventTableModel();
+				tm.removeElement(this.getSubject());
+				right.add(createSelectTable(
+					shortForm(Event.sub_event),
+					new SelectRsrcTableModel(tm,getSubject(),Event.sub_event,null),
+					Event.Event)
+					);
+				}
+			}
+		}	
 	/** GroupEditor */
 	private class GroupEditor
 		extends InstanceEditor
@@ -1519,7 +1632,6 @@ public class SciFOAF extends JFrame
 			
 				{
 				PersonTableModel tm= new PersonTableModel(getModel().listSubjectsWithProperty(RDF.type, FOAF.Person));
-				tm.removeElement(getSubject());
 					
 				right.add(createSelectTable(
 					shortForm(FOAF.member),
@@ -1531,6 +1643,40 @@ public class SciFOAF extends JFrame
 			
 			}
 		}
+	
+	/** OrganizationEditor */
+	private class OrganizationEditor
+		extends InstanceEditor
+		{
+		private static final long serialVersionUID = 1L;
+		public OrganizationEditor(Resource subject)
+			{
+			super(subject);
+			JPanel pane= new JPanel(new GridLayout(0,2,1,1));
+			this.add(pane,BorderLayout.CENTER);
+			JPanel left= new JPanel(new InputLayout());
+			pane.add(left);
+			addInputField(left, FOAF.name);
+			addResourceField(left, FOAF.homepage);
+			addInputField(left, DC.description);
+			
+			JPanel right= new JPanel(new GridLayout(0,1,1,1));
+			pane.add(right);
+			
+				{
+				GroupTableModel tm= new GroupTableModel();
+					
+				right.add(createSelectTable(
+					shortForm(FOAF.member),
+					new SelectRsrcTableModel(tm,getSubject(),FOAF.member,null),
+					FOAF.Group)
+					);
+				}
+			
+			
+			}
+		}
+	
 	
 	/** PersonEditor */
 	private class PersonEditor
@@ -1779,13 +1925,66 @@ public class SciFOAF extends JFrame
 			}
 		}
 	
+
+	
+	/** EventTableModel */
+	private class EventTableModel  extends ResourceTableModel
+		{
+		private static final long serialVersionUID = 1L;
+		EventTableModel()
+			{
+			super(getModel().listSubjectsWithProperty(RDF.type, Event.Event));
+			sort(DC.title,DC.date);
+			}
+		
+		
+		@Override
+		public String getColumnName(int col) {
+			switch(col)
+				{
+				case 0: return "Id";
+				case 1 : return "Name";
+				case 2 : return "Date";
+				}
+			return null;
+			}
+		
+		@Override
+		public Class<?> getColumnClass(int columnIndex) {
+			return String.class;
+			}
+		
+		@Override
+		public Object getValueOf(Resource subject, int column)
+			{
+			switch(column)
+				{
+				case 0 : return subject.getURI();
+				case 1 : return getString(subject,DC.title);
+				case 2 : return getString(subject,DC.date);
+				}
+			return null;
+			}
+
+		@Override
+		public int getColumnCount()
+			{
+			return 3;
+			}
+		
+		}
+	
+	/** GroupTableModel */
 	private class GroupTableModel  extends ResourceTableModel
 		{
 		private static final long serialVersionUID = 1L;
-		GroupTableModel(ResIterator iter)
+		GroupTableModel()
 			{
-			super(iter);
+			super(getModel().listSubjectsWithProperty(RDF.type, FOAF.Group));
+			sort(FOAF.name);
 			}
+		
+		
 		@Override
 		public String getColumnName(int col) {
 			switch(col)
@@ -1812,6 +2011,53 @@ public class SciFOAF extends JFrame
 			return null;
 			}
 
+		@Override
+		public int getColumnCount()
+			{
+			return 2;
+			}
+		
+		}
+	
+	
+	
+	
+	private class OrganizationTableModel  extends ResourceTableModel
+		{
+		private static final long serialVersionUID = 1L;
+		OrganizationTableModel()
+			{
+			super(getModel().listSubjectsWithProperty(RDF.type, FOAF.Organization));
+			sort(FOAF.name);
+			}
+		
+		
+		@Override
+		public String getColumnName(int col) {
+			switch(col)
+				{
+				case 0: return "Id";
+				case 1 : return "Name";
+				}
+			return null;
+			}
+		
+		@Override
+		public Class<?> getColumnClass(int columnIndex) {
+			return String.class;
+			}
+		
+		@Override
+		public Object getValueOf(Resource subject, int column)
+			{
+			switch(column)
+				{
+				case 0 : return subject.getURI();
+				case 1 : return getString(subject,FOAF.name);
+				}
+			return null;
+			}
+	
 		@Override
 		public int getColumnCount()
 			{
@@ -2481,7 +2727,7 @@ public class SciFOAF extends JFrame
 							}
 						break;
 						}
-					
+					installMainPane();
 					}
 				}));
 			}
@@ -2527,9 +2773,22 @@ public class SciFOAF extends JFrame
 				
 			{
 			/** group pane */
-			GroupTableModel tm= new GroupTableModel(getModel().listSubjectsWithProperty(RDF.type, FOAF.Group));
+			GroupTableModel tm= new GroupTableModel();
 			tabbed.addTab(shortForm(FOAF.Group),createMainTab(tm, FOAF.Group));
 			}
+			
+			{
+			/** org pane */
+			OrganizationTableModel tm= new OrganizationTableModel();
+			tabbed.addTab(shortForm(FOAF.Organization),createMainTab(tm, FOAF.Organization));
+			}
+			
+			{
+			/** event pane */
+			EventTableModel tm= new EventTableModel();
+			tabbed.addTab(shortForm(Event.Event),createMainTab(tm, Event.Event));
+			}
+			
 		installComponent(tabbed);
 		}
 	
@@ -2631,14 +2890,22 @@ public class SciFOAF extends JFrame
 			Element MedlinePgn = firstOf(Pagination,"MedlinePgn");
 			addXML(subject,BIBO.pages,MedlinePgn);
 			
+			Element MeshHeadingList = firstOf(MedlineCitation,"MeshHeadingList");
+			for(Node n1=(MeshHeadingList==null?null:MeshHeadingList.getFirstChild());
+				n1!=null;n1=n1.getNextSibling())
+				{
+				if(n1.getNodeType()!=Node.ELEMENT_NODE) continue;
+				if(!n1.getNodeName().equals("MeshHeading"))continue;
+				Element DescriptorName = firstOf(Element.class.cast(n1),"DescriptorName");
+				addXML(subject,DC.subject,DescriptorName);
+				}
+			
 			Element  PubmedData =  firstOf(PubmedArticle,"PubmedData");
 			Element ArticleIdList =  firstOf(PubmedData,"ArticleIdList");
 			for(Node n1=(ArticleIdList==null?null:ArticleIdList.getFirstChild());
 				n1!=null;n1=n1.getNextSibling())
 				{
-				System.err.println("A");
 				if(n1.getNodeType()!=Node.ELEMENT_NODE) continue;
-				System.err.println("B");
 				if(!n1.getNodeName().equals("ArticleId"))continue;
 				Attr att= (Attr)n1.getAttributes().getNamedItem("IdType");
 				if(att==null)
@@ -2664,7 +2931,11 @@ public class SciFOAF extends JFrame
 	/** create instance */
 	private void createInstance(Resource subject,Resource rdfType)
 		{
-		if(rdfType.equals(BIBO.Article) && subject.getURI().startsWith(BIBO.PUBMED_PREFIX))
+		if(rdfType.equals(FOAF.Image))
+			{
+			getModel().add(subject,FOAF.name,subject.getURI());
+			}
+		else if(rdfType.equals(BIBO.Article) && subject.getURI().startsWith(BIBO.PUBMED_PREFIX))
 			{
 			String pmid=subject.getURI().substring(BIBO.PUBMED_PREFIX.length()).trim();
 			loadPMID(pmid);
@@ -2711,6 +2982,14 @@ public class SciFOAF extends JFrame
 			{
 			ed= new GroupEditor(subject);
 			}
+		else if(rdfType.equals(FOAF.Organization))
+			{
+			ed= new OrganizationEditor(subject);
+			}
+		else if(rdfType.equals(Event.Event))
+			{
+			ed= new EventEditor(subject);
+			}
 		else
 			{
 			JOptionPane.showMessageDialog(this, "unknown rdf:type "+rdfType,"Error",JOptionPane.ERROR_MESSAGE,null);
@@ -2727,7 +3006,8 @@ public class SciFOAF extends JFrame
 	/** ask URI */
 	private Resource askNewURI(Component owner,String title,Resource rdfType)
 		{
-		if(rdfType.equals(FOAF.Image))
+		if( rdfType.equals(FOAF.Image) ||
+			rdfType.equals(Event.Event))
 			{
 			return JenaUtils.askNewURL(getModel(), owner, title);
 			}
@@ -2959,6 +3239,9 @@ public class SciFOAF extends JFrame
 			g.setColor(Color.BLACK);
 			g.fillRect(0, 0, getIconSize(), getIconSize());
 	
+			
+			
+			
 			//center the icon
 			if(src.getWidth()< src.getHeight())
 				{
@@ -3269,6 +3552,9 @@ public class SciFOAF extends JFrame
 			model.setNsPrefix("bib", BIBO.NS);
 			model.setNsPrefix("vcard", VCARD.getURI());
 			model.setNsPrefix("dcterms", DCTerms.getURI());
+			model.setNsPrefix("img", Image.NS);
+			model.setNsPrefix("doap", DOAP.NS);
+			model.setNsPrefix("event", Event.NS);
 			JFrame.setDefaultLookAndFeelDecorated(true);
 			JDialog.setDefaultLookAndFeelDecorated(true);
 			
