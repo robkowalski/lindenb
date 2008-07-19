@@ -2008,7 +2008,9 @@ public class SciFOAF extends JFrame
 			addInputField(left, FOAF.firstName);
 			addInputField(left, FOAF.family_name);
 			addInputField(left, FOAF.givenname);
+			addInputField(left, FOAF.gender).addPattern(Pattern.compile("(Male|Female|m|F)",Pattern.CASE_INSENSITIVE));
 			addInputField(left, FOAF.surname);
+			addInputField(left, FOAF.nick);
 			addInputField(left, FOAF.birthday).addPattern(DATE_PATTERN);
 			addRDFField(left, FOAF.weblog, new URLListEditor());
 			
