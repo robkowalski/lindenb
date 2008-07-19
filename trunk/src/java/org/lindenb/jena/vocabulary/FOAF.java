@@ -10,6 +10,7 @@ public class FOAF extends org.lindenb.sw.vocabulary.FOAF
 	private static Model m = ModelFactory.createDefaultModel();
 	public static final Resource Person = m.createResource(NS+ "Person" );
 	public static final Resource Group = m.createResource(NS+ "Group" );
+	public static final Resource Organization = m.createResource(NS+ "Organization" );
 	public static final Resource Document = m.createResource(NS+ "Document" );
 	public static final Resource Image = m.createResource(NS+ "Image" );
 	public static final Resource PersonalProfileDocument = m.createResource(NS+ "PersonalProfileDocument" );
