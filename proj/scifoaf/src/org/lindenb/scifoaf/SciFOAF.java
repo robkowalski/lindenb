@@ -6,6 +6,8 @@ package org.lindenb.scifoaf;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Cursor;
+import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -24,6 +26,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.lang.reflect.Constructor;
@@ -31,6 +34,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -64,16 +68,20 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
+import javax.swing.JSpinner;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
+import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
 import javax.swing.border.LineBorder;
 import javax.swing.border.TitledBorder;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableModel;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
@@ -149,7 +157,11 @@ class DOAP
 	public static final Property translator = m.createProperty(NS, "translator" );
 	public static final Property screenshots = m.createProperty(NS, "screenshots" );
 	}
-
+/**
+ * Geography ontology, fields inspired from geonames.org
+ * @author pierre
+ *
+ */
 class Geo
 	{
 	static final String NS="http://ontology.lindenb.org/geo#";
@@ -158,9 +170,11 @@ class Geo
 	public static final Property lon = m.createProperty(NS, "long" );
 	public static final Property lat = m.createProperty(NS, "lat" );
 	public static final Property country = m.createProperty(NS, "country" );
-	public static final Property placename = m.createProperty(NS, "placename" );
-	public static final Property narrower = m.createProperty(NS, "narrower" );
-	public static final Property broader = m.createProperty(NS, "broader" );
+	public static final Property adminCode1 = m.createProperty(NS, "adminCode1" );
+	public static final Property adminName1 = m.createProperty(NS, "adminName1" );
+	public static final Property adminCode2 = m.createProperty(NS, "adminCode2" );
+	public static final Property adminName2 = m.createProperty(NS, "adminName2" );
+	public static final Property postalCode = m.createProperty(NS, "postalCode" );
 	}
 
 class Image
@@ -198,6 +212,9 @@ public class SciFOAF extends JFrame
 	private static final long serialVersionUID = 1L;
 	/** world cat prefix */
 	private static final String WORLD_CAT_PREFIX="http://www.worldcat.org/issn/";
+	/** pattern for date */
+	private static Pattern DATE_PATTERN=Pattern.compile("\\d\\d\\d\\d(\\-\\d\\d(\\-\\d\\d)?)?");
+	
 	
 	/** model */
 	private Model rdfModel;
@@ -213,6 +230,7 @@ public class SciFOAF extends JFrame
 	private File tmpDirectory=new File("/tmp/");
 	/** icon size */
 	private int iconSize=64;
+	
 	
 	
 	/** GenericMouseAdapter */
@@ -246,6 +264,197 @@ public class SciFOAF extends JFrame
 		{
 		Resource subject=null;
 		Resource rdfType=null;
+		}
+	public static final String GEO_NAME_HEADERS[]={
+		"Postal Code","Name","Country","Lat","Long",
+		"Admin Code 1","Admin Name 1",
+		"Admin Code 2","Admin Name 2"
+		};
+	/** handles GeoNames */
+	private class GeoNamePane extends JPanel
+		{
+		private static final long serialVersionUID = 1L;
+
+		class GeoName
+			{
+			private String name="";
+			private String postalCode;
+			private String country;
+			private Double latitude;
+			private Double longitude;
+			private String adminCode1;
+			private String adminName1;
+			private String adminCode2;
+			private String adminName2;
+			}
+		
+		
+		
+		private JTextField postCodeField;
+		private JTextField placeNameField;
+		private JTextField countryField;
+		private SpinnerNumberModel maxRows;
+		private Thread thread=null;
+		private JTable table=null;
+		private AbstractAction goAction;
+		
+		private class SearchPlace implements Runnable
+			{
+			public void run() {
+				try {
+					StringBuilder urlStr=new StringBuilder(
+							"http://ws.geonames.org/postalCodeSearch?style=FULL"
+							);
+					String s= postCodeField.getText();
+					if(s.trim().length()>0)
+						{
+						urlStr.append("&postalcode="+URLEncoder.encode(s, "UTF-8"));
+						}
+					s= placeNameField.getText();
+					if(s.trim().length()>0)
+						{
+						urlStr.append("&placename="+URLEncoder.encode(s, "UTF-8"));
+						}
+					s= countryField.getText();
+					if(s.trim().length()>0)
+						{
+						urlStr.append("&country="+URLEncoder.encode(s, "UTF-8"));
+						}
+					urlStr.append("&maxRows="+maxRows.getNumber().intValue());
+					
+					DocumentBuilderFactory f= DocumentBuilderFactory.newInstance();
+					DocumentBuilder b= f.newDocumentBuilder();
+					Document doc= b.parse(urlStr.toString());
+					Element root=doc.getDocumentElement();
+					if(root==null) return;
+					GenericTableModel<GeoName> t= newTableModel();
+					for(Node n1= root.getFirstChild();n1!=null;n1=n1.getNextSibling())
+						{
+						if(n1.getNodeType()!=Node.ELEMENT_NODE) continue;
+						if(!n1.getNodeName().equals("code")) continue;
+						
+						GeoName newRow= new GeoName();
+						for(Node n2= n1.getFirstChild();n2!=null;n2=n2.getNextSibling())
+							{
+							if(n2.getNodeType()!=Node.ELEMENT_NODE) continue;
+							s= n2.getNodeName();
+							String txt=n2.getTextContent();
+								if(s.equals("postalcode")) newRow.postalCode=txt;
+							else if(s.equals("name")) newRow.name=txt;
+							else if(s.equals("countryCode")) newRow.country=txt;
+							else if(s.equals("lat")) newRow.latitude=new Double(txt);
+							else if(s.equals("lng")) newRow.longitude=new Double(txt);
+							else if(s.equals("adminCode1")) newRow.adminCode1=txt;
+							else if(s.equals("adminName1")) newRow.adminName1=txt;
+							else if(s.equals("adminCode2")) newRow.adminCode2=txt;
+							else if(s.equals("adminName2")) newRow.adminName2=txt;
+							}
+						t.addElement(newRow);
+						}
+					table.setModel(t);
+					
+					} catch (Exception e) {
+						Toolkit.getDefaultToolkit().beep();
+					}
+				thread=null;
+				goAction.setEnabled(true);
+				}
+			}
+		
+		public GeoNamePane()
+			{
+			super(new BorderLayout(5,5));
+			this.goAction=new AbstractAction("Go")
+				{
+				private static final long serialVersionUID = 1L;
+
+				public void actionPerformed(ActionEvent e)
+					{
+					searchPlace();
+					}
+				};
+			JPanel top=new JPanel(new FlowLayout(FlowLayout.LEADING));
+			this.add(top,BorderLayout.NORTH);
+			JLabel label=new JLabel("Postal Code:",JLabel.RIGHT);
+			
+			top.add(label);
+			this.postCodeField= new JTextField("",10);
+			this.postCodeField.addActionListener(goAction);
+			top.add(this.postCodeField);
+			label=new JLabel("Place Name:",JLabel.RIGHT);
+			top.add(label);
+			this.placeNameField= new JTextField("",20);
+			this.placeNameField.addActionListener(goAction);
+			top.add(this.placeNameField);
+			label=new JLabel("Country:",JLabel.RIGHT);
+			top.add(label);
+			this.countryField= new JTextField("",3);
+			top.add(this.countryField);
+			label=new JLabel("Max Rows:",JLabel.RIGHT);
+			top.add(label);
+			top.add(new JSpinner(this.maxRows=new SpinnerNumberModel(10,1,50,1)));
+			top.add(new JButton(goAction));
+			
+			this.table= new JTable(newTableModel());
+			this.table.setShowVerticalLines(false);
+			this.table.setFont(new Font("Dialog",Font.PLAIN,18));
+			this.table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+			add(new JScrollPane(this.table),BorderLayout.CENTER);
+			}
+		
+		private void searchPlace()
+			{
+			if(this.thread!=null) return;
+			this.goAction.setEnabled(false);
+			SearchPlace run=new SearchPlace();
+			this.thread=new Thread(run);
+			this.thread.start();
+			}
+		
+		
+		@SuppressWarnings("unchecked")
+		public GeoName getSelectedGeoName()
+			{
+			int i= this.table.getSelectedRow();
+			if(i==-1) return null;
+			GenericTableModel<GeoName> m=(GenericTableModel<GeoName>)(this.table.getModel());
+			return m.elementAt(i);
+			}
+		
+		
+		private GenericTableModel<GeoName> newTableModel()
+			{
+			return new GenericTableModel<GeoName>()
+				{
+				private static final long serialVersionUID = 1L;
+				@Override
+				public int getColumnCount() {
+					return GEO_NAME_HEADERS.length;
+					}
+				@Override
+				public String getColumnName(int c) {
+					return GEO_NAME_HEADERS[c];
+					}
+				@Override
+				public Object getValueOf(GeoName p, int column)
+					{
+					switch(column)
+						{
+						case 0 : return p.postalCode;
+						case 1 : return p.name;
+						case 2 : return p.country;
+						case 3 : return p.latitude;
+						case 4 : return p.longitude;
+						case 5 : return p.adminCode1;
+						case 6 : return p.adminName1;
+						case 7 : return p.adminCode2;
+						case 8 : return p.adminName2;
+						}
+					return null;
+					}
+				};
+			}
+		
 		}
 	
 	
@@ -314,7 +523,7 @@ public class SciFOAF extends JFrame
 				String s= ed.getValidationMessage();
 				if(s!=null)
 					{
-					log().info("validation message says "+s);
+					log().debug("validation message says "+s);
 					return s;
 					}
 				}
@@ -635,7 +844,7 @@ public class SciFOAF extends JFrame
 			getModel().add(getSubject(),getProperty(),getModel().createLiteral(String.class.cast(s)));
 			}
 		}
-	
+	/** editor specialized in editing resource */
 	private class ResourceListEditor
 	extends AbstractListEditor
 		{
@@ -660,6 +869,7 @@ public class SciFOAF extends JFrame
 			{
 			DefaultListModel model= DefaultListModel.class.cast(list.getModel());
 			if(!node.isResource()) return;
+			if(node.isAnon()) return;
 			model.addElement(Resource.class.cast(node).getURI());
 			}
 
@@ -874,7 +1084,7 @@ public class SciFOAF extends JFrame
 			JenaUtils.remove(getModel(), getSubject(), getProperty(),null);
 			if(s.length()!=0)
 				{
-				log().info("saving ("+getSubject()+","+getProperty()+","+s+")");
+				log().debug("saving ("+getSubject()+","+getProperty()+","+s+")");
 				getModel().add(getSubject(),getProperty(),s);
 				}
 			}
@@ -935,7 +1145,7 @@ public class SciFOAF extends JFrame
 		
 		protected void saveToModel()
 			{
-			log().info("saving editors to model ");
+			log().debug("saving editors to model ");
 			for(RDFEditor ed:this.editors)
 				{
 				ed.saveToModel();
@@ -961,7 +1171,7 @@ public class SciFOAF extends JFrame
 					return false;
 					}
 				}
-			log().info("isEditorsValid returns true");
+			log().debug("isEditorsValid returns true");
 			return true;
 			}
 		
@@ -1017,10 +1227,45 @@ public class SciFOAF extends JFrame
 			this.subject=subject;
 			JPanel top= new JPanel(new BorderLayout());
 			this.add(top,BorderLayout.NORTH);
-			JLabel label= new JLabel(shortForm(subject));
+			JLabel label= new JLabel(shortForm(subject),JLabel.CENTER);
 			label.setFont(new Font("Helvetica",Font.BOLD,24));
 			label.setToolTipText(subject.getURI());
 			top.add(label,BorderLayout.CENTER);
+			
+			try {
+				new URL(subject.getURI());
+				URI url=new URI(subject.getURI());
+				label.setForeground(Color.BLUE);
+				label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+				label.addMouseListener(new GenericMouseAdapter<URI>(url)
+					{
+					@Override
+					public void mouseClicked(MouseEvent me) {
+						
+						if (Desktop.isDesktopSupported() &&
+							JOptionPane.showConfirmDialog(InstanceEditor.this, "Open "+getObject()+" ?")==JOptionPane.OK_OPTION) 
+							{
+							try
+								{
+								Desktop.getDesktop().browse(getObject());
+								}
+							catch(IOException err)
+								{
+								ThrowablePane.show(InstanceEditor.this, err);
+								}
+							}
+						}
+					});
+				}
+			catch (MalformedURLException e)
+				{
+				//ignore
+				}
+			catch (URISyntaxException e)
+				{
+				//ignore
+				}
+			
 			
 			//find depiction
 			ImageIcon icon= findDepiction(subject);
@@ -1055,7 +1300,7 @@ public class SciFOAF extends JFrame
 		/* right bottom button in editor call this method */
 		protected boolean doOKPressed()
 			{
-			log().info("OK pressed");
+			log().debug("OK pressed");
 			//cancel action if one editor is not valide
 			if(!isEditorsValid()) return false;
 			//save all editors in model
@@ -1065,13 +1310,13 @@ public class SciFOAF extends JFrame
 			//history is empty
 			if(SciFOAF.this.history.isEmpty())
 				{
-				log().info("Go back to main Pane");
+				log().debug("Go back to main Pane");
 				installMainPane();
 				}
 			else
 				{
 				EditHistory eh=SciFOAF.this.history.pop();
-				log().info("go back to "+eh.subject);
+				log().debug("go back to "+eh.subject);
 				installInstancePane(
 					eh.subject,
 					eh.rdfType
@@ -1131,7 +1376,7 @@ public class SciFOAF extends JFrame
 						InstanceEditor.this.saveToModel();
 						int i= getObject().table.getSelectedRow();
 						if(i==-1) return;
-						log().info(getObject().table.getModel().getClass());
+						log().debug(getObject().table.getModel().getClass());
 						SelectRsrcTableModel tm=SelectRsrcTableModel.class.cast(getObject().table.getModel());
 						Resource r= tm.elementAt(i);
 						installInstancePane(r,getObject().rdfType);
@@ -1168,7 +1413,7 @@ public class SciFOAF extends JFrame
 						if(r==null) return;
 						
 						InstanceEditor.this.saveToModel();
-						log().info("create links from "+r+" to "+getSubject());
+						log().debug("create links from "+r+" to "+getSubject());
 						SelectRsrcTableModel tm=SelectRsrcTableModel.class.cast(getObject().table.getModel());
 						getModel().add(InstanceEditor.this.getSubject(),tm.getPredicate(),r);
 						if(tm.getReversePredicate()!=null)
@@ -1231,7 +1476,7 @@ public class SciFOAF extends JFrame
 							InstanceEditor.this.saveToModel();
 							int i= getObject().table.getSelectedRow();
 							if(i==-1) return;
-							log().info(getObject().table.getModel().getClass());
+							log().debug(getObject().table.getModel().getClass());
 							ResourceTableModel tm=ResourceTableModel.class.cast(getObject().table.getModel());
 							Resource r= tm.elementAt(i);
 							installInstancePane(r,getObject().rdfType);
@@ -1290,7 +1535,7 @@ public class SciFOAF extends JFrame
 				Resource targetRDFType
 				)
 				{
-				log().info("creating simple table from "+shortForm(targetRDFType));
+				log().debug("creating simple table from "+shortForm(targetRDFType));
 				JPanel p= new JPanel(new BorderLayout());
 				p.setPreferredSize(new Dimension(100,getIconSize()*4));
 				p.setBorder(new TitledBorder(shortForm(targetRDFType)));
@@ -1329,7 +1574,7 @@ public class SciFOAF extends JFrame
 							InstanceEditor.this.saveToModel();
 							int i= getObject().table.getSelectedRow();
 							if(i==-1) return;
-							log().info(getObject().table.getModel().getClass());
+							log().debug(getObject().table.getModel().getClass());
 							ResourceTableModel tm=ResourceTableModel.class.cast(getObject().table.getModel());
 							Resource r= tm.elementAt(i);
 							installInstancePane(r,getObject().rdfType);
@@ -1409,16 +1654,16 @@ public class SciFOAF extends JFrame
 		@Override
 		protected void saveToModel()
 			{
-			log().info("save 2 model for image");
+			log().debug("save 2 model for image");
 			super.saveToModel();
 			JenaUtils.remove(getModel(), this.getSubject(), Image.width, null);
 			JenaUtils.remove(getModel(), this.getSubject(), Image.height, null);
-			log().info(""+(this.icn!=null)+" "+ this.icn.getImageLoadStatus()+"="+MediaTracker.COMPLETE);
+			log().debug(""+(this.icn!=null)+" "+ this.icn.getImageLoadStatus()+"="+MediaTracker.COMPLETE);
 			if(this.icn!=null && this.icn.getImageLoadStatus()==MediaTracker.COMPLETE)
 				{
 				int height=this.icn.getImage().getHeight(null);
 				int width=this.icn.getImage().getWidth(null);
-				log().info(height+" "+width);
+				log().debug(height+" "+width);
 				if(height>0 && width>0)
 					{
 					getModel().add(getSubject(),Image.height,String.valueOf(height));
@@ -1442,10 +1687,15 @@ public class SciFOAF extends JFrame
 			this.add(pane,BorderLayout.CENTER);
 			JPanel left= new JPanel(new InputLayout());
 			pane.add(left);
-			addInputField(left, Geo.placename);
+			addInputField(left, DC.title);
 			addInputField(left, Geo.lon);
 			addInputField(left, Geo.lat);
 			addInputField(left, Geo.country);
+			addInputField(left, Geo.postalCode);
+			addInputField(left, Geo.adminCode1);
+			addInputField(left, Geo.adminName1);
+			addInputField(left, Geo.adminCode2);
+			addInputField(left, Geo.adminName2);
 			}
 		}
 	
@@ -1470,7 +1720,7 @@ public class SciFOAF extends JFrame
 			ed= addInputField(left, BIBO.pmid); ed.getTextField().setEditable(false);
 			ed= addInputField(left, BIBO.doi); ed.getTextField().setEditable(false);
 			ed= addInputField(left, DC.description);
-			addRDFField(left, DC.subject, new LiteralListEditor());
+			
 			
 			
 			
@@ -1502,6 +1752,23 @@ public class SciFOAF extends JFrame
 				break;
 				}
 			iter.close();
+			addRDFField(left, DC.subject, new LiteralListEditor());
+			
+			
+			
+			JPanel right= new JPanel(new GridLayout(0,1,1,1));
+			pane.add(right);
+			
+				{
+				PersonTableModel tm= new PersonTableModel();
+					
+				right.add(createSelectTable(
+					shortForm(FOAF.maker),
+					new SelectRsrcTableModel(tm,getSubject(),FOAF.maker,FOAF.made),
+					FOAF.Person)
+					);
+				}
+			
 			
 			}
 		}
@@ -1573,7 +1840,7 @@ public class SciFOAF extends JFrame
 			JPanel left= new JPanel(new InputLayout());
 			pane.add(left);
 			addInputField(left, DC.title);
-			addInputField(left, DC.date);
+			addInputField(left, DC.date).addPattern(DATE_PATTERN);
 			addInputField(left, DC.description);
 			addRDFField(left, DC.subject, new LiteralListEditor());
 			
@@ -1626,6 +1893,8 @@ public class SciFOAF extends JFrame
 			addInputField(left, FOAF.name);
 			addResourceField(left, FOAF.homepage);
 			addInputField(left, DC.description);
+			addRDFField(left, FOAF.based_near,new ComboRDFEditor(Geo.Place));
+			
 			
 			JPanel right= new JPanel(new GridLayout(0,1,1,1));
 			pane.add(right);
@@ -1659,6 +1928,7 @@ public class SciFOAF extends JFrame
 			addInputField(left, FOAF.name);
 			addResourceField(left, FOAF.homepage);
 			addInputField(left, DC.description);
+			addRDFField(left, FOAF.based_near,new ComboRDFEditor(Geo.Place));
 			
 			JPanel right= new JPanel(new GridLayout(0,1,1,1));
 			pane.add(right);
@@ -1695,12 +1965,14 @@ public class SciFOAF extends JFrame
 			addInputField(left, FOAF.firstName);
 			addInputField(left, FOAF.family_name);
 			addInputField(left, FOAF.givenname);
-			addInputField(left, FOAF.birthday).addPattern(Pattern.compile("\\d\\d\\d\\d(\\-\\d\\d(\\-\\d\\d)?)?"));
+			addInputField(left, FOAF.birthday).addPattern(DATE_PATTERN);
 			addResourceField(left, FOAF.homepage);
 			addResourceField(left, FOAF.schoolHomepage);
 			addRDFField(left, FOAF.interest, new URLListEditor());
 			addRDFField(left, FOAF.based_near,new ComboRDFEditor(Geo.Place));
 			
+			/*
+			 * test for anonymous resource
 			AnonymousResource adrs=new AnonymousResource(VCARD.ADRTYPES);
 			adrs.setProperty(VCARD.AGENT);
 			adrs.setSubject(subject);
@@ -1712,7 +1984,7 @@ public class SciFOAF extends JFrame
 			adrs.getEditorsList().addInputField(input2,VCARD.TITLE);
 			adrs.getEditorsList().addInputField(input2,VCARD.ROLE);
 			adrs.getEditorsList().addInputField(input2,VCARD.TEL);
-			left.add(input2);
+			left.add(input2);*/
 			
 			JPanel right= new JPanel(new GridLayout(0,1,1,1));
 			
@@ -1814,9 +2086,11 @@ public class SciFOAF extends JFrame
 			{
 			while(iter.hasNext())
 				{
-				this.addElement(iter.nextResource());
+				Resource r= iter.nextResource();
+				if(r.isAnon()) continue;
+				this.addElement(r);
 				}
-			iter.close();
+			iter.close();	
 			}
 		
 		protected ResourceTableModel(Collection<Resource> col)
@@ -1871,6 +2145,11 @@ public class SciFOAF extends JFrame
 		{
 		private static final long serialVersionUID = 1L;
 		private HashMap<Resource, Icon> rsrc2icn;
+		
+		PersonTableModel()
+			{
+			this(getModel().listSubjectsWithProperty(RDF.type, FOAF.Person));
+			}
 		
 		PersonTableModel(ResIterator iter)
 			{
@@ -2135,7 +2414,7 @@ public class SciFOAF extends JFrame
 		PlaceTableModel(ResIterator iter)
 			{
 			super(iter);
-			sort(Geo.country,Geo.placename,DC.title);
+			sort(Geo.country,DC.title);
 			}
 		
 		public PlaceTableModel() {
@@ -2170,7 +2449,7 @@ public class SciFOAF extends JFrame
 			{
 			switch(column)
 				{
-				case 0 : return getString(subject,Geo.placename);
+				case 0 : return getString(subject,DC.title);
 				case 1 : return getString(subject,Geo.country);
 				case 2 : return getString(subject,Geo.lon);
 				case 3 : return getString(subject,Geo.lat);
@@ -2398,7 +2677,7 @@ public class SciFOAF extends JFrame
 				if( getModel().contains(this.subject,this.property,r) ||
 					(reverseProperty!=null && getModel().contains(r,reverseProperty,subject)))
 					{
-					log().info("exists("+subject+","+property+","+r+")");
+					log().debug("exists("+subject+","+property+","+r+")");
 					this.selected.put(r,Boolean.TRUE);
 					}
 				}
@@ -2451,7 +2730,7 @@ public class SciFOAF extends JFrame
 			if(this.reverseProperty!=null) getModel().remove(getDelegate().elementAt(row),this.reverseProperty,this.subject);
 			if(b)
 				{
-				log().info("create("+this.subject+","+this.property+","+getDelegate().elementAt(row)+")");
+				log().debug("create("+this.subject+","+this.property+","+getDelegate().elementAt(row)+")");
 				getModel().add(this.subject, property,getDelegate().elementAt(row));
 				if(this.reverseProperty!=null) getModel().add(getDelegate().elementAt(row),this.reverseProperty,this.subject);
 				}
@@ -2503,8 +2782,9 @@ public class SciFOAF extends JFrame
 				JOptionPane.showMessageDialog(SciFOAF.this,
 					"<html><body>"+
 					"<h1>SciFOAF</h1>"+
+					"<h3>2008 Pierre Lindenbaum 2008</h3><h6>"+
 					Compilation.getLabel()+
-					"</body></html>",
+					"</h6></body></html>",
 					"About",JOptionPane.PLAIN_MESSAGE,null);
 				}
 			});
@@ -2539,6 +2819,21 @@ public class SciFOAF extends JFrame
 				doMenuExportKML();
 				}
 			}));
+		
+		AbstractAction action;
+		menu.add(new JMenuItem(action=new AbstractAction("Export as XHTML")
+			{
+			private static final long serialVersionUID = 1L;
+			@Override
+			public void actionPerformed(ActionEvent ae)
+				{
+				doMenuExportXHTML();
+				}
+			}));
+		//need to work on this...
+		action.setEnabled(false);
+		
+		
 		menu.add(new JSeparator());
 		menu.add(new JMenuItem(new AbstractAction("Quit")
 			{
@@ -2581,6 +2876,7 @@ public class SciFOAF extends JFrame
 			iter.close();
 			return set;
 			}
+	
 	
 	private Model getModel()
 		{
@@ -2715,7 +3011,7 @@ public class SciFOAF extends JFrame
 								new Integer(pmid);
 								if(getModel().containsResource(getModel().createResource(BIBO.PUBMED_PREFIX+pmid)))
 									{
-									log().info("pmid "+pmid+" already in model");
+									log().debug("pmid "+pmid+" already in model");
 									}
 								loadPMID(pmid);
 								}
@@ -2796,7 +3092,7 @@ public class SciFOAF extends JFrame
 	private Element firstOf(Element root,String name)
 		{
 		if(root==null) return null;
-		log().info("searching "+name+" in "+root.getNodeName());
+		log().debug("searching "+name+" in "+root.getNodeName());
 		for(Node n1=root.getFirstChild();n1!=null;n1=n1.getNextSibling())
 			{
 			if(n1.getNodeType()==Node.ELEMENT_NODE &&
@@ -2805,7 +3101,7 @@ public class SciFOAF extends JFrame
 				return Element.class.cast(n1);
 				}
 			}
-		log().info("searching "+name+" in "+root.getNodeName()+" returns null");
+		log().debug("searching "+name+" in "+root.getNodeName()+" returns null");
 		return null;
 		}
 	
@@ -2910,7 +3206,7 @@ public class SciFOAF extends JFrame
 				Attr att= (Attr)n1.getAttributes().getNamedItem("IdType");
 				if(att==null)
 					{
-					log().info("Cannot find @IdType in "+n1.getNodeName());
+					log().debug("Cannot find @IdType in "+n1.getNodeName());
 					continue;
 					}
 				if(att.getValue().equals("doi"))
@@ -3006,11 +3302,24 @@ public class SciFOAF extends JFrame
 	/** ask URI */
 	private Resource askNewURI(Component owner,String title,Resource rdfType)
 		{
+		if(rdfType.equals(Geo.Place))
+			{
+			return askGeoName(owner);
+			}
 		if( rdfType.equals(FOAF.Image) ||
 			rdfType.equals(Event.Event))
 			{
 			return JenaUtils.askNewURL(getModel(), owner, title);
 			}
+		else if( rdfType.equals(FOAF.Person))
+				{
+				return JenaUtils.askNewURL(getModel(), owner,
+					"<html><body>"	+
+					"<p>Enter an URL for this <b>foaf:Person<b></p>"+
+					"<p>If possible , the URL should be URL <br/>where this person stores his/her FOAF profile<b></p>"+
+					"</body></html>"
+					);
+				}
 		else if(rdfType.equals(BIBO.Journal))
 			{
 			JOptionPane.showMessageDialog(owner, "Journal are created from articles");
@@ -3057,7 +3366,7 @@ public class SciFOAF extends JFrame
 			return true;
 			}
 		try {
-			log().info("saving as "+filename);
+			log().debug("saving as "+filename);
 			if(SHA1.hasSHA())
 				{
 				//replace mail by sha1
@@ -3220,7 +3529,7 @@ public class SciFOAF extends JFrame
     			log().warn("Cannot create "+getTmpDirectory());
     			return null;
     			}
-    		log().info("Created tmp directory in "+getTmpDirectory());
+    		log().debug("Created tmp directory in "+getTmpDirectory());
     		}
     	String id= SHA1.encrypt(url.toString())+".png";
     	File dest= new File(getTmpDirectory(),id);
@@ -3267,12 +3576,77 @@ public class SciFOAF extends JFrame
 			return dest;
 			} 
 		catch (Exception e) {
-			log().warn("Cannot create icon for "+id+" at url="+url,e);
+			//ignore log().warn("Cannot create icon for "+id+" at url="+url,e);
 			return null;
 			}
 		
 		}
 	
+    private Resource askGeoName(Component owner)
+    	{
+    	GeoNamePane pane= new GeoNamePane();
+    	Dimension d= SciFOAF.this.getSize();
+    	if(d.width>100) d.width-=50;
+    	if(d.height>100) d.height-=50;
+    	pane.setPreferredSize(d);
+    	if(JOptionPane.showConfirmDialog(owner, pane,"Search Place",JOptionPane.OK_CANCEL_OPTION,JOptionPane.QUESTION_MESSAGE,null)!=JOptionPane.OK_OPTION) return null;
+    	GeoNamePane.GeoName place= pane.getSelectedGeoName();
+    	if(place==null || place.name.trim().length()==0) return null;
+    	String placename=null;
+    	try {
+    		placename="http://en.wikipedia.org/wiki/"+URLEncoder.encode(place.name.trim().replace(' ', '_'),"UTF-8");
+    		}
+    	catch (Exception e) {
+			throw new Error(e);
+			}
+    	String s=placename;
+    	
+    	while(true)
+    		{
+    		s= JOptionPane.showInputDialog(
+    				owner,
+    				"Enter a new URL for this place",
+    				s
+    				);
+    		if(s==null) return null;
+    		s=s.trim();
+			try {
+				URI loc=new URI(s);
+				if(!loc.isAbsolute())
+					{
+					JOptionPane.showMessageDialog(
+							owner,
+							"URI should be absolute  "+s);
+					continue;
+					}
+				} 
+			catch (Exception e)
+				{
+				JOptionPane.showMessageDialog(owner, "Not a valid URI "+s);
+				continue;
+				}
+ 
+			Resource r=getModel().createResource(s);
+        	if(getModel().containsResource(r))
+    			{
+    			JOptionPane.showMessageDialog(owner, "Already exists "+place.name);
+    			return null;
+    			}
+        	getModel().add(r,RDF.type,Geo.Place);
+        	getModel().add(r,Geo.lat,String.valueOf(place.latitude));
+        	getModel().add(r,Geo.lon,String.valueOf(place.longitude));
+        	getModel().add(r,Geo.country,String.valueOf(place.country));
+        	getModel().add(r,Geo.postalCode,String.valueOf(place.postalCode));
+        	getModel().add(r,Geo.adminCode1,String.valueOf(place.adminCode1));
+        	getModel().add(r,Geo.adminCode2,String.valueOf(place.adminCode2));
+        	getModel().add(r,Geo.adminName1,String.valueOf(place.adminName1));
+        	getModel().add(r,Geo.adminName2,String.valueOf(place.adminName2));
+        	getModel().add(r,DC.title,String.valueOf(place.name));
+        	return r;
+    		}
+ 
+    	}
+    
 	/**  doMenuExportKML */
 	private void doMenuExportKML()
 		{
@@ -3461,6 +3835,7 @@ public class SciFOAF extends JFrame
 			html=html.replaceAll("__HTML_NS__", XHTML.NS)
 					.replaceAll("__SVG_NS__", SVG.NS)
 					.replaceAll("__XLINK_NS__", XLINK.NS)
+					.replaceAll("__ICON_SIZE__",String.valueOf(getIconSize()))
 					;
 			out.print(html);
 			out.flush();
@@ -3489,11 +3864,20 @@ public class SciFOAF extends JFrame
 		try
 			{
 			int optind=0;
+			boolean debug=false;
 			while(optind< args.length)
 				{
 				if(args[optind].equals("-h"))
 					{
 					System.err.println(Compilation.getLabel());
+					System.err.println("Usage SciFOAF [options] (rdf.file|<default=~/foaf.rdf>)");
+					System.err.println("  -h help (this screen)");
+					System.err.println("  -d debug");
+					return;
+					}
+				else if(args[optind].equals("-d"))
+					{
+					debug=true;
 					}
 				else if(args[optind].equals("--"))
 					{
@@ -3539,7 +3923,10 @@ public class SciFOAF extends JFrame
 			else if(optind+1==args.length)
 				{
 				fileIn= new File(args[optind+1]);
-				model.read(fileIn.toURI().toString());
+				if(fileIn.exists())
+					{
+					model.read(fileIn.toURI().toString());
+					}
 				}
 			else
 				{
@@ -3559,6 +3946,8 @@ public class SciFOAF extends JFrame
 			JDialog.setDefaultLookAndFeelDecorated(true);
 			
 			SciFOAF app= new SciFOAF(model,fileIn);
+			
+			
 			SwingUtilities.invokeAndWait(new RunnableObject<SciFOAF>(app)
 				{
 				@Override
