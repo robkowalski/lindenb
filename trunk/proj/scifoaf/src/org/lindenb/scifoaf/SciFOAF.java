@@ -81,13 +81,10 @@ import javax.swing.border.LineBorder;
 import javax.swing.border.TitledBorder;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
-import javax.swing.table.DefaultTableModel;
-import javax.swing.table.TableModel;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.apache.commons.logging.LogFactory;
-import org.apache.tools.ant.Project;
 import org.lindenb.io.IOUtils;
 import org.lindenb.jena.JenaUtils;
 import org.lindenb.jena.vocabulary.FOAF;
@@ -172,6 +169,7 @@ class Geo
 	public static final Resource Place = m.createResource(NS+ "Place" );
 	public static final Property lon = m.createProperty(NS, "long" );
 	public static final Property lat = m.createProperty(NS, "lat" );
+	public static final Property placename = m.createProperty(NS, "placename" );
 	public static final Property country = m.createProperty(NS, "country" );
 	public static final Property adminCode1 = m.createProperty(NS, "adminCode1" );
 	public static final Property adminName1 = m.createProperty(NS, "adminName1" );
@@ -297,7 +295,6 @@ public class SciFOAF extends JFrame
 		private JTextField placeNameField;
 		private JTextField countryField;
 		private SpinnerNumberModel maxRows;
-		private Thread thread=null;
 		private JTable table=null;
 		private AbstractAction goAction;
 		
@@ -359,7 +356,6 @@ public class SciFOAF extends JFrame
 					} catch (Exception e) {
 						Toolkit.getDefaultToolkit().beep();
 					}
-				thread=null;
 				goAction.setEnabled(true);
 				}
 			}
@@ -407,11 +403,8 @@ public class SciFOAF extends JFrame
 		
 		private void searchPlace()
 			{
-			if(this.thread!=null) return;
-			this.goAction.setEnabled(false);
 			SearchPlace run=new SearchPlace();
-			this.thread=new Thread(run);
-			this.thread.start();
+			run.run();
 			}
 		
 		
@@ -434,10 +427,12 @@ public class SciFOAF extends JFrame
 				public int getColumnCount() {
 					return GEO_NAME_HEADERS.length;
 					}
+				
 				@Override
 				public String getColumnName(int c) {
 					return GEO_NAME_HEADERS[c];
 					}
+				
 				@Override
 				public Object getValueOf(GeoName p, int column)
 					{
@@ -489,6 +484,7 @@ public class SciFOAF extends JFrame
 		public abstract void saveToModel();
 		}
 	
+	@SuppressWarnings("unused")
 	private class AnonymousResource
 	extends RDFEditor
 		{
@@ -614,11 +610,11 @@ public class SciFOAF extends JFrame
 		public JComponent getComponent() {
 			return this.combo;
 			}
-		
+		/*
 		private void setModel(NamedResource keys[])
 			{
 			this.combo.setModel(new DefaultComboBoxModel(keys));
-			}
+			}*/
 		
 		private void setModel(Resource rdfType)
 			{
@@ -823,6 +819,11 @@ public class SciFOAF extends JFrame
 		@Override
 		public void saveToModel()
 			{
+			if(!this.inputField.isEnabled())
+				{
+				//need this after I found conflict with mbox who created is own mbox_sha1
+				return;
+				}
 			DefaultListModel model= DefaultListModel.class.cast(list.getModel());
 			cleanModel();
 			for(int i=0;i< model.getSize();++i)
@@ -972,7 +973,7 @@ public class SciFOAF extends JFrame
 				{
 				Statement stmt= iter.nextStatement();
 				if(!stmt.getObject().isResource()) continue;
-				if(!stmt.getResource().isAnon()) continue;
+				if(stmt.getResource().isAnon()) continue;
 				getTextField().setText(stmt.getResource().getURI());
 				getTextField().setCaretPosition(0);
 				break;
@@ -1706,6 +1707,7 @@ public class SciFOAF extends JFrame
 			JPanel left= new JPanel(new InputLayout());
 			pane.add(left);
 			addInputField(left, DC.title);
+			addInputField(left, Geo.placename);
 			addInputField(left, Geo.lon);
 			addInputField(left, Geo.lat);
 			addInputField(left, Geo.country);
@@ -2068,9 +2070,9 @@ public class SciFOAF extends JFrame
 			addResourceField(left, FOAF.workInfoHomepage);
 			addRDFField(left, FOAF.interest, new URLListEditor());
 			addRDFField(left, FOAF.based_near,new ComboRDFEditor(Geo.Place));
-			addResourceField(left, FOAF.geekcode);
-			addResourceField(left, FOAF.myersBriggs);
-			addResourceField(left, FOAF.dnaChecksum);
+			addInputField(left, FOAF.geekcode);
+			addInputField(left, FOAF.myersBriggs);
+			addInputField(left, FOAF.dnaChecksum);
 			/*
 			 * test for anonymous resource
 			AnonymousResource adrs=new AnonymousResource(VCARD.ADRTYPES);
@@ -2576,7 +2578,7 @@ public class SciFOAF extends JFrame
 		PlaceTableModel(ResIterator iter)
 			{
 			super(iter);
-			sort(Geo.country,DC.title);
+			sort(Geo.country,DC.title,Geo.placename);
 			}
 		
 		public PlaceTableModel() {
@@ -2585,7 +2587,7 @@ public class SciFOAF extends JFrame
 		
 		@Override
 		public int getColumnCount() {
-			return 4;
+			return 5;
 			}
 		
 		@Override
@@ -2598,10 +2600,11 @@ public class SciFOAF extends JFrame
 			{
 			switch(col)
 				{
-				case 0 : return "Title";
-				case 1 : return "Country";
-				case 2 : return "Long";
-				case 3 : return "Lat";
+				case 0 : return shortForm(DC.title);
+				case 1 : return shortForm(Geo.placename);
+				case 2 : return shortForm(Geo.country);
+				case 3 : return shortForm(Geo.lon);
+				case 4 : return shortForm(Geo.lat);
 				}
 			return null;
 			}
@@ -2612,9 +2615,10 @@ public class SciFOAF extends JFrame
 			switch(column)
 				{
 				case 0 : return getString(subject,DC.title);
-				case 1 : return getString(subject,Geo.country);
-				case 2 : return getString(subject,Geo.lon);
-				case 3 : return getString(subject,Geo.lat);
+				case 1 : return getString(subject,Geo.placename);
+				case 2 : return getString(subject,Geo.country);
+				case 3 : return getString(subject,Geo.lon);
+				case 4 : return getString(subject,Geo.lat);
 				}
 			return null;
 			}
@@ -3830,6 +3834,7 @@ public class SciFOAF extends JFrame
         	getModel().add(r,Geo.adminName1,String.valueOf(place.adminName1));
         	getModel().add(r,Geo.adminName2,String.valueOf(place.adminName2));
         	getModel().add(r,DC.title,String.valueOf(place.name));
+        	getModel().add(r,Geo.placename,String.valueOf(place.name));
         	return r;
     		}
  
@@ -4052,7 +4057,6 @@ public class SciFOAF extends JFrame
 		try
 			{
 			int optind=0;
-			boolean debug=false;
 			while(optind< args.length)
 				{
 				if(args[optind].equals("-h"))
@@ -4060,12 +4064,8 @@ public class SciFOAF extends JFrame
 					System.err.println(Compilation.getLabel());
 					System.err.println("Usage SciFOAF [options] (rdf.file|<default=~/foaf.rdf>)");
 					System.err.println("  -h help (this screen)");
-					System.err.println("  -d debug");
+					
 					return;
-					}
-				else if(args[optind].equals("-d"))
-					{
-					debug=true;
 					}
 				else if(args[optind].equals("--"))
 					{
@@ -4088,38 +4088,36 @@ public class SciFOAF extends JFrame
 			if(optind==args.length)
 				{
 				fileIn= new File(System.getProperty("user.home", "."),"foaf.rdf");
-				if(fileIn.exists())
-					{
-					model.read(fileIn.toURI().toString());
-					}
-				else
-					{
-					System.err.println("Creating a new FOAF profile in "+fileIn);
-					
-					Resource me= JenaUtils.askNewURI(model, null, "Give yourself an URI");
-					if(me==null) return;
-					model.add(me,RDF.type,FOAF.Person);
-					Resource root = model.createResource(AnonId.create(""));
-					model.add(root,RDF.type,FOAF.PersonalProfileDocument);
-					model.add(root,FOAF.maker,me);
-					model.add(root,FOAF.primaryTopic,me);
-					model.add(root,DC.date,TimeUtils.toYYYYMMDD('-'));
-					model.add(root,DC.creator,System.getProperty("user.name","me"));
-					}
-				
 				}
 			else if(optind+1==args.length)
 				{
 				fileIn= new File(args[optind]);
-				if(fileIn.exists())
-					{
-					model.read(fileIn.toURI().toString());
-					}
 				}
 			else
 				{
 				System.err.println("Illegal number of arguments");
 				System.exit(-1);
+				}
+			
+			
+			if(fileIn.exists())
+				{
+				model.read(fileIn.toURI().toString());
+				}
+			else
+				{
+				System.err.println("Creating a new FOAF profile in "+fileIn);
+				
+				Resource me= JenaUtils.askNewURI(model, null, "Give yourself an URI");
+				if(me==null) return;
+				model.add(me,RDF.type,FOAF.Person);
+				Resource root = model.createResource(AnonId.create(""));
+				model.add(root,RDF.type,FOAF.PersonalProfileDocument);
+				model.add(root,FOAF.maker,me);
+				model.add(root,FOAF.primaryTopic,me);
+				model.add(root,DC.date,TimeUtils.toYYYYMMDD('-'));
+				model.add(root,DC.creator,System.getProperty("user.name","me"));
+				
 				}
 			
 			model.setNsPrefix("foaf", FOAF.NS);
