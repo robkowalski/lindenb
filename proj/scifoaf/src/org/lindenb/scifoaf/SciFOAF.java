@@ -43,6 +43,8 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.Stack;
 import java.util.Vector;
+import java.util.prefs.BackingStoreException;
+import java.util.prefs.Preferences;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -86,6 +88,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.apache.commons.logging.LogFactory;
 import org.lindenb.io.IOUtils;
+import org.lindenb.io.PreferredDirectory;
 import org.lindenb.jena.JenaUtils;
 import org.lindenb.jena.vocabulary.FOAF;
 import org.lindenb.lang.ResourceUtils;
@@ -230,8 +233,9 @@ public class SciFOAF extends JFrame
 	/** tmp File */
 	private File tmpDirectory=new File("/tmp/");
 	/** icon size */
-	private int iconSize=64;
-	
+	private static final int iconSize=64;
+	/**Preferences */
+	private Preferences preferences=null;
 	
 	
 	/** GenericMouseAdapter */
@@ -2927,7 +2931,7 @@ public class SciFOAF extends JFrame
 		this.setContentPane(mainPane);
 		this.contentPane = new JPanel(new BorderLayout(5,5));
 		mainPane.add(this.contentPane,BorderLayout.CENTER);
-		
+		this.preferences = Preferences.userNodeForPackage(SciFOAF.class);
 		
 		this.addWindowListener(new WindowAdapter()
 			{
@@ -2937,9 +2941,18 @@ public class SciFOAF extends JFrame
 				}
 			
 			@Override
-				public void windowClosed(WindowEvent e) {
-					doMenuSave(SciFOAF.this.file);
+			public void windowClosed(WindowEvent e)
+				{
+				doMenuSave(SciFOAF.this.file);
+				try {
+					SciFOAF.this.preferences.sync();
+					SciFOAF.this.preferences.flush();
+					} 
+				catch (BackingStoreException e1)
+					{
+					e1.printStackTrace();
 					}
+				}
 			
 			});
 		
@@ -3019,7 +3032,7 @@ public class SciFOAF extends JFrame
 			}));
 		
 		AbstractAction action;
-		menu.add(new JMenuItem(action=new AbstractAction("Export as XHTML")
+		menu.add(new JMenuItem(action=new AbstractAction("Export as XHTML...")
 			{
 			private static final long serialVersionUID = 1L;
 			@Override
@@ -3028,8 +3041,8 @@ public class SciFOAF extends JFrame
 				doMenuExportXHTML();
 				}
 			}));
-		//need to work on this...
-		action.setEnabled(false);
+		action.putValue(AbstractAction.SHORT_DESCRIPTION, "Save as XHTML+SVG");
+		//action.setEnabled(false);
 		
 		
 		menu.add(new JSeparator());
@@ -3088,7 +3101,7 @@ public class SciFOAF extends JFrame
 	
 	private int getIconSize() 
 		{
-		return this.iconSize;
+		return SciFOAF.iconSize;
 		}
 	
 	private String shortForm(Resource rsrc)
@@ -3897,7 +3910,6 @@ public class SciFOAF extends JFrame
 	private void doMenuExportXHTML()
 		{
 		File f=null;
-		
 		while(true)
 			{
 			f=askFile(f);
@@ -3905,13 +3917,13 @@ public class SciFOAF extends JFrame
 			if(f.getName().toLowerCase().endsWith(".zip")) break;
 			JOptionPane.showMessageDialog(this, "Filename should end with *.zip","Error",JOptionPane.WARNING_MESSAGE,null);
 			}
-		FileOutputStream fout=null;
+		ZipOutputStream zout=null;
 		HashSet<File> iconFiles= new HashSet<File>();
 		try {
 			boolean found=false;
-			fout= new FileOutputStream(f);
-			ZipOutputStream zout= new ZipOutputStream(fout);
-			ZipEntry entry= new ZipEntry("scifoaf/nn.js");
+			
+			zout= new ZipOutputStream(new FileOutputStream(f));
+			ZipEntry entry= new ZipEntry("scifoaf/network.js");
 			zout.putNextEntry(entry);
 			PrintWriter out= new PrintWriter(new OutputStreamWriter(zout));
 			out.println("var network={");
@@ -3931,7 +3943,7 @@ public class SciFOAF extends JFrame
 				out.println("\"name\":\""+ C.escape(JenaUtils.getString(getModel(), r, FOAF.name, r.getURI()))+"\",");
 				out.println("\"job\":\"\",");
 				out.println("\"affiliation\":\"\",");
-				out.println("\"www\":\"\",");
+				out.println("\"www\":\""+ C.escape(JenaUtils.getString(getModel(), r, FOAF.weblog, r.getURI())) +"\",");
 				if(iconFile==null)
 					{
 					out.println("\"img\":\"\",");
@@ -3992,7 +4004,12 @@ public class SciFOAF extends JFrame
 				if(!stmt.getObject().isResource()) continue;
 				if(!getModel().contains(stmt.getSubject(),RDF.type,FOAF.Person)) continue;
 				if(!getModel().contains(stmt.getResource(),RDF.type,FOAF.Person)) continue;
-				links.add(new Couple<Resource>(stmt.getSubject(),stmt.getResource()));
+				Couple<Resource> c= new Couple<Resource>(stmt.getSubject(),stmt.getResource());
+				if(c.first().equals(c.second()))
+					{
+					continue;
+					}
+				links.add(c);
 				}
 			iter3.close();
 			
@@ -4031,6 +4048,8 @@ public class SciFOAF extends JFrame
 					.replaceAll("__SVG_NS__", SVG.NS)
 					.replaceAll("__XLINK_NS__", XLINK.NS)
 					.replaceAll("__ICON_SIZE__",String.valueOf(getIconSize()))
+					//.replaceAll("__URCHIN__","<script src=\"http://www.google-analytics.com/urchin.js\" type=\"text/javascript\"></script><script type=\"text/javascript\">_uacct = \"XXXXX\";urchinTracker();</script>")
+					.replaceAll("__DATE__",TimeUtils.toYYYYMMDD('-'))
 					;
 			out.print(html);
 			out.flush();
@@ -4038,13 +4057,14 @@ public class SciFOAF extends JFrame
 			
 			
 			zout.flush();
-			fout.close();
+			zout.close();
+			JOptionPane.showMessageDialog(SciFOAF.this, "Done. ");
 			} 
 		catch (Exception e)
 			{
 			if(f!=null)
 				{
-				IOUtils.safeClose(fout);
+				IOUtils.safeClose(zout);
 				f.delete();
 				}
 			ThrowablePane.show(SciFOAF.this, e);
