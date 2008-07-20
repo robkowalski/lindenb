@@ -666,7 +666,6 @@
     <foaf:depiction rdf:resource="http://pimm.files.wordpress.com/2006/12/photo-13-copy.thumbnail.jpg"/>
     <foaf:name>Attila Csordas</foaf:name>
     <foaf:homepage rdf:resource="http://pimm.wordpress.com/"/>
-    <foaf:mbox rdf:resource="mailto:attilacsordas@gmail.com"/>
     <event:isAgentIn rdf:resource="http://network.nature.com/group/scifoo"/>
     <foaf:knows rdf:resource="http://duncan.hull.name/"/>
     <dc:date>2008-07-20</dc:date>
