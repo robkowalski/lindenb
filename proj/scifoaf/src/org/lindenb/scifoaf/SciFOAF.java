@@ -88,7 +88,6 @@ import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.apache.commons.logging.LogFactory;
 import org.lindenb.io.IOUtils;
-import org.lindenb.io.PreferredDirectory;
 import org.lindenb.jena.JenaUtils;
 import org.lindenb.jena.vocabulary.FOAF;
 import org.lindenb.lang.ResourceUtils;

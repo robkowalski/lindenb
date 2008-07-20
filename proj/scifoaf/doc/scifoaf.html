@@ -1,0 +1,102 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+  <title>SciFOAF 2.0 Manual</title>
+</head>
+<style>
+h1	{
+	text-align:center;
+	}
+h3	{
+	color:black;
+	}
+
+blockquote {
+	background-color:black;
+	color:white;
+	white-space: pre;
+	font-family: monospace;
+	font-size:10px;
+	overflow: auto;
+	width:700px;
+	padding:20px;
+	}
+</style>
+<body>
+<h1>SciFOAF 2.0</h1>
+<h6>Pierre Lindenbaum PhD 2008</h6>
+<h3>What is SciFOAF</h3>
+<b>SciFOAF</b> is the second version of a tool I created to build a <a href="http://xmlns.com/foaf/spec/">FOAF</a>/RDF file from your publications in <a href="http://www.ncbi.nlm.nih.gov/entrez/query.fcgi">ncbi/pubmed</a>. The  FOAF project defines a semantic format based on RDF/XML to define persons or groups, their relationships, as well as their basic properties such as name, e-mail address, subjects of interest, publications, and so on... 
+
+The first version was introduced in 2006 <a href="http://www.urbigene.com/foaf/">here</a> as a java webstart interface and was suffering from many problems:<ul>
+<li>the RDF file could not be loaded/saved</li>
+<li>only a few properties could be edited</li>
+<li>authors'name definition may vary from one journal to another as some journal may use the initial of an author while another may use the complete first name.</li>
+<li>the interaction was just a kind of multiple-choice questionnaire</li>
+</ul>
+
+The new version now uses the <a href="http://jena.sourceforge.net/">Jena API</a>, the rdf repository can be loaded and saved.
+
+<h3>Requirements</h3>
+<ul><li>Java 6</li><li><a href="http://jena.sourceforge.net/">Jena library</a></li></ul>
+
+<h3>Downloading SciFOAF</h3>
+A *.jar file should be available for download at <a href="http://lindenb.googlecode.com/files/scifoaf.jar">http://lindenb.googlecode.com/files/scifoaf.jar</a>.
+<h3>Running SciFOAF</h3>
+Setup the CLASSPATH
+<blockquote>export JENA_LIB=<i>your_path_to</i>/Jena/lib
+export CLASSPATH=${JENA_LIB}/antlr-2.7.5.jar:${JENA_LIB}/arq-extra.jar:${JENA_LIB}/arq.jar:${JENA_LIB}/commons-logging-1.1.1.jar:${JENA_LIB}/concurrent.jar:${JENA_LIB}/icu4j_3_4.jar:${JENA_LIB}/iri.jar:${JENA_LIB}/jena.jar:${JENA_LIB}/jenatest.jar:${JENA_LIB}/json.jar:${JENA_LIB}/junit.jar:${JENA_LIB}/log4j-1.2.12.jar:${JENA_LIB}/lucene-core-2.3.1.jar:${JENA_LIB}/stax-api-1.0.jar:${JENA_LIB}/wstx-asl-3.0.0.jar:${JENA_LIB}/xercesImpl.jar:${JENA_LIB}/xml-apis.jar:<i>YOUR_PATH_TO</i>/scifoaf.jar
+</blockquote>
+
+Run SciFOAF
+<blockquote>java org.lindenb.scifoaf.SciFOAF</blockquote>
+the first time your run SciFOAF, You're prompted to give yourself an URI. The best choice would be to give the URL where your foaf file will be stored or the URL of your personnal homepage or blog. On startup a file called <code>foaf.rdf</code> will be created in your home directory. Alternatively you can specify a file on the command line.
+When the application is closed, the FOAF model will be saved back to the file.
+
+<h3>The Main Pane</h3>
+The first window contains a sequence of tab Each tab fits to a given rdf Class:<ul>
+<li>foaf:Person</li>
+<li>geo:Place</li>
+<li>bibo:Article</li>
+<li>...</li>
+</ul>
+For each tab, a button "New ...." creates a new instance of the given Class. 
+
+<h3>Building your profile</h3>
+<h4>Add a foaf:Image</h4>
+Add the URL of the picture, for example: <a href="http://upload.wikimedia.org/wikipedia/commons/4/42/Charles_Darwin_aged_51.jpg">http://upload.wikimedia.org/wikipedia/commons/4/42/Charles_Darwin_aged_51.jpg</a>.
+<h4>Add an bibo:Article</h4>
+enter the PMID of the artcle
+<h4>Add a geo:Place</h4>
+SciFOAF, uses the <a href="http://www.geonames.org">geonames.org</a> API.
+<h4>Add a foaf:Person</h4>
+You can the link this person to his publication, his foaf:based_near, the persons he knows..
+<div align="center"><a href="http://www.flickr.com/photos/lindenb/2683803328/" title="SciFOAF 2.0 de lindenb, sur Flickr"><img src="http://farm4.static.flickr.com/3059/2683803328_cffc13e3d2_o.jpg" width="800"  alt="SciFOAF 2.0" /></a></div>
+
+<h4>Etc...</h4>
+Create foaf:Group, event:Event, doap:Project....
+<h3>Exporting to KML</h3>
+(Experimental) In menu "File' select 'Export to KML'. SciFOAF will export a <a href="http://code.google.com/apis/kml/documentation/">KML file</a> containing the geolocalized foaf:Persons.
+A test is available <a href="http://yokofakun.googlepages.com/jeter.kml">here</a> and is visible in maps.google.com at <a href="http://maps.google.com/maps?q=http://yokofakun.googlepages.com/jeter.kml">http://maps.google.com/maps?q=http://yokofakun....</a>.
+
+<h3>Exporting to XHTML+SVG</h3>
+(Experimental) In menu "File' select 'Export to XHTML'. Here, I've roughly copied the tool  I wrote for exploring the <a href="http://www.urbigene.com/nn/network.xml">Nature Network</a> using SVG/javscript/JSON/XTML. Many things remain to do.
+<div align="center"><a href="http://www.flickr.com/photos/lindenb/499526400/" title="Nature Network de lindenb, sur Flickr"><img src="http://farm1.static.flickr.com/226/499526400_4372ba8572_o.jpg" width="450"  alt="Nature Network" /></a></div>
+
+<h3>Loading a Batch of Articles</h3>
+In the main panel, for <b>bibo:Article</b> a button can be used to load a batch of articles.
+On ncbi/pubmed, perform a query, choose <form><b>Display:</b><button>UI List</button> and then <button>Send to Text</button>. Copy the list of PMID and paste it in the "Load Batch" dialog, press OK. After a moment, all the articles are uploaded in the RDF model.</form>
+
+<h3>Source Code</h3>
+The source code is available on <a href="http://code.google.com/p/lindenb/">http://code.google.com/p/lindenb/</a>.
+The ant file is in <blockquote>lindenb/proj/scifoaf/build.xml</blockquote>.
+
+<hr/>
+Pierre Lindenbaum PhD<br/>
+<a href="mailto:plindenbaum@yahoo.fr">plindenbaum@yahoo.fr</a>
+<i>$Date$</i>
+</body>
+</html>
