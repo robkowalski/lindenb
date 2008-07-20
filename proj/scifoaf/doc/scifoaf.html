@@ -29,9 +29,9 @@ blockquote {
 <h1>SciFOAF 2.0</h1>
 <h6>Pierre Lindenbaum PhD 2008</h6>
 <h3>What is SciFOAF</h3>
-<b>SciFOAF</b> is the second version of a tool I created to build a <a href="http://xmlns.com/foaf/spec/">FOAF</a>/RDF file from your publications in <a href="http://www.ncbi.nlm.nih.gov/entrez/query.fcgi">ncbi/pubmed</a>. The  FOAF project defines a semantic format based on RDF/XML to define persons or groups, their relationships, as well as their basic properties such as name, e-mail address, subjects of interest, publications, and so on... 
+<b>SciFOAF</b> is the second version of a tool I created to build a <a href="http://xmlns.com/foaf/spec/">FOAF</a>/RDF file from your publications in <a href="http://www.ncbi.nlm.nih.gov/entrez/query.fcgi">ncbi/pubmed</a>. The  FOAF project defines a semantic format based on RDF/XML to define persons or groups, their relationships, as well as their basic properties such as name, e-mail address, subjects of interest, publications, and so on... This FOAF profile can be used to describe your work, your laboratory, your contacts.
 
-The first version was introduced in 2006 <a href="http://www.urbigene.com/foaf/">here</a> as a java webstart interface and was suffering from many problems:<ul>
+The first version was introduced in 2006 <a href="http://www.urbigene.com/foaf/">here</a> as a java webstart interface and had many problems:<ul>
 <li>the RDF file could not be loaded/saved</li>
 <li>only a few properties could be edited</li>
 <li>authors'name definition may vary from one journal to another as some journal may use the initial of an author while another may use the complete first name.</li>
@@ -93,7 +93,8 @@ On ncbi/pubmed, perform a query, choose <form><b>Display:</b><button>UI List</bu
 <h3>Source Code</h3>
 The source code is available on <a href="http://code.google.com/p/lindenb/">http://code.google.com/p/lindenb/</a>.
 The ant file is in <blockquote>lindenb/proj/scifoaf/build.xml</blockquote>.
-
+<h3>Example</h3>
+A RDF File describing a few persons in the <a href="http://openwetware.org/wiki/Biogang">Biogang</a> is available <a href="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf">here</a>.
 <hr/>
 Pierre Lindenbaum PhD<br/>
 <a href="mailto:plindenbaum@yahoo.fr">plindenbaum@yahoo.fr</a>
