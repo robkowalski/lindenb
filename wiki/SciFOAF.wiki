@@ -1,0 +1,17 @@
+#labels Featured,Phase-Requirements
+SciFOAF builds a RDF/FOAF profile from NCBI/PUBMED
+
+= Introduction =
+SciFOAF is the second version of a tool I created to build a FOAF/RDF file from your publications in ncbi/pubmed. The FOAF project defines a semantic format based on RDF/XML to define persons or groups, their relationships, as well as their basic properties such as name, e-mail address, subjects of interest, publications, and so on... The first version was introduced in 2006 here as a java webstart interface and had many problems:
+
+    * the RDF file could not be loaded/saved
+    * only a few properties could be edited
+    * authors'name definition may vary from one journal to another as some journal may use the initial of an author while another may use the complete first name.
+    * the interaction was just a kind of multiple-choice questionnaire
+
+The new version now uses the Jena API, the rdf repository can be loaded and saved. 
+
+
+= Details =
+
+see full documentation at http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/doc/scifoaf.html
