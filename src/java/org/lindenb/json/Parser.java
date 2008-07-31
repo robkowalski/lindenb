@@ -182,7 +182,7 @@ public class Parser
 		if(value==null) return null;
 		else if(Boolean.TRUE.equals(value)) return Boolean.TRUE;
 		else if(Boolean.FALSE.equals(value)) return Boolean.FALSE;
-		return new JSONConstant(value);
+		return value;
 		}
 	
 	/** create a new JSONObject. May be overloaded with extended builder */
