@@ -7,6 +7,7 @@
     xmlns:img="http://ontology.lindenb.org/img#"
     xmlns:vcard="http://www.w3.org/2001/vcard-rdf/3.0#"
     xmlns:doap="http://usefulinc.com/ns/doap#"
+    xmlns:owl="http://www.w3.org/2002/07/owl#"
     xmlns:dc="http://purl.org/dc/elements/1.1/"
     xmlns:dcterms="http://purl.org/dc/terms/" > 
   <rdf:Description rdf:about="http://duncan.hull.name/">
@@ -26,6 +27,18 @@
     <foaf:name>Duncan Hull</foaf:name>
     <foaf:knows rdf:resource="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf"/>
   </rdf:Description>
+  <rdf:Description rdf:about="http://www.worldcat.org/issn/1092-2172">
+    <rdf:type rdf:resource="http://purl.org/ontology/bibo/Journal"/>
+    <dc:title>Microbiology and molecular biology reviews : MMBR</dc:title>
+    <bib:shortTitle>Microbiol. Mol. Biol. Rev.</bib:shortTitle>
+    <bib:issn>1092-2172</bib:issn>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://delicious.com/cameronneylon">
+    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/OnlineAccount"/>
+    <dc:date>2008-08-11</dc:date>
+    <foaf:accountServiceHomepage rdf:resource="http://delicious.com/"/>
+    <foaf:accountName>cameronneylon</foaf:accountName>
+  </rdf:Description>
   <rdf:Description rdf:about="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf">
     <foaf:based_near rdf:resource="http://en.wikipedia.org/wiki/%C3%89vry%2C_Essonne"/>
     <foaf:holdsAccount rdf:resource="http://www.last.fm/user/plindenbaum"/>
@@ -44,8 +57,8 @@
     <foaf:knows rdf:resource="http://duncan.hull.name/"/>
     <foaf:knows rdf:resource="http://mndoci.com/blog/"/>
     <foaf:nick>lindenb</foaf:nick>
-    <foaf:knows rdf:resource="http://www.genedrift.org/"/>
     <foaf:holdsAccount rdf:resource="http://www.connotea.org/user/lindenb"/>
+    <foaf:knows rdf:resource="http://www.genedrift.org/"/>
     <foaf:knows rdf:resource="http://nsaunders.wordpress.com/"/>
     <foaf:firstName>Pierre</foaf:firstName>
     <foaf:title>Dr</foaf:title>
@@ -61,6 +74,38 @@
     <foaf:holdsAccount rdf:resource="http://lindenb.tumblr.com/"/>
     <foaf:workInfoHomepage rdf:resource="http://www.integragen.com"/>
     <foaf:interest rdf:resource="http://en.wikipedia.org/wiki/Semantic_Web"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://openwetware.org/images/7/71/CameronNeylonMugshot.jpg">
+    <foaf:depicts rdf:resource="http://blog.openwetware.org/scienceintheopen/"/>
+    <dc:date>2008-08-11</dc:date>
+    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Image"/>
+    <foaf:name>http://openwetware.org/images/7/71/CameronNeylonMugshot.jpg</foaf:name>
+    <dc:description>Cameron Neylon</dc:description>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.ncbi.nlm.nih.gov/pubmed/16148308">
+    <dcterms:isPartOf rdf:resource="http://www.worldcat.org/issn/1092-2172"/>
+    <dc:subject>Escherichia coli Proteins</dc:subject>
+    <bib:pages>501-26</bib:pages>
+    <owl:sameAs>http://bio2rdf.org/pubmed:16148308</owl:sameAs>
+    <dc:date>2005 Sep</dc:date>
+    <foaf:maker rdf:resource="http://blog.openwetware.org/scienceintheopen/"/>
+    <dc:subject>Sequence Alignment</dc:subject>
+    <bib:volume>69</bib:volume>
+    <dc:title>Replication termination in Escherichia coli: structure and antihelicase activity of the Tus-Ter complex.</dc:title>
+    <dc:subject>Terminator Regions (Genetics)</dc:subject>
+    <dc:subject>DNA-Binding Proteins</dc:subject>
+    <dc:subject>Molecular Sequence Data</dc:subject>
+    <dc:subject>DNA Replication</dc:subject>
+    <rdf:type rdf:resource="http://purl.org/ontology/bibo/Article"/>
+    <dc:subject>Amino Acid Sequence</dc:subject>
+    <dc:subject>Escherichia coli</dc:subject>
+    <dc:subject>DNA Helicases</dc:subject>
+    <dc:subject>Replication Origin</dc:subject>
+    <dc:subject>DNA, Bacterial</dc:subject>
+    <dc:subject>Base Sequence</dc:subject>
+    <bib:doi>10.1128/MMBR.69.3.501-526.2005</bib:doi>
+    <bib:pmid>16148308</bib:pmid>
+    <bib:number>3</bib:number>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.ncbi.nlm.nih.gov/pubmed/16711717">
     <bib:doi>10.1021/ci050400b</bib:doi>
@@ -118,10 +163,82 @@
     <dc:title>Nucleic acids research</dc:title>
     <rdf:type rdf:resource="http://purl.org/ontology/bibo/Journal"/>
   </rdf:Description>
+  <rdf:Description rdf:about="http://www.ncbi.nlm.nih.gov/pubmed/14990750">
+    <bib:pmid>14990750</bib:pmid>
+    <bib:number>4</bib:number>
+    <dc:subject>DNA</dc:subject>
+    <rdf:type rdf:resource="http://purl.org/ontology/bibo/Article"/>
+    <bib:volume>32</bib:volume>
+    <dc:subject>Directed Molecular Evolution</dc:subject>
+    <dc:date>2004</dc:date>
+    <bib:pages>1448-59</bib:pages>
+    <dc:subject>Gene Library</dc:subject>
+    <dc:subject>Oligonucleotides</dc:subject>
+    <bib:doi>10.1093/nar/gkh315</bib:doi>
+    <dc:subject>Variation (Genetics)</dc:subject>
+    <dcterms:isPartOf rdf:resource="http://www.worldcat.org/issn/1362-4962"/>
+    <dc:subject>Protein Engineering</dc:subject>
+    <dc:subject>Base Sequence</dc:subject>
+    <dc:subject>Random Allocation</dc:subject>
+    <owl:sameAs>http://bio2rdf.org/pubmed:14990750</owl:sameAs>
+    <dc:subject>Recombination, Genetic</dc:subject>
+    <dc:subject>Proteins</dc:subject>
+    <dc:title>Chemical and biochemical strategies for the randomization of protein encoding DNA sequences: library construction methods for directed evolution.</dc:title>
+    <foaf:maker rdf:resource="http://blog.openwetware.org/scienceintheopen/"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.ncbi.nlm.nih.gov/pubmed/16814717">
+    <dc:subject>Escherichia coli Proteins</dc:subject>
+    <dc:subject>Kinetics</dc:subject>
+    <dc:subject>Animals</dc:subject>
+    <dc:subject>DNA Helicases</dc:subject>
+    <dc:date>2006 Jun 30</dc:date>
+    <dc:subject>Thermodynamics</dc:subject>
+    <dc:subject>Mutation</dc:subject>
+    <dc:subject>Models, Biological</dc:subject>
+    <owl:sameAs>http://bio2rdf.org/pubmed:16814717</owl:sameAs>
+    <bib:number>7</bib:number>
+    <dc:subject>Base Sequence</dc:subject>
+    <foaf:maker rdf:resource="http://blog.openwetware.org/scienceintheopen/"/>
+    <dc:subject>DNA-Binding Proteins</dc:subject>
+    <dc:subject>Buffers</dc:subject>
+    <dc:subject>Glutamates</dc:subject>
+    <dc:subject>DnaB Helicases</dc:subject>
+    <dc:subject>Binding Sites</dc:subject>
+    <dc:title>A molecular mousetrap determines polarity of termination of DNA replication in E. coli.</dc:title>
+    <bib:pmid>16814717</bib:pmid>
+    <bib:pages>1309-19</bib:pages>
+    <dc:subject>Models, Molecular</dc:subject>
+    <dc:subject>Surface Plasmon Resonance</dc:subject>
+    <dc:subject>Mice</dc:subject>
+    <bib:volume>125</bib:volume>
+    <dc:subject>DNA, Bacterial</dc:subject>
+    <dc:subject>Multiprotein Complexes</dc:subject>
+    <dc:subject>DNA Replication</dc:subject>
+    <dc:subject>Escherichia coli</dc:subject>
+    <rdf:type rdf:resource="http://purl.org/ontology/bibo/Article"/>
+    <dc:subject>Replication Origin</dc:subject>
+    <dcterms:isPartOf rdf:resource="http://www.worldcat.org/issn/0092-8674"/>
+    <dc:subject>Crystallography, X-Ray</dc:subject>
+    <bib:doi>10.1016/j.cell.2006.04.040</bib:doi>
+    <dc:subject>Base Pairing</dc:subject>
+    <dc:subject>Adenosine Triphosphatases</dc:subject>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.worldcat.org/issn/0092-8674">
+    <rdf:type rdf:resource="http://purl.org/ontology/bibo/Journal"/>
+    <dc:title>Cell</dc:title>
+    <bib:shortTitle>Cell</bib:shortTitle>
+    <bib:issn>0092-8674</bib:issn>
+  </rdf:Description>
   <rdf:Description rdf:about="http://www.worldcat.org/issn/0095-2338">
     <bib:issn>0095-2338</bib:issn>
     <dc:title>Journal of chemical information and computer sciences</dc:title>
     <rdf:type rdf:resource="http://purl.org/ontology/bibo/Journal"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://openwetware.org/wiki/User:Cameron_Neylon">
+    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/OnlineAccount"/>
+    <dc:date>2008-08-11</dc:date>
+    <foaf:accountServiceHomepage rdf:resource="http://openwetware.org/"/>
+    <foaf:accountName>User:Cameron_Neylon</foaf:accountName>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.ncbi.nlm.nih.gov/pubmed/16796559">
     <dc:subject>Quantitative Structure-Activity Relationship</dc:subject>
@@ -148,6 +265,12 @@
     <dc:subject>Computational Biology</dc:subject>
     <dc:subject>Molecular Structure</dc:subject>
   </rdf:Description>
+  <rdf:Description rdf:about="http://www.worldcat.org/issn/1043-1802">
+    <rdf:type rdf:resource="http://purl.org/ontology/bibo/Journal"/>
+    <dc:title>Bioconjugate chemistry</dc:title>
+    <bib:shortTitle>Bioconjug. Chem.</bib:shortTitle>
+    <bib:issn>1043-1802</bib:issn>
+  </rdf:Description>
   <rdf:Description rdf:about="http://www.ncbi.nlm.nih.gov/pubmed/15032525">
     <foaf:maker rdf:resource="http://blueobelisk.sourceforge.net/people/egonw/foaf.xrdf#me"/>
     <bib:number>2</bib:number>
@@ -171,6 +294,25 @@
     <foaf:gender>M</foaf:gender>
     <foaf:knows rdf:resource="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf"/>
     <foaf:weblog rdf:resource="http://python.genedrift.org/"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.ncbi.nlm.nih.gov/pubmed/15025533">
+    <dc:title>Optimized conjugation of a fluorescent label to proteins via intein-mediated activation and ligation.</dc:title>
+    <bib:doi>10.1021/bc0341728</bib:doi>
+    <bib:pmid>15025533</bib:pmid>
+    <bib:volume>15</bib:volume>
+    <bib:pages>366-72</bib:pages>
+    <dc:subject>Bacterial Proteins</dc:subject>
+    <dc:date>2004 Mar-Apr</dc:date>
+    <dc:subject>Protein Binding</dc:subject>
+    <owl:sameAs>http://bio2rdf.org/pubmed:15025533</owl:sameAs>
+    <dc:subject>Hydrolysis</dc:subject>
+    <dcterms:isPartOf rdf:resource="http://www.worldcat.org/issn/1043-1802"/>
+    <foaf:maker rdf:resource="http://blog.openwetware.org/scienceintheopen/"/>
+    <dc:subject>Fluorescent Dyes</dc:subject>
+    <dc:subject>Anaerobiosis</dc:subject>
+    <bib:number>2</bib:number>
+    <rdf:type rdf:resource="http://purl.org/ontology/bibo/Article"/>
+    <dc:subject>Aerobiosis</dc:subject>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.slideshare.net/lindenb">
     <foaf:accountName>lindenb</foaf:accountName>
@@ -232,20 +374,6 @@
     <dc:date>2008-07-20</dc:date>
     <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/OnlineAccount"/>
   </rdf:Description>
-  <rdf:Description rdf:about="http://en.wikipedia.org/wiki/%C3%89vry%2C_Essonne">
-    <geo:country>FR</geo:country>
-    <rdf:type rdf:resource="http://ontology.lindenb.org/geo#Place"/>
-    <dc:date>2008-07-19</dc:date>
-    <geo:postalCode>91000</geo:postalCode>
-    <geo:adminName2>ESSONNE</geo:adminName2>
-    <geo:placename>Evry</geo:placename>
-    <geo:adminName1>Ile De France</geo:adminName1>
-    <dc:title>Evry</dc:title>
-    <geo:long>2.45</geo:long>
-    <geo:lat>48.6333333</geo:lat>
-    <geo:adminCode1>J</geo:adminCode1>
-    <geo:adminCode2>91</geo:adminCode2>
-  </rdf:Description>
   <rdf:Description rdf:about="http://en.wikipedia.org/wiki/Googleplex">
     <geo:placename>Mountain View</geo:placename>
     <geo:adminName2>Santa Clara</geo:adminName2>
@@ -259,6 +387,20 @@
     <geo:lat>37.421844</geo:lat>
     <dc:title>Googleplex</dc:title>
     <geo:adminName1>California</geo:adminName1>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://en.wikipedia.org/wiki/%C3%89vry%2C_Essonne">
+    <geo:country>FR</geo:country>
+    <rdf:type rdf:resource="http://ontology.lindenb.org/geo#Place"/>
+    <dc:date>2008-07-19</dc:date>
+    <geo:postalCode>91000</geo:postalCode>
+    <geo:adminName2>ESSONNE</geo:adminName2>
+    <geo:placename>Evry</geo:placename>
+    <geo:adminName1>Ile De France</geo:adminName1>
+    <dc:title>Evry</dc:title>
+    <geo:long>2.45</geo:long>
+    <geo:lat>48.6333333</geo:lat>
+    <geo:adminCode1>J</geo:adminCode1>
+    <geo:adminCode2>91</geo:adminCode2>
   </rdf:Description>
   <rdf:Description rdf:about="http://media.linkedin.com/mpr/mpr/shrink_80_80/p/1/000/000/27f/2b1089b.jpg">
     <foaf:depicts rdf:resource="http://blueobelisk.sourceforge.net/people/egonw/foaf.xrdf#me"/>
@@ -278,6 +420,24 @@
     <foaf:name>P Lindenbaum on facebook</foaf:name>
     <foaf:depicts rdf:resource="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf"/>
   </rdf:Description>
+  <rdf:Description rdf:about="http://www.new.facebook.com/profile.php?id=718743975">
+    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/OnlineAccount"/>
+    <dc:date>2008-08-11</dc:date>
+    <foaf:accountServiceHomepage rdf:resource="http://www.facebook.com"/>
+    <foaf:accountName>718743975</foaf:accountName>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://network.nature.com/group/scifoo">
+    <event:agent rdf:resource="http://mndoci.com/blog/"/>
+    <rdf:type rdf:resource="http://purl.org/NET/c4dm/event.owl#Event"/>
+    <event:agent rdf:resource="http://duncan.hull.name/"/>
+    <event:agent rdf:resource="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf"/>
+    <event:place rdf:resource="http://en.wikipedia.org/wiki/Googleplex"/>
+    <event:agent rdf:resource="http://pimm.wordpress.com/"/>
+    <dc:description>Science Friends Of O'Reilly 2007</dc:description>
+    <dc:date>2008-07-19</dc:date>
+    <dc:title>SciFoo 2007</dc:title>
+    <dc:subject>science</dc:subject>
+  </rdf:Description>
   <rdf:Description rdf:about="http://www.ncbi.nlm.nih.gov/pubmed/17316423">
     <dc:date>2007</dc:date>
     <foaf:maker rdf:resource="http://blueobelisk.sourceforge.net/people/egonw/foaf.xrdf#me"/>
@@ -296,18 +456,6 @@
     <dc:subject>Genomics</dc:subject>
     <bib:pmid>17316423</bib:pmid>
     <dc:subject>Software</dc:subject>
-  </rdf:Description>
-  <rdf:Description rdf:about="http://network.nature.com/group/scifoo">
-    <event:agent rdf:resource="http://mndoci.com/blog/"/>
-    <rdf:type rdf:resource="http://purl.org/NET/c4dm/event.owl#Event"/>
-    <event:agent rdf:resource="http://duncan.hull.name/"/>
-    <event:agent rdf:resource="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf"/>
-    <event:place rdf:resource="http://en.wikipedia.org/wiki/Googleplex"/>
-    <event:agent rdf:resource="http://pimm.wordpress.com/"/>
-    <dc:description>Science Friends Of O'Reilly 2007</dc:description>
-    <dc:date>2008-07-19</dc:date>
-    <dc:title>SciFoo 2007</dc:title>
-    <dc:subject>science</dc:subject>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.worldcat.org/issn/1367-4803">
     <rdf:type rdf:resource="http://purl.org/ontology/bibo/Journal"/>
@@ -398,7 +546,14 @@
     <dc:subject>Systems Integration</dc:subject>
     <bib:pages>W729-32</bib:pages>
   </rdf:Description>
+  <rdf:Description rdf:about="http://www.flickr.com/photos/lindenb/">
+    <foaf:accountName>lindenb</foaf:accountName>
+    <foaf:accountServiceHomepage rdf:resource="http://www.flickr.com"/>
+    <dc:date>2008-07-20</dc:date>
+    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/OnlineAccount"/>
+  </rdf:Description>
   <rdf:Description rdf:about="http://pbeltrao.blogspot.com/">
+    <foaf:knows rdf:resource="http://blog.openwetware.org/scienceintheopen/"/>
     <dc:date>2008-07-20</dc:date>
     <foaf:title>Dr</foaf:title>
     <foaf:depiction rdf:resource="http://photos-g.ak.facebook.com/photos-ak-sf2p/v77/37/43/690281922/n690281922_171102_9765.jpg"/>
@@ -411,12 +566,6 @@
     <foaf:family_name>Beltrao</foaf:family_name>
     <foaf:gender>M</foaf:gender>
     <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Person"/>
-  </rdf:Description>
-  <rdf:Description rdf:about="http://www.flickr.com/photos/lindenb/">
-    <foaf:accountName>lindenb</foaf:accountName>
-    <foaf:accountServiceHomepage rdf:resource="http://www.flickr.com"/>
-    <dc:date>2008-07-20</dc:date>
-    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/OnlineAccount"/>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.connotea.org/user/lindenb">
     <foaf:accountName>lindenb</foaf:accountName>
@@ -432,6 +581,13 @@
     <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Image"/>
     <dc:date>2008-07-20</dc:date>
     <foaf:depicts rdf:resource="http://pimm.wordpress.com/"/>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="A0">
+    <dc:creator>pierre</dc:creator>
+    <dc:date>2008-07-19</dc:date>
+    <foaf:primaryTopic rdf:resource="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf"/>
+    <foaf:maker rdf:resource="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf"/>
+    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/PersonalProfileDocument"/>
   </rdf:Description>
   <rdf:Description rdf:about="http://blueobelisk.sourceforge.net/people/egonw/foaf.xrdf#me">
     <foaf:weblog rdf:resource="http://chem-bla-ics.blogspot.com/"/>
@@ -482,8 +638,8 @@
     <foaf:member rdf:resource="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf"/>
     <foaf:homepage rdf:resource="http://openwetware.org/wiki/Biogang"/>
     <dc:date>2008-07-20</dc:date>
-    <foaf:member rdf:resource="http://pimm.wordpress.com/"/>
     <foaf:member rdf:resource="http://nsaunders.wordpress.com/"/>
+    <foaf:member rdf:resource="http://pimm.wordpress.com/"/>
     <foaf:member rdf:resource="http://duncan.hull.name/"/>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.worldcat.org/issn/1381-6128">
@@ -491,12 +647,6 @@
     <bib:shortTitle>Curr. Pharm. Des.</bib:shortTitle>
     <dc:title>Current pharmaceutical design</dc:title>
     <rdf:type rdf:resource="http://purl.org/ontology/bibo/Journal"/>
-  </rdf:Description>
-  <rdf:Description rdf:about="http://friendfeed.com/yokofakun">
-    <foaf:accountName>yokofakun</foaf:accountName>
-    <foaf:accountServiceHomepage rdf:resource="http://friendfeed.com"/>
-    <dc:date>2008-07-20</dc:date>
-    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/OnlineAccount"/>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.ncbi.nlm.nih.gov/pubmed/16027742">
     <bib:number>10</bib:number>
@@ -515,6 +665,42 @@
     <bib:pmid>16027742</bib:pmid>
     <dc:subject>Autistic Disorder</dc:subject>
     <dc:date>2005 Oct</dc:date>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://friendfeed.com/yokofakun">
+    <foaf:accountName>yokofakun</foaf:accountName>
+    <foaf:accountServiceHomepage rdf:resource="http://friendfeed.com"/>
+    <dc:date>2008-07-20</dc:date>
+    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/OnlineAccount"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://blog.openwetware.org/scienceintheopen/">
+    <foaf:gender>M</foaf:gender>
+    <foaf:knows rdf:resource="http://mndoci.com/blog/"/>
+    <dc:date>2008-08-11</dc:date>
+    <foaf:depiction rdf:resource="http://openwetware.org/images/7/71/CameronNeylonMugshot.jpg"/>
+    <foaf:made rdf:resource="http://www.ncbi.nlm.nih.gov/pubmed/16814717"/>
+    <foaf:made rdf:resource="http://www.ncbi.nlm.nih.gov/pubmed/14990750"/>
+    <foaf:made rdf:resource="http://www.ncbi.nlm.nih.gov/pubmed/11009613"/>
+    <foaf:holdsAccount rdf:resource="http://delicious.com/cameronneylon"/>
+    <foaf:made rdf:resource="http://www.ncbi.nlm.nih.gov/pubmed/15025533"/>
+    <foaf:family_name>Neylon</foaf:family_name>
+    <foaf:knows rdf:resource="http://pimm.wordpress.com/"/>
+    <foaf:weblog rdf:resource="http://blog.openwetware.org/scienceintheopen/"/>
+    <foaf:holdsAccount rdf:resource="http://openwetware.org/wiki/User:Cameron_Neylon"/>
+    <foaf:knows rdf:resource="http://pbeltrao.blogspot.com/"/>
+    <foaf:holdsAccount rdf:resource="http://friendfeed.com/cameronneylon"/>
+    <foaf:firstName>Cameron</foaf:firstName>
+    <foaf:title>Dr</foaf:title>
+    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Person"/>
+    <foaf:holdsAccount rdf:resource="http://www.new.facebook.com/profile.php?id=718743975"/>
+    <foaf:made rdf:resource="http://www.ncbi.nlm.nih.gov/pubmed/16148308"/>
+    <foaf:name>Cameron Neylon</foaf:name>
+    <foaf:homepage rdf:resource="http://blog.openwetware.org/scienceintheopen/"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.worldcat.org/issn/0006-2960">
+    <rdf:type rdf:resource="http://purl.org/ontology/bibo/Journal"/>
+    <dc:title>Biochemistry</dc:title>
+    <bib:shortTitle>Biochemistry</bib:shortTitle>
+    <bib:issn>0006-2960</bib:issn>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.ncbi.nlm.nih.gov/pubmed/18154664">
     <dc:subject>Internet</dc:subject>
@@ -606,12 +792,30 @@
     <img:width>80</img:width>
     <foaf:depicts rdf:resource="http://duncan.hull.name/"/>
   </rdf:Description>
-  <rdf:Description rdf:nodeID="A0">
-    <dc:creator>pierre</dc:creator>
-    <dc:date>2008-07-19</dc:date>
-    <foaf:primaryTopic rdf:resource="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf"/>
-    <foaf:maker rdf:resource="http://code.google.com/p/lindenb/source/browse/trunk/proj/scifoaf/test/biogang.rdf"/>
-    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/PersonalProfileDocument"/>
+  <rdf:Description rdf:about="http://www.ncbi.nlm.nih.gov/pubmed/11009613">
+    <dcterms:isPartOf rdf:resource="http://www.worldcat.org/issn/0006-2960"/>
+    <dc:subject>Kinetics</dc:subject>
+    <dc:subject>Protein Binding</dc:subject>
+    <dc:subject>Bacterial Proteins</dc:subject>
+    <dc:subject>Recombinant Proteins</dc:subject>
+    <foaf:maker rdf:resource="http://blog.openwetware.org/scienceintheopen/"/>
+    <dc:title>Interaction of the Escherichia coli replication terminator protein (Tus) with DNA: a model derived from DNA-binding studies of mutant proteins by surface plasmon resonance.</dc:title>
+    <dc:subject>DNA-Binding Proteins</dc:subject>
+    <bib:number>39</bib:number>
+    <dc:subject>Surface Plasmon Resonance</dc:subject>
+    <dc:subject>DNA Replication</dc:subject>
+    <dc:date>2000 Oct 3</dc:date>
+    <bib:volume>39</bib:volume>
+    <dc:subject>Potassium Chloride</dc:subject>
+    <dc:subject>Terminator Regions (Genetics)</dc:subject>
+    <dc:subject>Mutagenesis, Insertional</dc:subject>
+    <rdf:type rdf:resource="http://purl.org/ontology/bibo/Article"/>
+    <dc:subject>Escherichia coli Proteins</dc:subject>
+    <owl:sameAs>http://bio2rdf.org/pubmed:11009613</owl:sameAs>
+    <bib:pmid>11009613</bib:pmid>
+    <dc:subject>Models, Chemical</dc:subject>
+    <dc:subject>Escherichia coli</dc:subject>
+    <bib:pages>11989-99</bib:pages>
   </rdf:Description>
   <rdf:Description rdf:about="http://www.worldcat.org/issn/1471-2105">
     <bib:issn>1471-2105</bib:issn>
@@ -624,6 +828,7 @@
     <foaf:knows rdf:resource="http://pbeltrao.blogspot.com/"/>
     <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Person"/>
     <foaf:knows rdf:resource="http://pimm.wordpress.com/"/>
+    <foaf:knows rdf:resource="http://blog.openwetware.org/scienceintheopen/"/>
     <dc:date>2008-07-19</dc:date>
     <foaf:name>Deepak Singh</foaf:name>
     <foaf:depiction rdf:resource="http://media.linkedin.com/mpr/mpr/shrink_80_80/p/2/000/001/150/35dfccd.jpg"/>
@@ -654,6 +859,12 @@
     <img:width>80</img:width>
     <foaf:depicts rdf:resource="http://mndoci.com/blog/"/>
   </rdf:Description>
+  <rdf:Description rdf:about="http://friendfeed.com/cameronneylon">
+    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/OnlineAccount"/>
+    <dc:date>2008-08-11</dc:date>
+    <foaf:accountServiceHomepage rdf:resource="http://friendfeed.com/"/>
+    <foaf:accountName>cameronneylon</foaf:accountName>
+  </rdf:Description>
   <rdf:Description rdf:about="http://pimm.wordpress.com/">
     <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Person"/>
     <foaf:firstName>Attila</foaf:firstName>
@@ -666,6 +877,7 @@
     <foaf:depiction rdf:resource="http://pimm.files.wordpress.com/2006/12/photo-13-copy.thumbnail.jpg"/>
     <foaf:name>Attila Csordas</foaf:name>
     <foaf:homepage rdf:resource="http://pimm.wordpress.com/"/>
+    <foaf:knows rdf:resource="http://blog.openwetware.org/scienceintheopen/"/>
     <event:isAgentIn rdf:resource="http://network.nature.com/group/scifoo"/>
     <foaf:knows rdf:resource="http://duncan.hull.name/"/>
     <dc:date>2008-07-20</dc:date>
