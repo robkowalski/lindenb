@@ -86,7 +86,7 @@
     <dcterms:isPartOf rdf:resource="http://www.worldcat.org/issn/1092-2172"/>
     <dc:subject>Escherichia coli Proteins</dc:subject>
     <bib:pages>501-26</bib:pages>
-    <owl:sameAs>http://bio2rdf.org/pubmed:16148308</owl:sameAs>
+    <owl:sameAs  rdf:resource="http://bio2rdf.org/pubmed:16148308"/>
     <dc:date>2005 Sep</dc:date>
     <foaf:maker rdf:resource="http://blog.openwetware.org/scienceintheopen/"/>
     <dc:subject>Sequence Alignment</dc:subject>
@@ -180,7 +180,7 @@
     <dc:subject>Protein Engineering</dc:subject>
     <dc:subject>Base Sequence</dc:subject>
     <dc:subject>Random Allocation</dc:subject>
-    <owl:sameAs>http://bio2rdf.org/pubmed:14990750</owl:sameAs>
+    <owl:sameAs  rdf:resource="http://bio2rdf.org/pubmed:14990750"/>
     <dc:subject>Recombination, Genetic</dc:subject>
     <dc:subject>Proteins</dc:subject>
     <dc:title>Chemical and biochemical strategies for the randomization of protein encoding DNA sequences: library construction methods for directed evolution.</dc:title>
@@ -195,7 +195,7 @@
     <dc:subject>Thermodynamics</dc:subject>
     <dc:subject>Mutation</dc:subject>
     <dc:subject>Models, Biological</dc:subject>
-    <owl:sameAs>http://bio2rdf.org/pubmed:16814717</owl:sameAs>
+    <owl:sameAs  rdf:resource="http://bio2rdf.org/pubmed:16814717"/>
     <bib:number>7</bib:number>
     <dc:subject>Base Sequence</dc:subject>
     <foaf:maker rdf:resource="http://blog.openwetware.org/scienceintheopen/"/>
@@ -304,7 +304,7 @@
     <dc:subject>Bacterial Proteins</dc:subject>
     <dc:date>2004 Mar-Apr</dc:date>
     <dc:subject>Protein Binding</dc:subject>
-    <owl:sameAs>http://bio2rdf.org/pubmed:15025533</owl:sameAs>
+    <owl:sameAs  rdf:resource="http://bio2rdf.org/pubmed:15025533"/>
     <dc:subject>Hydrolysis</dc:subject>
     <dcterms:isPartOf rdf:resource="http://www.worldcat.org/issn/1043-1802"/>
     <foaf:maker rdf:resource="http://blog.openwetware.org/scienceintheopen/"/>
@@ -811,7 +811,7 @@
     <dc:subject>Mutagenesis, Insertional</dc:subject>
     <rdf:type rdf:resource="http://purl.org/ontology/bibo/Article"/>
     <dc:subject>Escherichia coli Proteins</dc:subject>
-    <owl:sameAs>http://bio2rdf.org/pubmed:11009613</owl:sameAs>
+    <owl:sameAs  rdf:resource="http://bio2rdf.org/pubmed:11009613"/>
     <bib:pmid>11009613</bib:pmid>
     <dc:subject>Models, Chemical</dc:subject>
     <dc:subject>Escherichia coli</dc:subject>
