@@ -3438,7 +3438,7 @@ public class SciFOAF extends JFrame
 		getModel().add(subject,BIBO.pmid,pmid);
 		getModel().add(subject,RDF.type,BIBO.Article);
 		//see http://groups.google.com/group/bio2rdf/browse_thread/thread/4d5dc575382eaf4e/c5680b055240fe34#c5680b055240fe34
-		getModel().add(subject,OWL.sameAs,"http://bio2rdf.org/pubmed:"+pmid);
+		getModel().add(subject,OWL.sameAs,getModel().createResource("http://bio2rdf.org/pubmed:"+pmid));
 		return subject;
 		}
 	
