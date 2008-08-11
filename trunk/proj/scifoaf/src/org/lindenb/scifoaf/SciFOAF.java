@@ -128,6 +128,7 @@ import com.hp.hpl.jena.rdf.model.Statement;
 import com.hp.hpl.jena.rdf.model.StmtIterator;
 import com.hp.hpl.jena.vocabulary.DC;
 import com.hp.hpl.jena.vocabulary.DCTerms;
+import com.hp.hpl.jena.vocabulary.OWL;
 import com.hp.hpl.jena.vocabulary.RDF;
 import com.hp.hpl.jena.vocabulary.VCARD;
 
@@ -3436,6 +3437,8 @@ public class SciFOAF extends JFrame
 			}
 		getModel().add(subject,BIBO.pmid,pmid);
 		getModel().add(subject,RDF.type,BIBO.Article);
+		//see http://groups.google.com/group/bio2rdf/browse_thread/thread/4d5dc575382eaf4e/c5680b055240fe34#c5680b055240fe34
+		getModel().add(subject,OWL.sameAs,"http://bio2rdf.org/pubmed:"+pmid);
 		return subject;
 		}
 	
@@ -4138,7 +4141,7 @@ public class SciFOAF extends JFrame
 				model.add(root,FOAF.primaryTopic,me);
 				model.add(root,DC.date,TimeUtils.toYYYYMMDD('-'));
 				model.add(root,DC.creator,System.getProperty("user.name","me"));
-				
+				JOptionPane.showMessageDialog(null, "Created a new FOAF Profile in "+fileIn);
 				}
 			
 			model.setNsPrefix("foaf", FOAF.NS);
@@ -4149,6 +4152,7 @@ public class SciFOAF extends JFrame
 			model.setNsPrefix("img", Image.NS);
 			model.setNsPrefix("doap", DOAP.NS);
 			model.setNsPrefix("event", Event.NS);
+			model.setNsPrefix("owl", OWL.NS);
 			JFrame.setDefaultLookAndFeelDecorated(true);
 			JDialog.setDefaultLookAndFeelDecorated(true);
 			
