@@ -11,6 +11,21 @@ SciFOAF is the second version of a tool I created to build a FOAF/RDF file from 
 
 The new version now uses the Jena API, the rdf repository can be loaded and saved. 
 
+= Running =
+
+{{{
+export JENA_LIB=your_path_to/Jena/lib
+export CLASSPATH=${JENA_LIB}/antlr-2.7.5.jar:${JENA_LIB}/arq-extra.jar:\
+ ${JENA_LIB}/arq.jar:${JENA_LIB}/commons-logging-1.1.1.jar:${JENA_LIB}/concurrent.jar:\
+ ${JENA_LIB}/icu4j_3_4.jar:${JENA_LIB}/iri.jar:${JENA_LIB}/jena.jar:\
+ ${JENA_LIB}/jenatest.jar:${JENA_LIB}/json.jar:${JENA_LIB}/junit.jar:\
+ ${JENA_LIB}/log4j-1.2.12.jar:${JENA_LIB}/lucene-core-2.3.1.jar:\
+ ${JENA_LIB}/stax-api-1.0.jar:${JENA_LIB}/wstx-asl-3.0.0.jar:\
+ ${JENA_LIB}/xercesImpl.jar:${JENA_LIB}/xml-apis.jar:\
+ YOUR_PATH_TO/scifoaf.jar
+java org.lindenb.scifoaf.SciFOAF
+}}}
+
 
 = Details =
 
