@@ -194,8 +194,13 @@ public abstract class HttpLight
 	        return this.requestParameters;
 	        }
 	   
-	    
+	    public String getMethod() {
+			return requestMethod;
+			}
 	   
+	    public String getHttpVersion() {
+			return requestHttpVersion;
+			}
 	   
 	    public String getParameter(String key)
 	        {

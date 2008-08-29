@@ -214,6 +214,8 @@ protected abstract class RDFNodeImpl
 	extends XObject
 	implements RDFNode
 	{
+	private static final long serialVersionUID = 1L;
+
 	protected RDFNodeImpl()
 		{
 		}
@@ -252,6 +254,7 @@ protected abstract class ResourceImpl
 	extends RDFNodeImpl
 	implements Resource
 	{
+	private static final long serialVersionUID = 1L;
 	private String uri;
 
 	protected ResourceImpl(String uri)
@@ -497,6 +500,7 @@ protected abstract  class LiteralImpl
 	extends RDFNodeImpl
 	implements Literal
 	{
+	private static final long serialVersionUID = 1L;
 	private String text;
 	protected LiteralImpl(String text)
 		{
@@ -564,6 +568,7 @@ protected abstract  class LiteralImpl
 public abstract class AbstractStatementImpl extends XObject
 	implements Statement
 	{
+	private static final long serialVersionUID = 1L;
 	private Resource subject;
 	private Resource predicate;
 	private RDFNode value;

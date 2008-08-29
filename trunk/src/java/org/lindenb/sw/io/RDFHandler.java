@@ -159,12 +159,12 @@ public class RDFHandler
 	
 	
 	public void found(
-			@SuppressWarnings("unused")URI subject,
-			@SuppressWarnings("unused")URI predicate,
-			@SuppressWarnings("unused")Object value,
-			@SuppressWarnings("unused")URI dataType,
-			@SuppressWarnings("unused")String lang,
-			@SuppressWarnings("unused")int index)
+			URI subject,
+			URI predicate,
+			Object value,
+			URI dataType,
+			String lang,
+			int index)
 		{
 		
 		}
