@@ -133,7 +133,7 @@ public class MeshFrequencies
 			}
 		@Override
 		public int compareTo(Article o) {
-			return 0;
+			return pmid-o.pmid;
 			}
 		@Override
 		public boolean equals(Object obj) {
@@ -189,18 +189,23 @@ public class MeshFrequencies
 				@Override
 				public int compare(String s1, String s2)
 					{
-					return
+					int i=
 						MeshFrequencies.this.mesh2articles.get(s2).size() -
 						MeshFrequencies.this.mesh2articles.get(s1).size()
 						;
+					if(i!=0) return i;
+					return s1.compareToIgnoreCase(s2);
 					}
 				});
 		Collections.sort(this.articles);
 		out.print("<table>");
 		  out.print("<thead><tr>");
 		  out.print("<th>Mesh</th>");
+		  out.print("<th>Count</th>");
 		  for(Article article:this.articles) out.print(
-				  "<th><a href=\"http://www.ncbi.nlm.nih.gov/pubmed/"+article.pmid+"\">"+
+				  "<th><a href=\"http://www.ncbi.nlm.nih.gov/pubmed/"+article.pmid+"\" "+
+				  	" title=\""+XMLUtilities.escape(article.title)+"\" "+
+				  	">"+
 				  article.pmid+
 				  "</a></th>");
 		  out.print("</tr></thead>\n");
@@ -210,7 +215,7 @@ public class MeshFrequencies
 		  	{
 			out.print("<tr>");
 			out.print("<th><a href=\"http://www.nlm.nih.gov/cgi/mesh/2008/MB_cgi?mode=&term="+URLEncoder.encode(mesh, "UTF-8")+"\">"+
-						XMLUtilities.escape(mesh)+"</a></th>");
+						XMLUtilities.escape(mesh)+"</a></th><td>"+  this.mesh2articles.get(mesh).size() +"</td>");
 			for(Article article:this.articles)
 				{
 				out.print("<td>");
