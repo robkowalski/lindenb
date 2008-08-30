@@ -3,6 +3,8 @@ package org.lindenb.bio.ncbi;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.util.HashSet;
+import java.util.Set;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
@@ -23,6 +25,23 @@ public class QueryKeyHandler extends DefaultHandler
 	private String WebEnv=null;
 	private int countId=0;
 	private StringBuilder builder=null;
+	
+	/** specialized class returning a set of pmid */
+	public static class FetchSet
+		extends QueryKeyHandler
+		{
+		private HashSet<Integer> pmids= new HashSet<Integer>();
+		public FetchSet() {}
+		@Override
+		public void foundId(String pmid) {
+			this.pmids.add(Integer.parseInt(pmid.trim()));
+			}
+		/** return the set of pmid */
+		public Set<Integer> getPMID()
+			{
+			return this.pmids;
+			}
+		}
 	
 	public QueryKeyHandler()
 		{
