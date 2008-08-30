@@ -3,6 +3,10 @@
  */
 package org.lindenb.tinytools;
 
+
+import java.awt.FlowLayout;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
@@ -18,11 +22,20 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.Vector;
 
+
+import javax.swing.JComboBox;
+import javax.swing.JFileChooser;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JTextField;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 
 import org.lindenb.bio.ncbi.QueryKeyHandler;
+import org.lindenb.io.PreferredDirectory;
+import org.lindenb.lang.ThrowablePane;
 import org.lindenb.util.Compilation;
 import org.lindenb.xml.XMLUtilities;
 import org.xml.sax.Attributes;
@@ -37,22 +50,7 @@ import org.xml.sax.helpers.DefaultHandler;
  */
 public class MeshFrequencies
 	{
-	/**
-	 * EUTilsHandler
-	 *
-	 */
-	private static class EUTilsHandler extends QueryKeyHandler
-		{
-		Set<Integer> pmids;
-		EUTilsHandler(Set<Integer> pmids)
-			{
-			this.pmids=pmids;
-			}
-		@Override
-		public void foundId(String id) {
-			this.pmids.add(Integer.parseInt(id));
-			}
-		}
+	
 	/**
 	 * EFetchHandler
 	 *
@@ -240,80 +238,178 @@ public class MeshFrequencies
 			throw new SAXException(err);
 			}
 		}
+
+	
+	
+	private static Set<Integer> fromTerms(String term,int max_return) throws SAXException,IOException
+		{
+		QueryKeyHandler.FetchSet handler= new QueryKeyHandler.FetchSet();
+
+		URL url=new URL(
+                "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term="+
+                URLEncoder.encode(term, "UTF-8")+
+                "&retstart=0&retmax="+max_return+
+                "&usehistory=y&retmode=xml&email=plindenbaum_at_yahoo.fr&tool=meshfreqs");
+		
+		InputStream in=url.openStream();
+		newSAXParser().parse(in,handler);
+		in.close();
+		return handler.getPMID();
+		}
 	
 	/**
 	 * @param args
 	 */
-	public static void main(String[] args) {
-		try {
-			int max_return=100;
-			String term=null;
-			Set<Integer> pmids=new HashSet<Integer>();
-			int optind=0;
-			while(optind< args.length)
-				{
-				if(args[optind].equals("-h"))
+	public static void main(String[] args)
+		{
+		boolean interactive=args.length==0;
+		final int DEFAULT_MAX_RETURN=100;
+		int max_return=DEFAULT_MAX_RETURN;
+		String term=null;
+		int lastSelectedComboxIndex=1;
+		while(true)//if not interactive, break at the end
+			{
+			try {
+				Set<Integer> pmids=new HashSet<Integer>();
+				int optind=0;
+				
+				
+				if(interactive)
 					{
-					System.err.println(Compilation.getLabel());
-					System.err.println("-pmid a list of pmid separated by comma");
-					System.err.println("-term <a pubmed query>");
-					System.err.println("-n <max return for pubmed query> default:"+max_return);
-					}
-				else if(args[optind].equals("-pmid"))
-					{
-					++optind;
-					for(String pmid: args[optind].split("[,]"))
+					String choices[]={"PMID (comma separated)","Pubmed Query"};
+					JPanel pane= new JPanel(new FlowLayout(FlowLayout.LEADING,5,5));
+					pane.add(new JLabel("Query type:",JLabel.TRAILING));
+					JComboBox cbox= new JComboBox(choices);
+					cbox.setSelectedIndex(lastSelectedComboxIndex);
+					pane.add(cbox);
+					JTextField input= new JTextField(term==null?term:"",30);
+					pane.add(input);
+					pane.add(new JLabel("Max Return:",JLabel.TRAILING));
+					JComboBox returnBox= new JComboBox(new Integer[]{10,50,DEFAULT_MAX_RETURN,200,500});
+					returnBox.setSelectedItem(max_return);
+					pane.add(returnBox);
+					
+					if(JOptionPane.showConfirmDialog(null, pane,"MeshFrequencies",JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE,null)!=JOptionPane.OK_OPTION) return;
+					lastSelectedComboxIndex=cbox.getSelectedIndex();
+					if(lastSelectedComboxIndex==1)
 						{
-						pmids.add( Integer.parseInt(pmid) );
+						term=input.getText();
+						}
+					else
+						{
+						for(String pmid: input.getText().split("[,]"))
+							{
+							pmids.add(Integer.parseInt(pmid.trim()));
+							}
+						}
+					if(returnBox.getSelectedItem()!=null)
+						{
+						max_return= (Integer)returnBox.getSelectedItem();
 						}
 					}
-				else if(args[optind].equals("-term"))
-					{
-					term=args[++optind];
-					}
-				else if(args[optind].equals("-n"))
-					{
-					max_return=Integer.parseInt( args[++optind]);
-					}
-				else if(args[optind].equals("--"))
-					{
-					optind++;
-					break;
-					}
-				else if(args[optind].startsWith("-"))
-					{
-					System.err.println("Unknown option "+args[optind]);
-					}
-				else 
-					{
-					break;
-					}
-				++optind;
-				}
-			
-			if(term!=null)
-				{
-				EUTilsHandler handler= new EUTilsHandler(pmids);
-
-				URL url=new URL(
-                        "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term="+
-                        URLEncoder.encode(term, "UTF-8")+
-                        "&retstart=0&retmax="+max_return+
-                        "&usehistory=y&retmode=xml&email=plindenbaum_at_yahoo.fr&tool=meshfreqs");
 				
-				InputStream in=url.openStream();
-				newSAXParser().parse(in,handler);
-				in.close();
+				while(optind< args.length)
+					{
+					if(args[optind].equals("-h"))
+						{
+						System.err.println(Compilation.getLabel());
+						System.err.println("-pmid a list of pmid separated by comma");
+						System.err.println("-term <a pubmed query>");
+						System.err.println("-n <max return for pubmed query> default:"+max_return);
+						}
+					else if(args[optind].equals("-pmid"))
+						{
+						++optind;
+						for(String pmid: args[optind].split("[,]"))
+							{
+							pmids.add( Integer.parseInt(pmid.trim()) );
+							}
+						}
+					else if(args[optind].equals("-term"))
+						{
+						term=args[++optind];
+						}
+					else if(args[optind].equals("-n"))
+						{
+						max_return=Integer.parseInt( args[++optind]);
+						}
+					else if(args[optind].equals("--"))
+						{
+						optind++;
+						break;
+						}
+					else if(args[optind].startsWith("-"))
+						{
+						System.err.println("Unknown option "+args[optind]);
+						}
+					else 
+						{
+						break;
+						}
+					++optind;
+					}
+				
+				if(optind!=args.length)
+					{
+					System.err.println("Illegal number of arguments");
+					return;
+					}
+				
+				if(term!=null)
+					{
+					pmids.addAll( fromTerms(term,max_return) );
+					}
+				
+				if(pmids.isEmpty())
+					{
+					if(interactive) JOptionPane.showMessageDialog(null, "Empty Result");
+					return;
+					}
+				
+				MeshFrequencies app= new MeshFrequencies();
+				app.fetch(pmids);
+				if(interactive)
+					{
+					JFileChooser chooser= new JFileChooser(PreferredDirectory.getPreferredDirectory());
+					if(chooser.showSaveDialog(null)!=JFileChooser.APPROVE_OPTION) return;
+					File file= chooser.getSelectedFile();
+					if(file==null || (file.exists() &&
+                            JOptionPane.showConfirmDialog(null, file.getName()+" exists ? Overwrite ?","Overwrite ?",JOptionPane.OK_CANCEL_OPTION,JOptionPane.QUESTION_MESSAGE,null)!=JOptionPane.OK_OPTION))
+						{
+						return;
+						}
+					
+					PrintStream out= new PrintStream(new FileOutputStream(file));
+					app.run(out);
+					out.flush();
+					out.close();
+					PreferredDirectory.setPreferredDirectory(file);
+					}
+				else
+					{
+					app.run(System.out);
+					}
+				
+				if(interactive)
+					{
+					JOptionPane.showMessageDialog(null, "Done.");
+					}
+				else
+					{
+					break;
+					}
 				}
-			if(pmids.isEmpty()) return;
-			
-			MeshFrequencies app= new MeshFrequencies();
-			app.fetch(pmids);
-			app.run(System.out);
-			}
-		catch (Throwable e)
-			{
-			e.printStackTrace();
+			catch (Throwable e)
+				{
+				if(interactive)
+					{
+					ThrowablePane.show(null, e);
+					}
+				else
+					{
+					e.printStackTrace();
+					}
+				}
 			}
 
 	}
