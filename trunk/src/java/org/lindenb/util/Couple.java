@@ -4,6 +4,7 @@
 package org.lindenb.util;
 
 
+
 /**
  * @author lindenb
  *
@@ -38,13 +39,13 @@ public class Couple<T> extends Pair<T, T> {
 	
 	@Override
 	public int hashCode() {
-		return first().hashCode()+second().hashCode();
+		return 31+(first().hashCode()+second().hashCode());
 		}
 	
 	@Override
 	public boolean equals(Object obj) {
 		if(obj==this) return true;
-		if(obj==null || !(obj instanceof Couple)) return false;
+		if(obj==null || obj.getClass()!=this.getClass()) return false;
 		Couple<?> cp=Couple.class.cast(obj);
 		return (first().equals(cp.first())  && second().equals(cp.second())) ||
 			   (first().equals(cp.second()) && second().equals(cp.first()));
@@ -60,5 +61,6 @@ public class Couple<T> extends Pair<T, T> {
 			}
 		return "("+b+","+a+")";
 		}
-
+	
+	
 }
