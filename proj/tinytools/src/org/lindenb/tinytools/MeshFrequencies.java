@@ -3,7 +3,6 @@
  */
 package org.lindenb.tinytools;
 
-
 import java.awt.FlowLayout;
 import java.io.File;
 import java.io.FileOutputStream;
