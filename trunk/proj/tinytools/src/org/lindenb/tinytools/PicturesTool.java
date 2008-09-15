@@ -1,11 +1,12 @@
 package org.lindenb.tinytools;
 
 import java.awt.Color;
-import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -17,12 +18,20 @@ import javax.imageio.ImageIO;
 import org.lindenb.awt.ColorUtils;
 import org.lindenb.util.Compilation;
 
+/**
+ * PicturesTool
+ *
+ */
 public class PicturesTool
 	{
+	/**
+	 * 
+	 * Picture
+	 *
+	 */
 	private class Picture
 		{
 		URL url;
-		Dimension dimension;
 		BufferedImage img;
 		Picture(String source) throws IOException
 			{
@@ -38,7 +47,6 @@ public class PicturesTool
 		BufferedImage prepareImage() throws IOException
 			{
 			this.img=ImageIO.read(this.url);
-			this.dimension= new Dimension(img.getWidth(),img.getHeight());
 			//set good orientation
 			if(this.img.getWidth()<this.img.getHeight())
 				{
@@ -67,81 +75,75 @@ public class PicturesTool
 			//set good size
 			if(this.img.getWidth()!=PicturesTool.this.destWidth)
 				{
-				
-				float ratio= (float)PicturesTool.this.destWidth/(float)this.img.getWidth();
+				float ratioW= (float)(PicturesTool.this.destWidth)/(float)this.img.getWidth();
+				float ratioH= (float)(PicturesTool.this.destHeight)/(float)this.img.getHeight();
+				float ratio=Math.min(ratioW, ratioH);
+				int newWidth= (int)((float)this.img.getWidth()*ratio);
 				int newHeight= (int)((float)this.img.getHeight()*ratio);
+				int marginW= ((PicturesTool.this.destWidth)-newWidth)/2;
+				int marginH= ((PicturesTool.this.destHeight)-newHeight)/2;
+				
+				
 				BufferedImage copy = new BufferedImage(
 						PicturesTool.this.destWidth,
-						newHeight,
+						PicturesTool.this.destHeight,
 						this.img.getType()
 						);
 				Graphics2D g= initGraphics(copy.createGraphics());
-				
+				g.setColor(PicturesTool.this.backgroundColor);
+				g.fillRect(0, 0,
+						copy.getWidth(),
+						copy.getHeight()
+						);
 				g.drawImage(this.img,
+						marginW,marginH,
+						PicturesTool.this.destWidth-marginW,
+						PicturesTool.this.destHeight-marginH,
 						0,0,
-						copy.getWidth(),copy.getHeight(),
-						0,0,
-						this.img.getWidth(),this.img.getHeight(),
+						this.img.getWidth(),
+						this.img.getHeight(),
 						null);
 				g.dispose();
 				this.img=copy;
 				}
 			
-			int expectedWidth= PicturesTool.this.destWidth;
-			int expectedHeight= (int)((double)expectedWidth/PicturesTool.this.forceRatio);
-			//set good ratio
-			if(this.img.getHeight()<=expectedHeight)
+			if(PicturesTool.this.frame)
 				{
-				int marginH=(expectedHeight-this.img.getHeight())/2;
-				System.err.println(marginH);
-				System.err.println(expectedHeight);
+				int frame=(int)(0.05f*Math.min(
+						PicturesTool.this.destWidth,
+						PicturesTool.this.destHeight
+						));
 				BufferedImage copy = new BufferedImage(
-						this.img.getWidth(),
-						expectedHeight,
+						PicturesTool.this.destWidth+2*frame,
+						PicturesTool.this.destHeight+2*frame,
 						this.img.getType()
 						);
 				Graphics2D g= initGraphics(copy.createGraphics());
 				g.setColor(PicturesTool.this.backgroundColor);
-				g.fillRect(0, 0, this.img.getWidth(), expectedHeight);
-				g.drawImage(this.img, 0, marginH, null);
-				g.dispose();
-				this.img=copy;
-				}
-			else if(this.img.getHeight()>expectedHeight)
-				{
-				System.err.println("r2");
-				float ratio= (float)expectedHeight/(float)this.img.getHeight();
-				int newWidth=(int) (this.img.getWidth()*ratio);
-				int margin=(this.img.getWidth()-newWidth)/2;
-				BufferedImage copy = new BufferedImage(
-						this.img.getWidth(),
-						expectedHeight,
-						this.img.getType()
+				g.fillRect(0, 0,
+						copy.getWidth(),
+						copy.getHeight()
 						);
-				Graphics2D g= initGraphics(copy.createGraphics());
-				g.setColor(PicturesTool.this.backgroundColor);
-				g.fillRect(0, 0, this.img.getWidth(), expectedHeight);
 				g.drawImage(this.img,
-						margin, 0,
-						this.img.getWidth()-margin, this.img.getHeight(),
-						0,0,this.img.getWidth(), this.img.getHeight(),
+						frame,
+						frame,
 						null);
 				g.dispose();
 				this.img=copy;
 				}
-			
 			
 			return this.img;
 			}
 		}
 	
 	private Color backgroundColor=Color.WHITE;
-	private double forceRatio=5.0/3.0;
 	private String prefix="_";
 	private File outputDir=null;
-	private int pictPerImage=1;
+	//private int pictPerImage=1;
 	private Stack<Picture> pictures= new Stack<Picture>();
 	private int destWidth=1024;
+	private int destHeight=768;
+	private boolean frame=false;
 	
 	private static Graphics2D initGraphics(Graphics2D g)
 		{
@@ -183,12 +185,13 @@ public class PicturesTool
 					{
 					System.err.println(Compilation.getLabel());
 					System.err.println("-c background color (default: white)");
-					System.err.println("-r h/w ratio (default: 1.3333)");
-					System.err.println("-p image prefix (default: \'_\')");
+					System.err.println("-w image destination height (default: "+app.destWidth +")");
+					System.err.println("-h image destination height (default: "+app.destHeight +")");
+					System.err.println("-p image prefix (default: \'"+app.prefix+"\')");
 					System.err.println("-f add a frame");
-					System.err.println("-4 4 images per picture");
+					//System.err.println("-4 4 images per picture");
 					System.err.println("-d output directory");
-					System.err.println("-w width default:1024");
+					System.err.println("-i <file> use this file as a source of url");
 					}
 				else if(args[optind].equals("-c"))
 					{
@@ -198,25 +201,38 @@ public class PicturesTool
 					{
 					app.prefix= args[++optind];
 					}
-				else if(args[optind].equals("-4"))
+				else if(args[optind].equals("-f"))
+					{
+					app.frame=true;
+					}
+				/* else if(args[optind].equals("-4"))
 					{
 					app.pictPerImage=4;
-					}
+					}*/
 				else if(args[optind].equals("-w"))
 					{
 					app.destWidth= Integer.parseInt(args[++optind]);
+					}
+				else if(args[optind].equals("-h"))
+					{
+					app.destHeight= Integer.parseInt(args[++optind]);
 					}
 				else if(args[optind].equals("-d"))
 					{
 					app.outputDir= new File(args[++optind]);
 					}
-				else if(args[optind].equals("-r"))
+				else if(args[optind].equals("-i"))
 					{
-					app.forceRatio= Double.parseDouble(args[++optind]);
-					if(app.forceRatio<1)
+					BufferedReader r= new BufferedReader(new FileReader(args[++optind]));
+					String line;
+					while((line=r.readLine())!=null)
 						{
-						throw new IllegalArgumentException("Illegal Ratio <1");
+						if(line.startsWith("#")) continue;
+						line=line.trim();
+						if(line.length()==0) continue;
+						app.add(line);
 						}
+					r.close();
 					}
 				else if(args[optind].equals("--"))
 					{
@@ -234,14 +250,22 @@ public class PicturesTool
 				++optind;
 				}
 			
-			if(args.length==optind)
+			if(  args.length==optind &&
+				 app.pictures.isEmpty())
 				{
 				System.err.println("No Input");
+				return;
+				}
+			
+			if(app.destWidth<app.destHeight)
+				{
+				int t= app.destWidth;
+				app.destWidth=app.destHeight;
+				app.destHeight=t;
 				}
 			
 			while(optind< args.length)
 				{
-				System.out.println("Adding "+args[optind]);
 				app.add(args[optind]);
 				++optind;
 				}
