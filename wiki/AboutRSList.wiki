@@ -1,0 +1,4 @@
+#labels Featured,ncbi,snp,pubmed,bioinformatics,svg,omim,graph
+AboutRSList
+
+[http://plindenbaum.blogspot.com/2008/09/what-is-in-list-of-snp.html]
