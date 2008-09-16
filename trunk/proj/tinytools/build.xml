@@ -203,7 +203,7 @@
 	 <delete includeEmptyDirs="true">
 		 <fileset dir="${compiledir}" includes="**/*.java"/>
 	 </delete>
-	 <jar destfile="../../build/pictools.jar"
+	 <jar destfile="../../build/aboutrslist.jar"
 	      basedir="${compiledir}">
 		 <manifest>
 			 <attribute
