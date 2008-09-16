@@ -683,6 +683,8 @@ public class AboutIdentifiers
 					{
 					System.err.println(Compilation.getLabel());
 					System.err.println("-d output dir");
+					System.err.println("stdin | <files> containing a list of rs");
+					return;
 					}
 				else if(args[optind].equals("-d"))
 					{
