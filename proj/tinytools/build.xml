@@ -7,7 +7,7 @@
  <property name="compiledir" value="${builddir}/compile"/>
 
 
- <target name="all" depends="sortpubmed,meshfreq,pictools">
+ <target name="all" depends="sortpubmed,meshfreq,pictools,aboutrslist">
 </target>
 
  <target name="build-ant-tasks">
@@ -168,4 +168,51 @@
 	 </jar>
 	 <delete dir="${compiledir}"/> 
  </target>
+ 
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ 
+ <target name="aboutrslist" depends="declare-ant-tasks">
+	 <mkdir dir="${compiledir}"/>
+	 
+	 
+	 <copy todir="${compiledir}" includeEmptyDirs="false">
+		 <fileset dir="src"/>
+		 <fileset dir="${rootdir}/src/java">
+			 <filename name="**/*.java"/>
+		 </fileset>
+	 </copy>
+	 
+	 <compileInfoTask
+			 name="AboutRsList"
+			 package="org.lindenb.util"
+			 dir="${compiledir}"
+			 />
+	 
+	 
+	 <javac srcdir="${compiledir}"
+		destdir="${compiledir}"
+		debug="true"
+		source="1.6"
+		target="1.6">
+		 <include name="**/tinytools/AboutIdentifiers.java"/>
+	 </javac>
+	 
+	 <delete includeEmptyDirs="true">
+		 <fileset dir="${compiledir}" includes="**/*.java"/>
+	 </delete>
+	 <jar destfile="../../build/pictools.jar"
+	      basedir="${compiledir}">
+		 <manifest>
+			 <attribute
+				   name="Main-Class"
+				   value="org.lindenb.tinytools.AboutIdentifiers"
+				   />
+		 </manifest>
+	 </jar>
+	 <delete dir="${compiledir}"/> 
+ </target>
+ 
 </project>
