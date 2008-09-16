@@ -31,14 +31,15 @@ import org.xml.sax.helpers.DefaultHandler;
 
 /**
  * AboutIdentifiers
- *
+ * load a list of rs## at ncbi
+ * and draw the links as SVG using graphiz dot
  */
 public class AboutIdentifiers
 	{
 	
 	/**
 	 * Database
-	 *
+	 * describe a database at the ncbi
 	 */
 	private enum Database
 		{
@@ -112,11 +113,15 @@ public class AboutIdentifiers
 			public String getDotShape() { return "hexagon"; }
 			} 
 		;
+		/** @return the DOT shape */
 		public abstract String getDotShape();
+		/** @return a URL about this identifier */
 		public abstract String getURL(Identifier id);
+		/** @return the title about an identifier */
 		public abstract String getTitle(Identifier id,Map<FieldInfo,String> map);
 		};
 	
+	/** various fields describing a XML record at the ncbi */
 	private enum FieldInfo
 		{
 		title,journal,year,
@@ -129,13 +134,18 @@ public class AboutIdentifiers
 		
 	/**
 	 * 
-	 * Identifier
+	 * An Identifier at the NCBI
+	 * defines a identification number
+	 * associated to a database
 	 *
 	 */
 	private class Identifier
-		{	
+		{
+		/** the ncbi database */
 		Database database;
+		/** the id in this database */
 		int id;
+		
 		Identifier(Database database,int id)
 			{
 			if(database==null) throw new NullPointerException();
@@ -143,31 +153,33 @@ public class AboutIdentifiers
 			this.database=database;
 			this.id=id;
 			}
-		
+		/** @return the database */
 		public Database getDatabase() {
 			return database;
 			}
-		
+		/** @return the id */
 		public int getId() {
 			return id;
 			}
-		
+		/** @return the url associated to a database */
 		public String getURL()
 			{
 			return getDatabase().getURL(this);
 			}
 		
+		/** return a string describing this */
 		public String getTitle()
 			{
 			Hashtable<FieldInfo, String> map=AboutIdentifiers.this.seenIdentifiers.get(this);
 			return getDatabase().getTitle(this,map);
 			}
-		
+		/** @return a string used as a node in DOT */
 		public String dotName()
 			{
 			return getDatabase().name()+"_"+getId();
 			}
 		
+		/** declare the attributes in DOT */
 		public String dotDeclaration()
 			{
 			return dotName()+
@@ -206,6 +218,8 @@ public class AboutIdentifiers
 	
 	/**
 	 * EFetchInfo
+	 * SAX handler retrieving the data associated with an identifier
+	 * at NCBI
 	 */
 	private class EFetchInfo
 		extends DefaultHandler
@@ -213,10 +227,21 @@ public class AboutIdentifiers
 		private Database databaseType;
 		private StringBuilder content= new StringBuilder();
 		private Hashtable<FieldInfo,String> current_Info=null;
+		private Identifier currentIdentifier=null;
 		
 		EFetchInfo(Database databaseType)
 			{
 			this.databaseType = databaseType;
+			}
+		
+		void updateCurrentInfo()
+			{
+			this.currentIdentifier = new Identifier(this.databaseType,Integer.parseInt(this.content.toString()));
+			this.current_Info= AboutIdentifiers.this.seenIdentifiers.get(this.currentIdentifier);
+			if(this.current_Info==null)
+				{
+				throw new RuntimeException("Cannot find current-info for "+this.currentIdentifier);
+				}
 			}
 		
 		@Override
@@ -234,10 +259,10 @@ public class AboutIdentifiers
 				{
 				case pubmed:
 					{
-					if(name.equals("PMID"))
+					if(name.equals("PMID") &&
+						this.currentIdentifier==null)//<-- else bug when CommentsCorrections/ommentOn/PMID
 						{
-						Identifier id = new Identifier(this.databaseType,Integer.parseInt(this.content.toString()));
-						this.current_Info= AboutIdentifiers.this.seenIdentifiers.get(id);
+						updateCurrentInfo();
 						}
 					else if(name.equals("MedlineTA"))
 						{
@@ -247,12 +272,17 @@ public class AboutIdentifiers
 						{
 						this.current_Info.put(FieldInfo.title,this.content.toString());
 						}
-					else if(name.equals("Year"))
+					else if(name.equals("Year") )
 						{
+						if(this.current_Info==null)
+							{
+							throw new SAXException("Null ptr !?"+this.currentIdentifier);
+							}
 						this.current_Info.put(FieldInfo.year, this.content.toString());
 						}
 					else if(name.equals("PubmedArticle"))
 						{
+						this.currentIdentifier=null;
 						this.current_Info=null;
 						}
 					break;
@@ -261,12 +291,16 @@ public class AboutIdentifiers
 					{
 					if(name.equals("Rs_rsId"))
 						{
-						Identifier id = new Identifier(this.databaseType,Integer.parseInt(this.content.toString()));
-						this.current_Info= AboutIdentifiers.this.seenIdentifiers.get(id);
+						updateCurrentInfo();
 						}
 					else if(name.equals("Rs_het_value"))
 						{
 						this.current_Info.put(FieldInfo.het_value, this.content.toString());
+						}
+					else if(name.equals("Rs"))
+						{
+						this.current_Info=null;
+						this.currentIdentifier=null;
 						}
 					break;
 					}
@@ -274,8 +308,7 @@ public class AboutIdentifiers
 					{
 					if(name.equals("Gene-track_geneid"))
 						{
-						Identifier id = new Identifier(this.databaseType,Integer.parseInt(this.content.toString()));
-						this.current_Info= AboutIdentifiers.this.seenIdentifiers.get(id);
+						updateCurrentInfo();
 						}
 					else if(name.equals("Gene-ref_locus"))
 						{
@@ -293,14 +326,18 @@ public class AboutIdentifiers
 						{	
 						this.current_Info.put(FieldInfo.geneSummary, this.content.toString());
 						}
+					else if(name.equals("Entrezgene"))
+						{
+						this.current_Info=null;
+						this.currentIdentifier=null;
+						}
 					break;
 					}
 				case omim:
 					{
 					if(name.equals("Mim-entry_mimNumber"))
 						{
-						Identifier id = new Identifier(this.databaseType,Integer.parseInt(this.content.toString()));
-						this.current_Info= AboutIdentifiers.this.seenIdentifiers.get(id);
+						updateCurrentInfo();
 						}
 					else if(name.equals("Mim-entry_symbol"))
 						{
@@ -313,6 +350,11 @@ public class AboutIdentifiers
 					else if(name.equals("Mim-entry_aliases_E"))
 						{	
 						this.current_Info.put(FieldInfo.omimAlias, this.content.toString());
+						}
+					else if(name.equals("Mim-entry"))
+						{
+						this.current_Info=null;
+						this.currentIdentifier=null;
 						}
 					break;
 					}
@@ -335,14 +377,18 @@ public class AboutIdentifiers
 	
 	/**
 	 * ELinkHandler
-	 *
+	 * find the links between two identifiers
 	 */
 	private class ELinkHandler
 		extends DefaultHandler
 		{
+		//the identifier
 		Identifier identifier;
+		//the current string content
 		StringBuilder content= new StringBuilder();
+		//found  LinkSetDb
 		int LinkSetDb_flag=0;
+		//the database currently associated
 		Database dbTo=null;
 		
 		ELinkHandler(Identifier identifier)
@@ -420,12 +466,16 @@ public class AboutIdentifiers
 			}
 		}
 	
-	
+	/** sax parser */
 	private SAXParser saxParser;
+	/** all the links found */
 	private HashSet<Couple<Identifier>> links= new HashSet<Couple<Identifier>>();
+	/** all the nodes and their info */
 	private Hashtable<Identifier, Hashtable<FieldInfo,String>> seenIdentifiers =  new Hashtable<Identifier, Hashtable<FieldInfo,String>>();
+	/** where the svg files should be saved */
+	private File outputDir=null;
 	
-	AboutIdentifiers() throws ParserConfigurationException, SAXException
+	private AboutIdentifiers() throws ParserConfigurationException, SAXException
 		{
 		SAXParserFactory f= SAXParserFactory.newInstance();
 		f.setNamespaceAware(false);
@@ -434,11 +484,16 @@ public class AboutIdentifiers
 		this.saxParser= f.newSAXParser();
 		}
 	
-
-	public void scan(Set<Identifier> identifiers) throws IOException,SAXException
+	/**
+	 * Loop over each identifier and
+	 * scan the associated id in each id
+	 */
+	private void scan(Set<Identifier> identifiers) throws IOException,SAXException
 		{
+		int loop=0;
 		for(Identifier identifier: identifiers)
 			{
+			System.err.println("scan "+identifier+" ("+(++loop)+"/"+identifiers.size()+")");
 			this.seenIdentifiers.put(identifier,new Hashtable<FieldInfo,String>());
 			ELinkHandler handler= new ELinkHandler(identifier);
 			String uri = "http://www.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi?" +
@@ -446,16 +501,32 @@ public class AboutIdentifiers
 					"&id=" + identifier.getId() +
 					"&cmd=neighbor&db=all"
 					; 
+			
 			this.saxParser.parse(uri,handler);
+			
+			
+			
+			try {
+				//don't be evil with the ncbi wait 1 sec
+				Thread.sleep(1000L);
+				}
+			catch (InterruptedException e) {
+				
+				}
 			}
 			
 		}
 	
+	/**
+	 * retrieve the XML descriptions of each identifier
+	 * 
+	 */
 	private void fetchInfos() throws IOException,SAXException
 		{
 		for(Database db: Database.values())
 			{
 			boolean ok=false;
+			//build the POST query
 			URL url = new URL("http://www.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi");		
 	    	URLConnection connection = url.openConnection();
 	    	connection.setDoOutput(true);
@@ -470,17 +541,26 @@ public class AboutIdentifiers
 				}
 			out.close();
 			if(!ok) continue;
-			System.err.println(db);
-	    	InputStream in = connection.getInputStream();
 			
+			InputStream in = connection.getInputStream();
 			EFetchInfo handler= new EFetchInfo(db);
 			this.saxParser.parse(in,handler);
-			
 			in.close();
+			
+			try {
+				//don't be evil with the ncbi wait 1 sec
+				Thread.sleep(5000L);
+			} catch (InterruptedException e) {
+				
+			}
+			
 			}
 		}
 	
-	private void dotCluster(Set<Identifier> cluster) throws IOException
+	/**
+	 * Save a cluster to SVG Using graphiz DOT
+	 */
+	private void dotCluster(Set<Identifier> cluster,int clusterId) throws IOException
 		{
 		File file= File.createTempFile("_jeter_", ".dot");
 		PrintWriter out= new PrintWriter(file);
@@ -500,7 +580,9 @@ public class AboutIdentifiers
 		out.println("}");
 		out.flush();
 		out.close();
-		String args[]={"twopi","-Tsvg","-o/tmp/jeter.svg",file.toString()};
+		File svgFile = new File(this.outputDir,"cluster"+clusterId+".svg");
+		System.err.println(svgFile.toString());
+		String args[]={"twopi","-Tsvg","-o"+svgFile,file.toString()};
 		Process proc=Runtime.getRuntime().exec(args);
 		try {
 			proc.waitFor();
@@ -510,7 +592,10 @@ public class AboutIdentifiers
 			e.printStackTrace();
 			}
 		}
-	
+	/**
+	 * Build the cluster of identifiers
+	 * Each cluster has not any link with another cluster
+	 */
 	private List<Set<Identifier>> makeClusters()
 		{
 		Vector<Set<Identifier>> clusters= new Vector<Set<Identifier>>();
@@ -550,17 +635,19 @@ public class AboutIdentifiers
 				cluster.addAll(tobeAdded);
 				}
 			
-			System.err.println("Found Cluster "+cluster);
+			//System.err.println("Found Cluster "+cluster);
 			if(cluster.size()>1)
 				{
-				System.err.println("Adding "+cluster);
+				//System.err.println("Adding "+cluster);
 				clusters.add(cluster);
 				}
 			}
 		
 		return clusters;
 		}
-	
+	/**
+	 * Parse a stream and get the identifiers
+	 */
 	private  void _parse(Set<Identifier> set,Database database,InputStream in) throws IOException
 		{
 		String line;
@@ -577,12 +664,13 @@ public class AboutIdentifiers
 			set.add(new Identifier(database,Integer.parseInt(line)));
 			}
 		
-		set.add(new Identifier(Database.snp,2056202));
-		
-		set.add(new Identifier(Database.snp,2056302));
+		//set.add(new Identifier(Database.snp,2056202));
+		//set.add(new Identifier(Database.snp,2056302));
 		
 		}
-	
+	/**
+	 * main
+	 */
 	public static void main(String[] args) {
 		try
 			{
@@ -594,8 +682,12 @@ public class AboutIdentifiers
 				if(args[optind].equals("-h"))
 					{
 					System.err.println(Compilation.getLabel());
+					System.err.println("-d output dir");
 					}
-				
+				else if(args[optind].equals("-d"))
+					{
+					app.outputDir= new File(args[++optind]);
+					}
 				else if(args[optind].equals("--"))
 					{
 					optind++;
@@ -631,6 +723,7 @@ public class AboutIdentifiers
 				System.err.println("Empty Set.");
 				return;
 				}
+			System.err.println("Scanning "+identifiers.size());
 			app.scan(identifiers);
 			
 			for(Couple<Identifier> link:app.links)
@@ -638,10 +731,12 @@ public class AboutIdentifiers
 				System.err.println(link);
 				}
 			app.fetchInfos();
+			int loop=0;
 			for(Set<Identifier> cluster:app.makeClusters())
 				{
+				++loop;
 				System.out.println(cluster);
-				app.dotCluster(cluster);
+				app.dotCluster(cluster,loop);
 				}
 			
 			

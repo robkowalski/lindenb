@@ -109,10 +109,8 @@ public class PicturesTool
 			
 			if(PicturesTool.this.frame)
 				{
-				int frame=(int)(0.05f*Math.min(
-						PicturesTool.this.destWidth,
-						PicturesTool.this.destHeight
-						));
+				int frame=border();
+				
 				BufferedImage copy = new BufferedImage(
 						PicturesTool.this.destWidth+2*frame,
 						PicturesTool.this.destHeight+2*frame,
@@ -139,7 +137,7 @@ public class PicturesTool
 	private Color backgroundColor=Color.WHITE;
 	private String prefix="_";
 	private File outputDir=null;
-	//private int pictPerImage=1;
+	private int pictPerImage=1;
 	private Stack<Picture> pictures= new Stack<Picture>();
 	private int destWidth=1024;
 	private int destHeight=768;
@@ -160,17 +158,58 @@ public class PicturesTool
 		return p;
 		}
 	
+	private int border()
+		{
+		return (int)(0.05f*Math.min(
+				PicturesTool.this.destWidth,
+				PicturesTool.this.destHeight
+				));
+		}
+	
 	private void run() throws IOException
 		{
 		int counter=0;
+		int x=1;
+		int y=1;
+		int frame=border();
+		if(this.pictPerImage==4)
+			{
+			x=2; y=2;
+			}
 		while(!this.pictures.isEmpty())
 			{
+			BufferedImage img=null;
 			++counter;
-			Picture p= this.pictures.pop();
+			for(int x1=0; x1< x;++x1)
+				{
+				for(int y1=0; y1< y;++y1)
+					{
+					if(this.pictures.isEmpty()) break;
+					Picture p= this.pictures.pop();
+					p.prepareImage();
+					if(img==null)
+						{
+						img = new BufferedImage(
+							(x*(this.destWidth+2*frame)),
+							(y*(this.destHeight+2*frame)),
+							p.img.getType()	
+							);
+						}
+					Graphics2D g= initGraphics(img.createGraphics());
+					g.drawImage(
+						p.img,
+						(x1*(this.destWidth+2*frame)),
+						(y1*(this.destHeight+2*frame)),
+						null);
+					g.dispose();
+					}
+				}
+			
+			
 			File out= new File(this.outputDir,this.prefix+counter+".jpeg");
 			System.err.println("Writing to "+out);
-			ImageIO.write(p.prepareImage(), "jpeg", out);
-			
+			ImageIO.write(img, "jpeg", out);
+			img=null;
 			}
 		}
 	
@@ -189,7 +228,7 @@ public class PicturesTool
 					System.err.println("-h image destination height (default: "+app.destHeight +")");
 					System.err.println("-p image prefix (default: \'"+app.prefix+"\')");
 					System.err.println("-f add a frame");
-					//System.err.println("-4 4 images per picture");
+					System.err.println("-4 4 images per picture");
 					System.err.println("-d output directory");
 					System.err.println("-i <file> use this file as a source of url");
 					}
@@ -205,10 +244,10 @@ public class PicturesTool
 					{
 					app.frame=true;
 					}
-				/* else if(args[optind].equals("-4"))
+				 else if(args[optind].equals("-4"))
 					{
 					app.pictPerImage=4;
-					}*/
+					}
 				else if(args[optind].equals("-w"))
 					{
 					app.destWidth= Integer.parseInt(args[++optind]);
