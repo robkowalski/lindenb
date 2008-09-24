@@ -8,9 +8,13 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Toolkit;
 import java.awt.Window;
+import java.lang.reflect.InvocationTargetException;
 
 import javax.swing.JComponent;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
+
+import org.lindenb.lang.RunnableObject;
 
 /**
  * @author pierre
@@ -147,5 +151,21 @@ public static JComponent withPreferredSize(JComponent c,Dimension preferredSize)
 public static JComponent withPreferredSize(JComponent c,int width,int height)
 	{
 	return withPreferredSize(c,new Dimension(width,height));
+	}
+
+/** show a window in the SWING thread
+ * @param  w the window to be shown
+ * @throws InvocationTargetException 
+ * @throws InterruptedException 
+ */
+public static void show(Window w) throws InterruptedException, InvocationTargetException
+	{
+	SwingUtilities.invokeAndWait(new RunnableObject<Window>(w)
+		{
+		@Override
+		public void run() {
+			getObject().setVisible(true);
+			}
+		});
 	}
 }
