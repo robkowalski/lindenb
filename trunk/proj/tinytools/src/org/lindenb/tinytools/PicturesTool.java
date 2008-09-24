@@ -75,13 +75,13 @@ public class PicturesTool
 			//set good size
 			if(this.img.getWidth()!=PicturesTool.this.destWidth)
 				{
-				float ratioW= (float)(PicturesTool.this.destWidth)/(float)this.img.getWidth();
-				float ratioH= (float)(PicturesTool.this.destHeight)/(float)this.img.getHeight();
-				float ratio=Math.min(ratioW, ratioH);
-				int newWidth= (int)((float)this.img.getWidth()*ratio);
-				int newHeight= (int)((float)this.img.getHeight()*ratio);
-				int marginW= ((PicturesTool.this.destWidth)-newWidth)/2;
-				int marginH= ((PicturesTool.this.destHeight)-newHeight)/2;
+				double ratioW= (float)(PicturesTool.this.destWidth)/(float)this.img.getWidth();
+				double ratioH= (float)(PicturesTool.this.destHeight)/(float)this.img.getHeight();
+				double ratio=Math.min(ratioW, ratioH);
+				double newWidth=((double)this.img.getWidth()*ratio);
+				double newHeight=((double)this.img.getHeight()*ratio);
+				int marginW= (int)((PicturesTool.this.destWidth-newWidth)/2.0);
+				int marginH= (int)((PicturesTool.this.destHeight-newHeight)/2.0);
 				
 				
 				BufferedImage copy = new BufferedImage(
@@ -103,11 +103,13 @@ public class PicturesTool
 						this.img.getWidth(),
 						this.img.getHeight(),
 						null);
+				
+				
 				g.dispose();
 				this.img=copy;
 				}
 			
-			if(PicturesTool.this.frame)
+			if(PicturesTool.this.frame && 1==2)
 				{
 				int frame=border();
 				
@@ -142,6 +144,7 @@ public class PicturesTool
 	private int destWidth=1024;
 	private int destHeight=768;
 	private boolean frame=false;
+	private boolean ignore_errors=false;
 	
 	private static Graphics2D initGraphics(Graphics2D g)
 		{
@@ -171,7 +174,8 @@ public class PicturesTool
 		int counter=0;
 		int x=1;
 		int y=1;
-		int frame=border();
+		int frame= (this.frame?border():0);
+		
 		if(this.pictPerImage==4)
 			{
 			x=2; y=2;
@@ -186,7 +190,19 @@ public class PicturesTool
 					{
 					if(this.pictures.isEmpty()) break;
 					Picture p= this.pictures.pop();
-					p.prepareImage();
+					try
+						{
+						p.prepareImage();
+						}
+					catch(IOException err)
+						{
+						if(this.ignore_errors)
+							{
+							System.err.println("Error with "+p.url+" "+err.getMessage());
+							continue;
+							}
+						throw err;
+						}
 					if(img==null)
 						{
 						img = new BufferedImage(
@@ -198,18 +214,20 @@ public class PicturesTool
 					Graphics2D g= initGraphics(img.createGraphics());
 					g.drawImage(
 						p.img,
-						(x1*(this.destWidth+2*frame)),
-						(y1*(this.destHeight+2*frame)),
+						frame+(x1*(this.destWidth+2*frame)),
+						frame+(y1*(this.destHeight+2*frame)),
 						null);
 					g.dispose();
 					}
 				}
 			
-			
-			File out= new File(this.outputDir,this.prefix+counter+".jpeg");
-			System.err.println("Writing to "+out);
-			ImageIO.write(img, "jpeg", out);
-			img=null;
+			if(img!=null)
+				{
+				File out= new File(this.outputDir,this.prefix+counter+".jpeg");
+				System.err.println("Writing to "+out);
+				ImageIO.write(img, "jpeg", out);
+				img=null;
+				}
 			}
 		}
 	
@@ -224,17 +242,23 @@ public class PicturesTool
 					{
 					System.err.println(Compilation.getLabel());
 					System.err.println("-c background color (default: white)");
-					System.err.println("-w image destination height (default: "+app.destWidth +")");
-					System.err.println("-h image destination height (default: "+app.destHeight +")");
+					System.err.println("-W image destination height (default: "+app.destWidth +")");
+					System.err.println("-H image destination height (default: "+app.destHeight +")");
 					System.err.println("-p image prefix (default: \'"+app.prefix+"\')");
 					System.err.println("-f add a frame");
 					System.err.println("-4 4 images per picture");
 					System.err.println("-d output directory");
 					System.err.println("-i <file> use this file as a source of url");
+					System.err.println("-e ignore errors");
+					return;
 					}
 				else if(args[optind].equals("-c"))
 					{
 					app.backgroundColor= ColorUtils.parseColor(args[++optind]);
+					}
+				else if(args[optind].equals("-e"))
+					{
+					app.ignore_errors=true;
 					}
 				else if(args[optind].equals("-p"))
 					{
@@ -248,11 +272,11 @@ public class PicturesTool
 					{
 					app.pictPerImage=4;
 					}
-				else if(args[optind].equals("-w"))
+				else if(args[optind].equals("-W"))
 					{
 					app.destWidth= Integer.parseInt(args[++optind]);
 					}
-				else if(args[optind].equals("-h"))
+				else if(args[optind].equals("-H"))
 					{
 					app.destHeight= Integer.parseInt(args[++optind]);
 					}
