@@ -158,14 +158,20 @@ public static JComponent withPreferredSize(JComponent c,int width,int height)
  * @throws InvocationTargetException 
  * @throws InterruptedException 
  */
-public static void show(Window w) throws InterruptedException, InvocationTargetException
+public static void show(Window w)
 	{
-	SwingUtilities.invokeAndWait(new RunnableObject<Window>(w)
-		{
-		@Override
-		public void run() {
-			getObject().setVisible(true);
-			}
-		});
+	try {
+		SwingUtilities.invokeAndWait(new RunnableObject<Window>(w)
+			{
+			@Override
+			public void run() {
+				getObject().setVisible(true);
+				}
+			});
+	} catch (InterruptedException e) {
+		throw new RuntimeException(e);
+	} catch (InvocationTargetException e) {
+		throw new RuntimeException(e);
+	}
 	}
 }
