@@ -141,11 +141,11 @@ private class RssHandler
 	Item item=null;
 	private HashSet<Item> items=new HashSet<Item>();
 	private Date lastDate;
-	
-	public RssHandler(Date lastDate)
+	private Date toDate;
+	public RssHandler(Date lastDate,Date toDate)
 		{
 		this.lastDate = lastDate;
-		
+		this.toDate = toDate;
 		}
 	
 	@Override
@@ -170,7 +170,8 @@ private class RssHandler
 			{
 			if(item.imageURL!=null &&
 			   item.date!=null &&
-			   this.lastDate.compareTo(item.date)<0
+			   this.lastDate.compareTo(item.date)<0 &&
+			   (this.toDate==null || (this.toDate!=null && item.date.compareTo(this.toDate)<=0))
 				)
 				{
 				if(this.item.largeImageURL==null)
@@ -446,7 +447,7 @@ private class RssHandler
 		return true;
 		}
 	
-	private void readFeeds(Date lastDate)
+	private void readFeeds(Date lastDate,Date toDate)
 		throws IOException,SAXException,ParseException
 		{
 		if(lastDate==null)
@@ -464,12 +465,19 @@ private class RssHandler
 			}
 		
 			
-		RssHandler handler=new RssHandler(lastDate);
+		RssHandler handler=new RssHandler(lastDate,toDate);
 		ResIterator iter=getModel().listSubjectsWithProperty(RDF.type,isChannel);
 		while(iter.hasNext())
 			{
 			Resource subject = iter.nextResource();
-			this.parser.parse(subject.getURI(), handler);
+			try
+				{
+				this.parser.parse(subject.getURI(), handler);
+				}
+			catch(IOException err)
+				{
+				cout().println("Error "+err.getMessage()+":"+subject.getURI());
+				}
 			}
 		iter.close();
 		
@@ -553,6 +561,7 @@ private class RssHandler
 			int optind=0;
 			String filename=null;
 			java.sql.Date fromDate=null;
+			java.sql.Date toDate=null;
 			while(optind< args.length)
 				{
 				if(args[optind].equals("-h"))
@@ -561,6 +570,7 @@ private class RssHandler
 					System.err.println(" -h this screen");
 					System.err.println(" -m <file> for this model");
 					System.err.println(" -d YYYY-MM-DD from date");
+					System.err.println(" -t YYYY-MM-DD to date");
 					return;
 					}
 				else if(args[optind].equals("-m"))
@@ -570,6 +580,10 @@ private class RssHandler
 				else if(args[optind].equals("-d"))
 					{
 					fromDate=java.sql.Date.valueOf(args[++optind]);
+					}
+				else if(args[optind].equals("-t"))
+					{
+					toDate=java.sql.Date.valueOf(args[++optind]);
 					}
 				else if(args[optind].equals("--"))
 					{
@@ -655,7 +669,8 @@ private class RssHandler
 			else
 				{
 				/** default read feeds */
-				app.readFeeds(fromDate);
+				if(toDate!=null && fromDate==null) fromDate=java.sql.Date.valueOf("2000-01-01");
+				app.readFeeds(fromDate,toDate);
 				app.save();
 				}
 			
