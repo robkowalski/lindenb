@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.io.StringWriter;
 import java.net.URL;
 
@@ -24,6 +25,7 @@ public static URL getResource(Class<?> clazz,String name) throws IOException
 	return url;
 	}
 
+
 public static InputStream getResourceAsStream(Class<?> clazz,String name) throws IOException
 	{
 	if(clazz==null) throw new NullPointerException("class is null");
@@ -36,7 +38,7 @@ public static InputStream getResourceAsStream(Class<?> clazz,String name) throws
 public static String getContent(Class<?> clazz,String name) throws IOException
 	{
 	StringWriter sw= new StringWriter();
-	InputStreamReader r= new InputStreamReader(getResourceAsStream(clazz, name));
+	Reader r= openReader(clazz, name);
 	IOUtils.copyTo(r, sw);
 	r.close();
 	return sw.toString();
