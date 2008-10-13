@@ -1,10 +1,16 @@
 package org.lindenb.xml;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Collection;
 
 import org.w3c.dom.Attr;
+import org.w3c.dom.Element;
+import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
+import org.w3c.dom.Text;
 
 /**
  * NodeWrapper
@@ -138,7 +144,7 @@ public class NodeWrapper<T extends org.w3c.dom.Node>
 			{
 			if(!(n.getNodeType()==Node.ELEMENT_NODE &&
 					 ns.equals(n.getNamespaceURI()) &&
-				     n.getNodeName().equals(localName))) continue;
+				     n.getLocalName().equals(localName))) continue;
 			++count;
 			}
 		return count;
@@ -153,7 +159,7 @@ public class NodeWrapper<T extends org.w3c.dom.Node>
 			{
 			if(!(n.getNodeType()==Node.ELEMENT_NODE &&
 					 ns.equals(n.getNamespaceURI()) &&
-				     n.getNodeName().equals(localName))) continue;
+				     n.getLocalName().equals(localName))) continue;
 			return true;
 			}
 		return false;
@@ -169,7 +175,7 @@ public class NodeWrapper<T extends org.w3c.dom.Node>
 			{
 			if(!(n.getNodeType()==Node.ELEMENT_NODE &&
 				 ns.equals(n.getNamespaceURI()) &&
-			     n.getNodeName().equals(localName))) continue;
+			     n.getLocalName().equals(localName))) continue;
 			_v.add(org.w3c.dom.Element.class.cast(n));
 			}
 		return _v;
@@ -183,6 +189,72 @@ public class NodeWrapper<T extends org.w3c.dom.Node>
 	@Override
 	public boolean equals(Object obj) {
 		return obj==this;
+		}
+	
+	
+	public void write(Writer out)
+		{
+		PrintWriter w= new PrintWriter(out);
+		write(w,getNode());
+		w.flush();
+		}
+	
+	protected static void write(PrintWriter out,Node n)
+		{
+		switch(n.getNodeType())
+			{
+			case Node.ELEMENT_NODE:
+				{
+				Element e= Element.class.cast(n);
+				out.print('<');
+				out.print(e.getNodeName());
+				if(e.hasAttributes())
+					{
+					NamedNodeMap atts=e.getAttributes();
+					for(int i=0;i< atts.getLength();++i)
+						{
+						Attr att= (Attr)atts.item(i);
+						out.print(' ');
+						out.print(att.getNodeName());
+						out.print("=\"");
+						out.print(XMLUtilities.escape(att.getValue()));
+						out.print("\"");
+						}
+					}
+				if(e.hasChildNodes())
+					{
+					out.print('>');
+					for(Node c= e.getFirstChild();c!=null;c=c.getNextSibling())
+						{
+						write(out,c);
+						}
+					out.print("</");
+					out.print(e.getNodeName());
+					out.print(">");
+					}
+				else
+					{
+					out.print("/>");
+					}
+				break;
+				}
+			case Node.TEXT_NODE:
+				{
+				out.print(XMLUtilities.escape(((Text)n).getData()));
+				break;
+				}
+			default:
+				{
+				throw new IllegalArgumentException("TODO");
+				}
+			}
+		}
+	
+	@Override
+	public String toString() {
+		StringWriter w= new StringWriter();
+		write(w);
+		return w.toString();
 		}
 	
 	}
