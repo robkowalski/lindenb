@@ -8,7 +8,7 @@
 <!--
 
 This stylesheet transforms the output of 'desc table *' in mysql+XML
-into an di un-gzipped xml dia file
+into an un-gzipped xml dia file
 
 -->
 <xsl:output method="xml" version="1.0" encoding="UTF-8"
@@ -25,7 +25,7 @@ plindenbaum@yahoo.fr
 </xsl:comment>
   <dia:diagramdata>
     <dia:attribute name="background">
-      <dia:color val="#ffffff"/>
+      <dia:color val="#aaaaaa"/>
     </dia:attribute>
     <dia:attribute name="pagebreak">
       <dia:color val="#000099"/>
