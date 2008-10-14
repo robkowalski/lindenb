@@ -116,18 +116,18 @@ public class SQLUtilities
     	return array;
     	}
     
-    /** put first row of a ResultSet in a Vector */
+    /** put first column of a ResultSet in a Vector */
 	static public Vector<Object> resultSetToVector(ResultSet row) throws SQLException
     	{
-    	Vector<Object> data=new Vector<Object>();
+    	Vector<Object> data=new Vector<Object>(row.getMetaData().getColumnCount());
     	while(row.next()) data.add(row.getObject(1));
     	return data;
     	}
     
-    /** put first row of a ResultSet in a generic Vector */
+    /** put first column of a ResultSet in a generic Vector */
 	static public <X> Vector<X> resultSetToVector(ResultSet row,Class<X> clazz) throws SQLException
     	{
-    	Vector<X> data=new Vector<X>();
+    	Vector<X> data=new Vector<X>(row.getMetaData().getColumnCount());
     	while(row.next()) data.add(clazz.cast(row.getObject(1)));
     	return data;
     	}
