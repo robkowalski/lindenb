@@ -82,6 +82,7 @@ import javax.xml.stream.events.XMLEvent;
 
 import org.lindenb.io.PreferredDirectory;
 import org.lindenb.lang.ThrowablePane;
+import org.lindenb.me.Me;
 import org.lindenb.swing.ConstrainedAction;
 import org.lindenb.swing.ObjectAction;
 import org.lindenb.swing.SimpleDialog;
@@ -1205,7 +1206,7 @@ private Pubmed2Wikipedia(Vector<Paper> papers)
 			JOptionPane.showMessageDialog(Pubmed2Wikipedia.this,
 				"<html><body>"+ 
 				"<h1 align='center'>Pubmed2Wikipedia</h2>"+
-				"<h2 align='center'>(c)Pierre Lindenbaum 2007 plindenbaum@yahoo.fr</h2>"+
+				"<h2 align='center'>(c)Pierre Lindenbaum 2007 "+Me.MAIL+"</h2>"+
 				"<h3 align='center'>"+Compilation.getLabel()+"</h3>"+
 				"</body></html>","About",JOptionPane.PLAIN_MESSAGE,null);
 			}

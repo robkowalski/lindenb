@@ -1,5 +1,7 @@
 package org.lindenb.xml;
 
+import java.io.IOException;
+import java.io.Writer;
 import java.util.Collection;
 import java.util.Vector;
 
@@ -7,10 +9,11 @@ import org.w3c.dom.Attr;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
-
+/** Static methods for XML */
 public class XMLUtilities
 	{
 	private XMLUtilities() {}
+	
 	
 /** escape the XML of a given string */
 public static String escape(CharSequence s)
@@ -47,6 +50,27 @@ public static String escape(CharSequence s)
 		       }
 		return buffer.toString();
         }
+
+/** write a CharSequence to a java.io.Writer */
+public static Writer escape(Writer out,CharSequence s) throws IOException
+	{
+	 for(int i=0;i< s.length();++i)
+	     {
+		 switch(s.charAt(i))
+	         {
+	         case '\'': out.write("&apos;"); break;
+	         case '\"': out.write("&quot;"); break;
+	         case '&': out.write("&amp;"); break;
+	         case '<': out.write("&lt;"); break;
+	         case '>': out.write("&gt;"); break;
+	         default:  out.write(s.charAt(i));break;
+	         }
+	     }
+	return out;
+	}
+
+
+
 
 /**
  * return wether the given node matches ns and localName
@@ -99,6 +123,23 @@ public static Element firstChild(Node root,String ns,String localName)
 	return null;
 	}
 
+/**
+ * return the first Element under root matching the given tagName
+ * @param root
+ * @param taglName element name
+ * @return element Found or null
+ */
+public static Element firstChild(Node root,String tagName)
+	{
+	for(Node c=root.getFirstChild();c!=null;c=c.getNextSibling())
+		{
+		if(!(c.getNodeType()==Node.ELEMENT_NODE && c.getNodeName().equals(tagName))) continue;
+		return Element.class.cast(c);
+		}
+	return null;
+	}
+
+
 
 /**
  * return the first Element under root 
@@ -148,6 +189,25 @@ public static Collection<Element> elements(Node parent,String namespace,String l
 	return v;
 	}
 
+/**
+ * return a collection of all Element under parent matching the given tag name
+ * @param parent
+ * @param tagName the element tagName
+ * @return element Found or null
+ */
+public static Collection<Element> elements(Node parent,String tagName)
+	{
+	Vector<Element> v= new Vector<Element>();
+	for(Node c=parent.getFirstChild();c!=null;c=c.getNextSibling())
+		{
+		if(c.getNodeType()==Node.ELEMENT_NODE &&
+			tagName.equals(c.getNodeName()))
+			{
+			v.addElement( Element.class.cast(c));
+			}
+		}
+	return v;
+	}
 
 
 /**
