@@ -5,6 +5,9 @@ package org.lindenb.util;
 
 /**
  * @author pierre
+ * a useful class to store the name of a given key
+ * for example use it as an item in a JList/JCombobox to display a verbose label while
+ * keeping the id
  *
  */
 public class NamedKey<K extends Comparable<K>> extends Pair<K,String> {

@@ -10,35 +10,65 @@ import java.util.List;
  *
  */
 public class Table
+extends AbstractIdentifier
 {
-private String name=null;
+
 private ArrayList<Field> fields= new ArrayList<Field>();
 
 public Table()
 	{
 	}
 
-public String getName() {
-	return name;
-	}
-
-public void setName(String name) {
-	this.name = name;
-	}
 
 public List<Field> getFields() {
 	return fields;
 	}
 
-public String getDescription()
-	{
-	return getName();
+@Override
+public boolean equals(Object obj) {
+	if(obj==this) return true;
+	if(obj==null || getClass()!=obj.getClass()) return false;
+	Table cp= Table.class.cast(obj);
+	return getName().equals(cp.getName()) &&
+			getFields().equals(cp.getFields())
+			;
 	}
 
-public String getJavaName()
+public List<Field> getPrimaryKeys()
 	{
-	if(getName()==null) return null;
-	String s= getName().substring(0,1).toUpperCase()+getName().substring(1);
-	return s.replace('-', '_');
+	ArrayList<Field> x= new ArrayList<Field>();
+	for(Field f:getFields())
+		{
+		if(f.isPrimary()) x.add(f);
+		}
+	return x;
+	}
+
+public Field getIdField()
+	{
+	Field id = null;
+	for(Field f:getFields())
+		{
+		if(f.isPrimary() && f.isAutoIncrement())
+			{
+			if(id!=null)
+				{
+				System.err.println("Warning two primary keys in "+getName()+ " "+id +" and "+f);
+				return null;
+				}
+			id=f;
+			}
+		}
+	return id;
+	}
+
+public boolean hasIdField()
+	{
+	return getIdField()!=null;
+	}
+
+@Override
+public String toString() {
+	return getClass().getName()+"{ name:"+getName()+", fields:"+getFields()+"}";
 	}
 }

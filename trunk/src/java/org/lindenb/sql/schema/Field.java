@@ -2,13 +2,18 @@ package org.lindenb.sql.schema;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 
 public class Field
+	extends AbstractIdentifier
 	{
-	private String name;
+	private static class EnumItem extends AbstractIdentifier{
+		@Override
+		public String getJavaName() {
+			return escapedJavaName().toUpperCase();
+			}
+	}
 	private String type;
 	private String Null;
 	private String Key;
@@ -21,7 +26,7 @@ public class Field
  
 	public Field(ResultSet row) throws SQLException
 		{
-		this.name= row.getString("Field");
+		setName( row.getString("Field") );
 		this.type= row.getString("Type");
 		this.Null= row.getString("Null");
 		this.Key= row.getString("Key");
@@ -30,25 +35,9 @@ public class Field
 		}
 	
 	
-	public String getName() {
-		return name;
-		}
 
-	public void setName(String name) {
-		this.name = name;
-		}
 
-	public String getDescription()
-		{
-		return getName();
-		}
-
-	public String getJavaName()
-		{
-		if(getName()==null) return null;
-		String s= getName().substring(0,1).toUpperCase()+getName().substring(1);
-		return s.replace('-', '_');
-		}
+	
 	
 	public boolean isIndexed()
 		{
@@ -62,17 +51,37 @@ public class Field
 	
 	public boolean isEnum()
 		{
-		return getType().startsWith("enum(");
+		return getType().startsWith("enum(") && getType().endsWith(")");
 		}
 	
 	public boolean isSet()
 		{
-		return getType().startsWith("set(");
+		return getType().startsWith("set(") && getType().endsWith(")");
 		}
 	
-	public List<String> getItems()
+	/** returns the components of a SET or an ITEM */
+	public List<AbstractIdentifier> getItems()
 		{
-		ArrayList<String> _items= new ArrayList<String>();
+		ArrayList<AbstractIdentifier> _items= new ArrayList<AbstractIdentifier>();
+		if(isSet() || isEnum())
+			{
+			String s= getType();
+			int i=s.indexOf('(');
+			
+			s=s.substring(i+1);
+			s=s.substring(0,s.length()-1);
+			String tokens[]= s.split("[,]");
+			for(String t:tokens)
+				{
+				if(t.startsWith("'") && t.endsWith("'"))
+					{
+					t=t.substring(1,t.length()-1);
+					}
+				EnumItem item= new EnumItem();
+				item.setName(t);
+				_items.add(item);
+				}
+			}
 		return _items;
 		}
 	
@@ -117,7 +126,7 @@ public class Field
 		}
 	
 	/** returns the sql type without the length/precision */
-	public String getSQLType()
+	public String getSqlType()
 		{
 		String t=getType();
 		int i= t.indexOf('(');

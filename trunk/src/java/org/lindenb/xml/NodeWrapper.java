@@ -39,7 +39,7 @@ public class NodeWrapper<T extends org.w3c.dom.Node>
 	
 	public String getAttribute(String name,String defaultValue)
 		{
-		if(getNode().hasAttributes()) return null;
+		if(!getNode().hasAttributes()) return null;
 		Attr att= Attr.class.cast(getNode().getAttributes().getNamedItem(name));
 		return att==null?defaultValue:att.getValue();
 		}
