@@ -12,6 +12,8 @@ import java.awt.event.AdjustmentEvent;
 import java.awt.event.AdjustmentListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -21,6 +23,7 @@ import java.net.URI;
 import java.net.URL;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Vector;
@@ -42,7 +45,6 @@ import javax.swing.JToggleButton;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 
-import org.lindenb.swing.ObjectAction;
 import org.lindenb.swing.SwingUtils;
 import org.lindenb.util.Cast;
 import org.lindenb.util.Compilation;
@@ -249,6 +251,15 @@ private class RssHandler
 			setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
 			this.items=items;
 			
+			this.addWindowListener(new WindowAdapter()
+				{
+				@Override
+				public void windowClosing(WindowEvent e) {
+					Slideshow.this.setVisible(false);
+					Slideshow.this.dispose();
+					}
+				});
+			
 			this.next= new AbstractAction("Next")
 				{
 				private static final long serialVersionUID = 1L;
@@ -376,10 +387,12 @@ private class RssHandler
 
 	private void save() throws IOException
 		{
+		cout().print("Saving..");
 		FileOutputStream out= new FileOutputStream(this.file);
 		getModel().write(out);
 		out.flush();
 		out.close();
+		cout().println(" Done.");
 		}
 	
 	private PrintStream cout()
@@ -425,6 +438,7 @@ private class RssHandler
 			items.add(item);
 			}
 		if(items.isEmpty()) return;
+		Collections.shuffle(items);
 		Slideshow show= new Slideshow(items);
 		SwingUtils.show(show);
 		}
@@ -488,10 +502,7 @@ private class RssHandler
 			return;
 			}
 		Vector<Pair<Item, JToggleButton>> item2button= new Vector<Pair<Item,JToggleButton>>();
-		JDialog frame= new JDialog((JFrame)null,handler.items.size()+" pictures",true);
-		frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 		JPanel contentPanel= new JPanel(new BorderLayout());
-		frame.setContentPane(contentPanel);
 		JPanel pane= new JPanel(new GridLayout(0,6,5,5));
 		for(Item item:handler.items)
 			{
@@ -506,25 +517,22 @@ private class RssHandler
 		contentPanel.add(scroll,BorderLayout.CENTER);
 		
 		
-		JPanel bottom= new JPanel(new FlowLayout(FlowLayout.TRAILING));
-		contentPanel.add(bottom,BorderLayout.SOUTH);
 		
-		bottom.add(new JButton(new ObjectAction<JDialog>(frame,"Close")
-			{
-			private static final long serialVersionUID = 1L;
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				getObject().setVisible(false);
-				}
-			}));
 		
-		SwingUtils.center(frame, 100);
-		SwingUtils.show(frame);
+		Dimension screen= Toolkit.getDefaultToolkit().getScreenSize();
+		contentPanel.setPreferredSize(new Dimension(screen.width-200,screen.height-200));
+		JOptionPane.showMessageDialog(null, contentPanel);
 		for( Pair<Item,JToggleButton> pair: item2button)
 			{
 			if(!pair.second().isSelected()) continue;
+			
 			Resource subject = getModel().createResource(pair.first().link);
-			if(getModel().containsResource(subject)) continue;
+			cout().printf(pair.first().title);
+			if(getModel().containsResource(subject))
+				{
+				cout().println("Already in Model");
+				continue;
+				}
 			getModel().add( subject, RDF.type,isBookmark )
 					  .add( subject, DC.title,pair.first().title )
 					  .add( subject, DC.date,this.dateFormat.format(new Date()) )
@@ -534,13 +542,6 @@ private class RssHandler
 			
 			}
 			
-		
-			
-			
-		
-		
-			
-		
 		StmtIterator iter2=getModel().listStatements(rdfRoot, lastRead,(RDFNode)null);
 		while(iter2.hasNext())
 			{
