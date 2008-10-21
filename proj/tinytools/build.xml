@@ -7,7 +7,7 @@
  <property name="compiledir" value="${builddir}/compile"/>
 
 
- <target name="all" depends="sortpubmed,meshfreq,pictools,aboutrslist">
+ <target name="all" depends="sortpubmed,meshfreq,pictools,aboutrslist,java2dot">
 </target>
 
  <target name="build-ant-tasks">
@@ -269,5 +269,50 @@
 		 <delete dir="${compiledir}"/> 
 	 </target>
 	
-	
+	 
+		 <!-- =================================================================== -->
+		 <!-- =================================================================== -->
+		 <!-- =================================================================== -->
+		 <!-- =================================================================== -->
+		 
+		 <target name="java2dot" depends="declare-ant-tasks">
+			 <mkdir dir="${compiledir}"/>
+			 
+			 
+			 <copy todir="${compiledir}" includeEmptyDirs="false">
+				 <fileset dir="src"/>
+				 <fileset dir="${rootdir}/src/java">
+					 <filename name="**/*.java"/>
+				 </fileset>
+			 </copy>
+			 
+			 <compileInfoTask
+					 name="Java2Dot"
+					 package="org.lindenb.util"
+					 dir="${compiledir}"
+					 />
+			 
+			 
+			 <javac srcdir="${compiledir}"
+				destdir="${compiledir}"
+				debug="true"
+				source="1.6"
+				target="1.6">
+				 <include name="**/tinytools/Java2Dot.java"/>
+			 </javac>
+			 
+			 <delete includeEmptyDirs="true">
+				 <fileset dir="${compiledir}" includes="**/*.java"/>
+			 </delete>
+			 <jar destfile="../../build/java2dot.jar"
+			      basedir="${compiledir}">
+				 <manifest>
+					 <attribute
+						   name="Main-Class"
+						   value="org.lindenb.tinytools.Java2Dot"
+						   />
+				 </manifest>
+			 </jar>
+			 <delete dir="${compiledir}"/> 
+		 </target>	
 </project>
