@@ -50,6 +50,7 @@ import org.lindenb.util.Algorithms;
 import org.lindenb.util.Assert;
 import org.lindenb.util.XObject;
 import org.lindenb.util.iterator.AbstractIterator;
+import org.lindenb.util.iterator.ExtendedIterator;
 import org.lindenb.util.iterator.FilterIterator;
 import org.lindenb.util.iterator.YIterator;
 
@@ -750,7 +751,7 @@ class SiteList  implements Iterable<Site>
 		}
 	
 	
-	public AbstractIterator<Integer> listSitesOut(Enzyme e,int start,int end)
+	public ExtendedIterator<Integer> listSitesOut(Enzyme e,int start,int end)
 		{
 		return new FilterIterator<Integer>(listSitesOut(start,end),e)
 			{
@@ -761,7 +762,7 @@ class SiteList  implements Iterable<Site>
 			};
 		}
 	
-	public AbstractIterator<Integer> listSitesIn(Enzyme e,int start,int end)
+	public ExtendedIterator<Integer> listSitesIn(Enzyme e,int start,int end)
 		{
 		return new FilterIterator<Integer>(listSitesIn(start,end),e)
 			{
