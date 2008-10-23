@@ -1,5 +1,6 @@
 package org.lindenb.util.iterator;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.HashSet;
@@ -11,7 +12,9 @@ import java.util.Vector;
 
 
 public abstract class AbstractIterator<T>
-	implements CloseableIterator<T>,Iterable<T>
+	implements ExtendedIterator<T>,
+	CloseableIterator<T>,
+	Iterable<T>
 	{
 	public abstract boolean hasNext();
 
@@ -28,6 +31,9 @@ public abstract class AbstractIterator<T>
 		super.finalize();
 		}
 	
+	/* (non-Javadoc)
+	 * @see org.lindenb.util.iterator.ExtendedIterator#count()
+	 */
 	public int count()
 		{
 		int n=0;
@@ -36,25 +42,42 @@ public abstract class AbstractIterator<T>
 		return n;
 		}
 	
+	/* (non-Javadoc)
+	 * @see org.lindenb.util.iterator.ExtendedIterator#asCollection(java.util.Collection)
+	 */
 	public Collection<T> asCollection(Collection<T> col)
 		{
-		if(col==null) col=new Vector<T>();
+		if(col==null) col=new ArrayList<T>();
 		while(hasNext()) col.add(next());
 		close();
 		return col;
 		}
 	
+	public Collection<T> asCollection()
+		{
+		return asCollection(new ArrayList<T>());
+		}
+	
+	/* (non-Javadoc)
+	 * @see org.lindenb.util.iterator.ExtendedIterator#asSet()
+	 */
 	public Set<T> asSet()
 		{
 		return (Set<T>)asCollection(new HashSet<T>());
 		}
 	
+	/* (non-Javadoc)
+	 * @see org.lindenb.util.iterator.ExtendedIterator#asVector()
+	 */
 	public Vector<T> asVector()
 		{
 		return (Vector<T>)asCollection(new Vector<T>());
 		}
 	
 	
+	/* (non-Javadoc)
+	 * @see org.lindenb.util.iterator.ExtendedIterator#asEnumeration()
+	 */
 	public Enumeration<T> asEnumeration()
 		{
 		return new Enumeration<T>()
@@ -68,7 +91,9 @@ public abstract class AbstractIterator<T>
 			};
 		}
 	
-	/** impelements Iterable: just return this */
+	/* (non-Javadoc)
+	 * @see org.lindenb.util.iterator.ExtendedIterator#iterator()
+	 */
 	public Iterator<T> iterator() {
 		return this;
 		}
@@ -78,7 +103,9 @@ public abstract class AbstractIterator<T>
 		{
 		}
 	
-	/** return the one and only one element found in the iterator */
+	/* (non-Javadoc)
+	 * @see org.lindenb.util.iterator.ExtendedIterator#theOne()
+	 */
 	public T theOne()
 		{
 		boolean ok=false;
@@ -93,7 +120,9 @@ public abstract class AbstractIterator<T>
 		return found;
 		}
 	
-	/** return the one  element found in the iterator or null if no such element exists*/
+	/* (non-Javadoc)
+	 * @see org.lindenb.util.iterator.ExtendedIterator#theOneOrNull()
+	 */
 	public T theOneOrNull()
 		{
 		boolean ok=false;
@@ -107,10 +136,22 @@ public abstract class AbstractIterator<T>
 		return found;
 		}
 	
-	/** return the first element in the iterator without throwing a "no such element exception" or null if no such element exists*/
+	/* (non-Javadoc)
+	 * @see org.lindenb.util.iterator.ExtendedIterator#first()
+	 */
 	public T first()
 		{
 		return(hasNext()?next():null);
 		}
 	
+	@Override
+	public boolean equals(Object obj) {
+		return obj==this;
+		}
+	
+	@Override
+	protected Object clone()throws CloneNotSupportedException 
+		{
+		throw new CloneNotSupportedException("Cannot clone "+getClass());
+		}
 }
