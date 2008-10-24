@@ -8,12 +8,14 @@ public class Revision
 	private Date date;
 	private User user;
 	private int size;
-	public Revision(Entry entry,Date date,User user,int size)
+	private String comment;
+	public Revision(Entry entry,Date date,User user,int size,String comment)
 		{
 		this.entry=entry;
 		this.date=date;
 		this.user=user;
 		this.size=size;
+		this.comment=comment;
 		}
 	
 	public Date getDate()
@@ -32,6 +34,10 @@ public class Revision
 	public int getSize()
 		{
 		return this.size;
+		}
+	
+	public String getComment() {
+		return comment;
 		}
 	
 	@Override
@@ -64,6 +70,7 @@ public class Revision
 			",date:"+getDate()+
 			",user:"+getUser()+
 			",size:"+getSize()+
+			",comment:"+getComment()+
 			"}"
 			;
 		}
