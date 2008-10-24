@@ -6,11 +6,8 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -22,8 +19,6 @@ import javax.xml.stream.events.Attribute;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 
-import org.lindenb.util.iterator.AbstractIterator;
-import org.lindenb.util.iterator.CloseableIterator;
 
 public class MWQuery
 	{
@@ -139,7 +134,8 @@ public class MWQuery
 									entry,
 									DATE_FORMAT.parse(timestamp.getValue()),
 									new User(user.getValue()),
-									Integer.parseInt(size.getValue())
+									Integer.parseInt(size.getValue()),
+									comment.getValue()
 									);
 								if(filter==null || filter.accept(rev))
 									{
