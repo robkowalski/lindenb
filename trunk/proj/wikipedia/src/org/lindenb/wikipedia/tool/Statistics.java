@@ -1,8 +1,8 @@
 package org.lindenb.wikipedia.tool;
 
-import java.io.BufferedReader;
+
 import java.io.File;
-import java.io.IOException;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -13,9 +13,8 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Properties;
+import java.util.Stack;
 
-import org.lindenb.lang.ResourceUtils;
-import org.lindenb.sql.ConnectionStack;
 import org.lindenb.sql.SQLUtilities;
 import org.lindenb.wikipedia.api.Entry;
 import org.lindenb.wikipedia.api.MWNamespace;
@@ -25,23 +24,14 @@ import org.lindenb.wikipedia.api.Revision;
 import org.lindenb.wikipedia.api.User;
 
 
+
 public class Statistics
 	{
 	private static final String VERSION="1.0.0";
 	private static final String JDBC_DRIVER_NAME="org.apache.derby.jdbc.EmbeddedDriver";
 	private File dbFile;
-	private ConnectionStack connectionsStack= new ConnectionStack()
-		{
-		@Override
-		protected Connection createConnection() throws SQLException {
-			Properties dbProperties=new Properties();
-			dbProperties.setProperty("user", "anonymous");
-			dbProperties.setProperty("password","");
-			dbProperties.setProperty("create", "false");	
-			Connection con=DriverManager.getConnection("jdbc:derby:"+dbFile,dbProperties);
-			return con;
-			}
-		};
+	private Stack<Connection> connectionsStack= new Stack<Connection>();
+
 	
 	
 	public Statistics(File dbFile) throws SQLException
@@ -81,10 +71,10 @@ public class Statistics
 			}
 		else
 			{
-			Connection con= connectionsStack.getConnection();
+			Connection con= getConnection();
 			Statement stmt=con.createStatement();
 			String version=SQLUtilities.selectOneValue(stmt.executeQuery("select version from MW.version"), String.class);
-			connectionsStack.recycle(con);
+			recycleConnection(con);
 			if(!version.equals(VERSION))
 				{
 				throw new SQLException(
@@ -98,7 +88,10 @@ public class Statistics
 	
 	public void close()
 		{
-		connectionsStack.close();
+		while(!connectionsStack.isEmpty())
+			{
+			SQLUtilities.safeClose(connectionsStack.pop());
+			}
 		Properties dbProperties= new Properties();
 		dbProperties.setProperty("user", "anonymous");
 		dbProperties.setProperty("password","");
@@ -109,46 +102,152 @@ public class Statistics
 			} catch(Exception err) {}
 		}
 	
+	protected Connection getConnection() throws SQLException 
+		{
+		if(!connectionsStack.isEmpty()) return connectionsStack.pop();
+		Properties dbProperties=new Properties();
+		dbProperties.setProperty("user", "anonymous");
+		dbProperties.setProperty("password","");
+		dbProperties.setProperty("create", "false");	
+		Connection con=DriverManager.getConnection("jdbc:derby:"+dbFile,dbProperties);
+		return con;
+		}
+	
+	protected void recycleConnection(Connection con)
+		{
+		if(con==null || SQLUtilities.safeIsClosed(con)) return;
+		connectionsStack.push(con);
+		}
 	
 	public void clear() throws SQLException
 		{
-		Connection con= connectionsStack.getConnection();
+		Connection con= getConnection();
 		Statement stmt= con.createStatement();
-		for(String s: new String[]{"MW.entry","MW.revision"})
+		for(String s: new String[]{"MW.revision","MW.entry"})
 			{
 			stmt.executeUpdate("DELETE FROM "+s); 
 			}
 		stmt.close();
-		connectionsStack.recycle(con);
+		recycleConnection(con);
+		}
+	
+	public Entry findEntryById(int id) throws SQLException
+		{
+		Entry entry=null;
+		Connection con= getConnection();
+		PreparedStatement pstmt= con.prepareStatement(
+				"select namespace,name from MW.entry where id=?"
+				);
+		pstmt.setInt(1, id);
+		ResultSet row= pstmt.executeQuery();
+		while(row.next())
+			{
+			entry= Entry.create(MWNamespace.findById(row.getInt(1)), row.getString(2));
+			break;
+			}
+		pstmt.close();
+		recycleConnection(con);
+		return entry;
+		}
+	
+	public <T extends Entry> T findEntryById(int id,Class<T> clazz)  throws SQLException
+		{
+		return clazz.cast(findEntryById(id));
 		}
 	
 	
+	public Collection<Revision> listRevisions(
+			Entry entry,
+			User user,
+			Timestamp start,
+			Timestamp end
+			)   throws SQLException
+		{
+		ArrayList<Revision> items= new ArrayList<Revision>();
+		Number user_id = null;
+		Number entry_id = null;
+		if(user!=null)
+			{
+			user_id=findEntryId(user);
+			if(user_id==null) return items;
+			}
+		
+		if(entry!=null)
+			{
+			entry_id=findEntryId(entry);
+			if(entry_id==null) return items;
+			}
+		
+		StringBuilder sql= new StringBuilder(
+			"select mwuser_id,page_id,when,size,revcomment from MW.revision where 1=1 "
+				);
+		
+		if(user_id!=null) sql.append(" and mwuser_id=?");
+		if(entry_id!=null) sql.append(" and page_id=?");
+		if(start!=null) sql.append(" and when>=?");
+		if(end!=null) sql.append(" and when<?");
+		
+		
+		int i=0;
+		Connection con= getConnection();
+		PreparedStatement pstmt= con.prepareStatement(sql.toString());
+		if(user_id!=null) pstmt.setInt(++i, user_id.intValue());
+		if(entry_id!=null) pstmt.setInt(++i, entry_id.intValue());
+		if(start!=null)  pstmt.setTimestamp(++i, start);
+		if(end!=null) pstmt.setTimestamp(++i, end);
+		ResultSet row= pstmt.executeQuery();
+		while(row.next())
+			{
+			Revision rev= new Revision(
+					(entry==null?findEntryById(row.getInt(2), Entry.class):entry),
+					row.getTimestamp(3),
+					(user==null?findEntryById(row.getInt(1), User.class):user),
+					row.getInt(4),
+					row.getString(5)
+					);
+			items.add(rev);
+			}
+		pstmt.close();
+		
+		recycleConnection(con);
+		return items;
+		}
+	
+	public Number findEntryId(Entry entry) throws SQLException
+		{
+		Number id=null;
+		Connection con= getConnection();
+		PreparedStatement pstmt= con.prepareStatement("select id from MW.entry where namespace=? and name=?");
+		pstmt.setInt(1, entry.getNamespace().getId());
+		pstmt.setString(2, entry.getLocalName());
+		id= SQLUtilities.selectOneOrZeroValue(pstmt.executeQuery(), Number.class);
+		recycleConnection(con);
+		return id;
+		}
 	
 	public int insertEntry(Entry entry) throws SQLException
 		{
 		Number id=null;
-		Connection con= connectionsStack.getConnection();
+		
 		while(true)
 			{
-			PreparedStatement pstmt= con.prepareStatement("select id from MW.entry where namespace=? and name=?");
-			pstmt.setInt(1, entry.getNamespace().getId());
-			pstmt.setString(2, entry.getLocalName());
-			id= SQLUtilities.selectOneOrZeroValue(pstmt.executeQuery(), Number.class);
+			id= findEntryId(entry);
 			if(id!=null) break;
-			pstmt.close();
-			pstmt= con.prepareStatement(
+			Connection con= getConnection();
+			PreparedStatement pstmt= con.prepareStatement(
 				"insert into MW.entry(namespace,name) values(?,?)");
 			pstmt.setInt(1, entry.getNamespace().getId());
 			pstmt.setString(2, entry.getLocalName());
 			if(pstmt.executeUpdate()!=1) throw new SQLException("Cannot insert into MW.entry:"+entry);
+			recycleConnection(con);
 			}
-		connectionsStack.recycle(con);
+		
 		return id.intValue();
 		}
 	
 	public Collection<Entry> listEntries(MWNamespace ns) throws SQLException
 		{
-		Connection con= connectionsStack.getConnection();
+		Connection con= getConnection();
 		ArrayList<Entry> items= new ArrayList<Entry>();
 		PreparedStatement pstmt= con.prepareStatement(
 			"select name from MW.entry where namespace=?"	
@@ -159,7 +258,7 @@ public class Statistics
 			{
 			items.add(Entry.create(ns,row.getString(1)));
 			}
-		connectionsStack.recycle(con);
+		recycleConnection(con);
 		return items;
 		}
 	
@@ -187,7 +286,7 @@ public class Statistics
 		{
 		int user_id= insertEntry(rev.getUser());
 		int page_id= insertEntry(rev.getEntry());
-		Connection con= connectionsStack.getConnection();
+		Connection con= getConnection();
 		PreparedStatement pstmt= con.prepareStatement(
 			"insert into MW.revision(mwuser_id,page_id,when,size,revcomment) values" +
 			"(?,?,?,?,?)"
@@ -197,12 +296,13 @@ public class Statistics
 		pstmt.setTimestamp(3, new Timestamp(rev.getDate().getTime()));
 		pstmt.setInt(4, rev.getSize());
 		pstmt.setString(5, rev.getComment());
+		if(pstmt.executeUpdate()!=1) throw new SQLException("Cannot insert "+rev);
 		con.close();
 		}
 	
 	public static void main(String[] args) {
 		try {
-			Statistics app= new Statistics(new File("/home/pierre/tmp/derbydb"));
+			Statistics app= new Statistics(new File("/home/lindenb/tmp/derbydb"));
 			app.clear();
 			for(Revision r:new MWQuery().listRevisions(new Page("Rotavirus")))
 				{
