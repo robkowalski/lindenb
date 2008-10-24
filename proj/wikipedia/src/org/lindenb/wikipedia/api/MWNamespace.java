@@ -26,5 +26,14 @@ public enum MWNamespace {
              this.id=id;
              }
      public int getId() { return id;}
-
+     
+     
+     public static MWNamespace findById(int id)
+     	{
+    	for(MWNamespace ns: values())
+    		{
+    		if(ns.getId()==id) return ns;
+    		}
+    	return null; 
+     	}
 	}

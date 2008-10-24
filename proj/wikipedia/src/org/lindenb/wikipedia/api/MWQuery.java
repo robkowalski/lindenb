@@ -11,6 +11,7 @@ import java.util.Comparator;
 import java.util.Set;
 import java.util.TreeSet;
 
+
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
@@ -20,11 +21,13 @@ import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 
 
+
 public class MWQuery
 	{
 	private static final QName AttTitle=new QName("title");
 	private static final QName AttEicontinue=new QName("eicontinue");
 	private static final QName AttRvstartid=new QName("rvstartid");
+	
 	private static final QName AttRevId=new QName("revid");
 	private static final QName AttSize =new QName("size");
 	private static final QName AttUser=new QName("user");
@@ -116,14 +119,15 @@ public class MWQuery
 						{
 						StartElement e=event.asStartElement();
 						String name=e.getName().getLocalPart();
+						
 						if(name.equals("rev"))
 							{
-							Attribute revid =e.getAttributeByName(AttRevId);
 							Attribute user =e.getAttributeByName(AttUser);
 							Attribute timestamp =e.getAttributeByName(AttTimestamp);
 							Attribute comment =e.getAttributeByName(AttComment);
 							Attribute size =e.getAttributeByName(AttSize);
-						
+							Attribute revid =e.getAttributeByName(AttRevId);
+							
 							if(revid!=null &&
 							   user!=null &&
 							   timestamp!=null &&
@@ -242,11 +246,11 @@ public class MWQuery
 				{
 				System.err.println(r+" "+(++i));
 				}
-			/*
+			
 			for(Revision r:app.listRevisions(new Page("Rotavirus")))
 				{
 				System.err.println(r);
-				}*/
+				}
 			
 			} 
 		catch (Exception e) {

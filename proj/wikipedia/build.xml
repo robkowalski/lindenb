@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="lindenb" default="all">
+ <property environment="env"/><!-- prefix for environnement properties -->
+ <property name="home.dir" value="${env.HOME}"/>
+ <property file="${home.dir}/.ant-global.properties"/>
+ <property name="rootdir" value="../.."/>
+ <property name="builddir" value="${rootdir}/build"/>
+ <property name="compiledir" value="${builddir}/compile"/>
+ <property name="testdir" value="${home.dir}/tmp/derbydb"/>
+	
+  <path id="derbylib">
+    <pathelement path="${derby.lib}/derby.jar"/>
+  	 <pathelement path="${derby.lib}/derbyclient.jar"/>
+  </path>
+
+	
+
+ <target name="all" depends="wikistats">
+</target>
+
+
+
+ <target name="taskdefs">
+ 	
+	 <mkdir dir="${builddir}/ant"/>
+	 <javac destdir="${builddir}/ant">
+	 <src path="${rootdir}/src/java"/>
+	  <include name="org/lindenb/ant/CompileInfoTask.java"/>
+	</javac>
+ 	
+    <taskdef name="compileInfoTask"
+        	 classname="org.lindenb.ant.CompileInfoTask"
+        	 classpath="${rootdir}/build/ant"/>
+ </target>
+	
+	
+	 <target name="wikistats" depends="taskdefs" >
+	 	
+		 <mkdir dir="${compiledir}"/>
+		 
+		 <copy todir="${compiledir}" includeEmptyDirs="false">
+			 <fileset dir="src"/>
+			 <fileset dir="${rootdir}/src/java">
+				 <filename name="**/*.java"/>
+			 </fileset>
+		 </copy>
+		 
+	 	 <compileInfoTask
+	 			name="wikistats"
+	 			package="org.lindenb.util"
+	 			dir="${compiledir}"
+	 			/>
+		 
+		 
+		 <javac srcdir="${compiledir}"
+			destdir="${compiledir}"
+			debug="true"
+			source="1.6"
+			target="1.6">
+			 <include name="**/genewiki/GeneWikiAnalysis.java"/>
+		 </javac>
+		 
+		 <delete includeEmptyDirs="true">
+			 <fileset dir="${compiledir}" includes="**/*.java"/>
+		 </delete>
+		 <jar destfile="${rootdir}/build/jeter.jar"
+		      basedir="${compiledir}">
+			 <manifest>
+				 <attribute
+					   name="Main-Class"
+					   value="org.gnf.genewiki.GeneWikiAnalysis"
+					   />
+			 </manifest>
+		 </jar>
+		 <delete dir="${compiledir}"/> 
+	 </target>
+	
+	<target name="run" depends="wikistats" >
+		<!-- <java classname="org.gnf.genewiki.GeneWikiAnalysis">
+			<classpath>
+				<path refid="derbylib"/>
+				<pathelement path="${rootdir}/build/jeter.jar"/>
+			</classpath>
+			 <arg value="-f"/>
+			 <arg value="${testdir}"/>
+			 <arg value="clear"/>
+		</java>
+		
+		<java classname="org.gnf.genewiki.GeneWikiAnalysis">
+			<classpath>
+				<path refid="derbylib"/>
+				<pathelement path="${rootdir}/build/jeter.jar"/>
+			</classpath>
+			 <arg value="-f"/>
+			 <arg value="${testdir}"/>
+			 <arg value="build"/>
+		</java> 
+
+		<java classname="org.gnf.genewiki.GeneWikiAnalysis">
+			<classpath>
+				<path refid="derbylib"/>
+				<pathelement path="${rootdir}/build/jeter.jar"/>
+			</classpath>
+			 <arg value="-f"/>
+			 <arg value="${testdir}"/>
+			 <arg value="dump"/>
+		</java>			-->
+		
+		<java classname="org.gnf.genewiki.GeneWikiAnalysis">
+			<classpath>
+				<path refid="derbylib"/>
+				<pathelement path="${rootdir}/build/jeter.jar"/>
+			</classpath>
+			 <arg value="-f"/>
+			 <arg value="${testdir}"/>
+			 <arg value="-o"/>
+			<arg value="${home.dir}/jeter.svg"/>
+			 <arg value="svg"/>
+		</java>	
+		
+	</target>
+</project>
