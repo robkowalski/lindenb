@@ -15,7 +15,7 @@
 
 	
 
- <target name="all" depends="wikistats">
+ <target name="all" depends="genewikistats">
 </target>
 
 
@@ -34,7 +34,7 @@
  </target>
 	
 	
-	 <target name="wikistats" depends="taskdefs" >
+	 <target name="genewikistats" depends="taskdefs" >
 	 	
 		 <mkdir dir="${compiledir}"/>
 		 
@@ -63,7 +63,7 @@
 		 <delete includeEmptyDirs="true">
 			 <fileset dir="${compiledir}" includes="**/*.java"/>
 		 </delete>
-		 <jar destfile="${rootdir}/build/jeter.jar"
+		 <jar destfile="${rootdir}/build/genewikistats.jar"
 		      basedir="${compiledir}">
 			 <manifest>
 				 <attribute
@@ -75,11 +75,11 @@
 		 <delete dir="${compiledir}"/> 
 	 </target>
 	
-	<target name="run" depends="wikistats" >
+	<target name="run" depends="genewikistats" >
 		<!-- <java classname="org.gnf.genewiki.GeneWikiAnalysis">
 			<classpath>
 				<path refid="derbylib"/>
-				<pathelement path="${rootdir}/build/jeter.jar"/>
+				<pathelement path="${rootdir}/build/genewikistats"/>
 			</classpath>
 			 <arg value="-f"/>
 			 <arg value="${testdir}"/>
@@ -89,7 +89,7 @@
 		<java classname="org.gnf.genewiki.GeneWikiAnalysis">
 			<classpath>
 				<path refid="derbylib"/>
-				<pathelement path="${rootdir}/build/jeter.jar"/>
+				<pathelement path="${rootdir}/build/genewikistats"/>
 			</classpath>
 			 <arg value="-f"/>
 			 <arg value="${testdir}"/>
@@ -99,7 +99,7 @@
 		<java classname="org.gnf.genewiki.GeneWikiAnalysis">
 			<classpath>
 				<path refid="derbylib"/>
-				<pathelement path="${rootdir}/build/jeter.jar"/>
+				<pathelement path="${rootdir}/build/genewikistats"/>
 			</classpath>
 			 <arg value="-f"/>
 			 <arg value="${testdir}"/>
@@ -109,7 +109,7 @@
 		<java classname="org.gnf.genewiki.GeneWikiAnalysis">
 			<classpath>
 				<path refid="derbylib"/>
-				<pathelement path="${rootdir}/build/jeter.jar"/>
+				<pathelement path="${rootdir}/build/genewikistats.jar"/>
 			</classpath>
 			 <arg value="-f"/>
 			 <arg value="${testdir}"/>
