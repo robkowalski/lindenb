@@ -4,11 +4,19 @@ public abstract class Entry
 implements Comparable<Entry>
 {
 private String localName;
-protected Entry( String localName)
+protected Entry( String name)
 	{
-	if(localName==null) throw new NullPointerException("name is null");
-	if(localName.length()==0) throw new IllegalArgumentException("empty name");
-	this.localName=localName;
+	if(name==null) throw new NullPointerException("name is null");
+	int i=name.indexOf(':');
+	if(i!=-1 && name.substring(0,i).equals(getNamespace().name()))
+		{
+		name=name.substring(i+1);
+		}
+	
+	if(name.length()==0) throw new IllegalArgumentException("empty name");
+	
+	this.localName=name.substring(0,1).toUpperCase();//1st letter is not case sensitive in MW
+	if(name.length()>1) this.localName+= name.substring(1);
 	}
 
 @Override
@@ -69,4 +77,12 @@ public static Entry create(MWNamespace ns,String localName)
 		default: throw new IllegalArgumentException("not implemented "+ns);
 		}
 	}
+
+public static Entry create(String qName)
+	{
+	int i=qName.indexOf(':');
+	if(i==-1) return create(MWNamespace.Main,qName);
+	return create(MWNamespace.valueOf(qName.substring(0,i)),qName.substring(i+1));
+	}
+
 }
