@@ -4,19 +4,25 @@ import java.util.Date;
 
 public class Revision
 	{
+	private int revid;
 	private Entry entry;
 	private Date date;
 	private User user;
 	private int size;
 	private String comment;
-	public Revision(Entry entry,Date date,User user,int size,String comment)
+	public Revision(int revid,Entry entry,Date date,User user,int size,String comment)
 		{
+		this.revid=revid;
 		this.entry=entry;
 		this.date=date;
 		this.user=user;
 		this.size=size;
 		this.comment=comment;
 		}
+	public int getRedId()
+		{
+		return this.revid;
+		}	
 	
 	public Date getDate()
 		{

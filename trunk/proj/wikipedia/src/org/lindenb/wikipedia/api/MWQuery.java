@@ -8,6 +8,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -27,7 +28,9 @@ public class MWQuery
 	private static final QName AttTitle=new QName("title");
 	private static final QName AttEicontinue=new QName("eicontinue");
 	private static final QName AttRvstartid=new QName("rvstartid");
-	
+	private static final QName AttClcontinue=new QName("clcontinue");
+	private static final QName AttPlcontinue=new QName("plcontinue");
+
 	private static final QName AttRevId=new QName("revid");
 	private static final QName AttSize =new QName("size");
 	private static final QName AttUser=new QName("user");
@@ -39,6 +42,7 @@ public class MWQuery
 	private String base;
 	private XMLInputFactory xmlInputFactory;
 	
+
 	public MWQuery()
 		{
 		this(Wikipedia.BASE);
@@ -80,6 +84,170 @@ public class MWQuery
 		return 500;
 		}
 	
+	public CategoryTree getParentalCategoryTree(Category category)  throws IOException
+		{
+		CategoryTree tree= new CategoryTree(category);
+		Set<Category> seen=new HashSet<Category>();
+		_getParentalCategoryTree(tree,seen);
+		return tree;
+		}
+	
+	private void _getParentalCategoryTree(CategoryTree root,Set<Category> seen)  throws IOException
+		{
+		if(!seen.add(root.getCategory())) return;
+		System.err.println(root);
+		Set<CategoryTree> remains= new HashSet<CategoryTree>();
+		
+		for(Category parent:listCategories(root.getCategory()))
+			{
+			CategoryTree node=new CategoryTree(parent);
+			node.getChildren().add(root);
+			
+			if(root.getParents().add(node))
+				{
+				System.err.println(" add "+root+" -> "+node.getCategory());
+				remains.add(node);
+				}
+			}
+		for(CategoryTree parent:remains)
+			{
+			_getParentalCategoryTree(parent,seen);
+			}
+		}
+	/*
+	public Set<Category> listParentCategories(Category category)  throws IOException
+		{
+		boolean dirty=true;
+		Set<Category> categories= new TreeSet<Category>();
+		try
+			{
+			String plcontinue=null;
+			while(dirty)
+				{
+				dirty=false;
+				
+				String url=getBaseApi()+"?action=query" +
+						"&format=xml" +
+						"&prop=links" +
+						(plcontinue!=null?"&plcontinue="+plcontinue:"")+
+						"&titles="+escape(category)+
+						"&pllimit=" +getLimit()+
+						"&plnamespace="+MWNamespace.Category.getId()
+						;
+				System.err.println(url);
+				XMLEventReader reader= open(url);
+				
+				while(reader.hasNext())
+					{
+					XMLEvent event = reader.nextEvent();
+					if(event.isStartElement())
+						{
+						StartElement e=event.asStartElement();
+						String name=e.getName().getLocalPart();
+						
+						if(name.equals("pl"))
+							{
+							Attribute cat =e.getAttributeByName(AttTitle);
+							
+							if(cat!=null)
+								{
+								Category parent=new Category(cat.getValue());
+								
+								if(categories.add(parent))
+									{
+									dirty=true;
+									}
+								}
+							}
+						else if(name.equals("links"))
+							{
+							Attribute clcont= e.getAttributeByName(AttPlcontinue);
+							if(clcont!=null)
+								{
+								plcontinue=clcont.getValue();
+								}
+							}
+						}
+					}
+				reader.close();
+				if(plcontinue==null) break;
+				}
+			return categories;
+			}
+		catch(XMLStreamException err)
+			{
+			throw new IOException(err);
+			}
+		}*/
+	
+	public Collection<Category> listCategories(Entry entry)  throws IOException
+		{
+		boolean dirty=true;
+		Set<Category> categories= new TreeSet<Category>();
+		try
+			{
+			String clcontinue=null;
+			while(dirty)
+				{
+				dirty=false;
+				
+				String url=getBaseApi()+"?action=query" +
+						"&format=xml" +
+						"&prop=categories" +
+						(clcontinue!=null?"&clcontinue="+clcontinue:"")+
+						"&titles="+escape(entry)+
+						"&cllimit="+getLimit()
+						;
+				
+				XMLEventReader reader= open(url);
+				
+				while(reader.hasNext())
+					{
+					XMLEvent event = reader.nextEvent();
+					if(event.isStartElement())
+						{
+						StartElement e=event.asStartElement();
+						String name=e.getName().getLocalPart();
+						
+						if(name.equals("cl"))
+							{
+							Attribute cat =e.getAttributeByName(AttTitle);
+							
+							if(cat!=null)
+								{
+								Category rev=new Category(
+									cat.getValue()
+									);
+								
+								if(categories.add(rev))
+									{
+									dirty=true;
+									}
+									
+								}
+							}
+						else if(name.equals("categories"))
+							{
+							Attribute clcont= e.getAttributeByName(AttClcontinue);
+							if(clcont!=null)
+								{
+								clcontinue=clcont.getValue();
+								}
+							}
+						}
+					}
+				reader.close();
+				if(clcontinue==null) break;
+				}
+			return categories;
+			}
+			
+			catch(XMLStreamException err)
+				{
+				throw new IOException(err);
+				}
+		}
+	
 	public Collection<Revision> listRevisions(Entry entry) throws IOException
 		{
 		return listRevisions(entry,null);
@@ -109,9 +277,8 @@ public class MWQuery
 						"&rvlimit=15" +
 						"&rvprop=ids|flags|timestamp|user|size|comment" 
 						;
-				
 				XMLEventReader reader= open(url);
-				/** loop until we find a rdf:RDF element */
+				
 				while(reader.hasNext())
 					{
 					XMLEvent event = reader.nextEvent();
@@ -135,6 +302,7 @@ public class MWQuery
 							   size!=null)
 								{
 								Revision rev=new Revision(
+									Integer.parseInt(revid.getValue()),
 									entry,
 									DATE_FORMAT.parse(timestamp.getValue()),
 									new User(user.getValue()),
@@ -195,7 +363,7 @@ public class MWQuery
 					;
 				
 				XMLEventReader reader = open(url);
-				/** loop until we find a rdf:RDF element */
+				
 				while(reader.hasNext())
 					{
 					XMLEvent event = reader.nextEvent();
@@ -242,6 +410,25 @@ public class MWQuery
 		try {
 			MWQuery app = new MWQuery();
 			int i=0;
+			
+			//CategoryTree tree=app.getParentalCategoryTree(new Category("Proteins"));
+			//tree.toRDF(System.out,Wikipedia.BASE+"/wiki/");
+			
+			
+			
+			System.err.println("XX");
+			
+			for(Category r:app.listCategories(new Category("French biologists")))
+				{
+				System.err.println(r);
+				}
+			
+			if(1==1) return;
+			for(Category r:app.listCategories(new Page("Albert Einstein")))
+				{
+				System.err.println(r);
+				}
+			
 			for(Page r:app.listPagesEmbedding(new Template("PBB Controls")))
 				{
 				System.err.println(r+" "+(++i));

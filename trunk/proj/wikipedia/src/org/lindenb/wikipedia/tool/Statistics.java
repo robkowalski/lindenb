@@ -8,14 +8,18 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Properties;
+import java.util.Set;
 import java.util.Stack;
+import java.util.TreeSet;
 
 import org.lindenb.sql.SQLUtilities;
+import org.lindenb.wikipedia.api.Category;
 import org.lindenb.wikipedia.api.Entry;
 import org.lindenb.wikipedia.api.MWNamespace;
 import org.lindenb.wikipedia.api.MWQuery;
@@ -27,7 +31,7 @@ import org.lindenb.wikipedia.api.User;
 
 public class Statistics
 	{
-	private static final String VERSION="1.0.0";
+	private static final String VERSION="1.0.1";
 	private static final String JDBC_DRIVER_NAME="org.apache.derby.jdbc.EmbeddedDriver";
 	private File dbFile;
 	private Stack<Connection> connectionsStack= new Stack<Connection>();
@@ -55,7 +59,8 @@ public class Statistics
 				"create table MW.version(version varchar(50) not null unique);",
 				"insert into  MW.version(version) values ('"+VERSION+"');",
 				"create table MW.entry(id int not null PRIMARY KEY generated always as identity , namespace int not null,name varchar(255) not null,unique (namespace,name));",
-				"create table MW.revision(id int not null generated always as identity ,mwuser_id int not null references MW.entry(id),page_id int not null references MW.entry(id),when timestamp not null,size int not null default 0,revcomment varchar(255));"
+				"create table MW.revision(id int not null unique ,mwuser_id int not null references MW.entry(id),page_id int not null references MW.entry(id),when timestamp not null,size int not null default 0,revcomment varchar(255));",
+				"create table MW.entry2entry(entry1_id int not null references MW.entry(id),entry2_id int not null references MW.entry(id),unique (entry1_id,entry2_id));"
 				};
 			
 
@@ -116,6 +121,7 @@ public class Statistics
 	protected void recycleConnection(Connection con)
 		{
 		if(con==null || SQLUtilities.safeIsClosed(con)) return;
+		try { con.clearWarnings(); } catch(SQLException err) {}
 		connectionsStack.push(con);
 		}
 	
@@ -123,7 +129,7 @@ public class Statistics
 		{
 		Connection con= getConnection();
 		Statement stmt= con.createStatement();
-		for(String s: new String[]{"MW.revision","MW.entry"})
+		for(String s: new String[]{"MW.entry2entry","MW.revision","MW.entry"})
 			{
 			stmt.executeUpdate("DELETE FROM "+s); 
 			}
@@ -179,7 +185,7 @@ public class Statistics
 			}
 		
 		StringBuilder sql= new StringBuilder(
-			"select mwuser_id,page_id,when,size,revcomment from MW.revision where 1=1 "
+			"select mwuser_id,page_id,when,size,revcomment,id from MW.revision where 1=1 "
 				);
 		
 		if(user_id!=null) sql.append(" and mwuser_id=?");
@@ -199,6 +205,7 @@ public class Statistics
 		while(row.next())
 			{
 			Revision rev= new Revision(
+					row.getInt(6),
 					(entry==null?findEntryById(row.getInt(2), Entry.class):entry),
 					row.getTimestamp(3),
 					(user==null?findEntryById(row.getInt(1), User.class):user),
@@ -244,6 +251,32 @@ public class Statistics
 		
 		return id.intValue();
 		}
+
+	public void insertLinks(Entry one,Collection<? extends Entry> many) throws SQLException
+		{
+		Number id1=insertEntry(one);
+		
+		for(Entry child : many)
+			{
+			Number id2= insertEntry(child);
+			Connection con= getConnection();
+			PreparedStatement pstmt= con.prepareStatement(
+				"insert into MW.entry2entry(entry1_id,entry2_id) values(?,?)");
+			pstmt.setInt(1, id1.intValue());
+			pstmt.setInt(2,  id2.intValue());
+			try
+				{
+				if(pstmt.executeUpdate()!=1) throw new SQLException("Cannot insert into MW.entry2entry:"+one+"->"+child);
+				}
+			catch(SQLIntegrityConstraintViolationException e)
+				{
+				
+				//just ignore
+				}
+			recycleConnection(con);
+			}
+		}
+	
 	
 	public Collection<Entry> listEntries(MWNamespace ns) throws SQLException
 		{
@@ -281,6 +314,39 @@ public class Statistics
 		{
 		return listEntries(MWNamespace.User,User.class);
 		}
+	public Collection<Category> listCategories() throws SQLException
+		{
+		return listEntries(MWNamespace.Category,Category.class);
+		}
+	//"create table MW.entry2cat(entry_id int not null,cat_id int not null,unique (entry_id,cat_id));"
+	
+	public Set<Category> listCategories(Entry entry) throws SQLException
+		{
+		Set<Category> items= new TreeSet<Category>();
+		Number entryid= findEntryId(entry);
+		if(entryid==null) return items;
+		Connection con= getConnection();
+		
+		PreparedStatement pstmt= con.prepareStatement(
+			"select MW.entry.name " +
+			"from " +
+				"MW.entry, " +
+				"MW.entry2entry " +
+			"where " +
+				"MW.entry2entry.entry1_id=? and "+	
+				"MW.entry2entry.entry2_id= MW.entry.id and "+
+				"MW.entry.namespace=?"	
+			);
+		pstmt.setInt(1, entryid.intValue());
+		pstmt.setInt(2, MWNamespace.Category.getId());
+		ResultSet row= pstmt.executeQuery();
+		while(row.next())
+			{
+			items.add(new Category(row.getString(1)));
+			}
+		recycleConnection(con);
+		return items;
+		}
 	
 	public void insertRevision(Revision rev) throws SQLException
 		{
@@ -288,15 +354,24 @@ public class Statistics
 		int page_id= insertEntry(rev.getEntry());
 		Connection con= getConnection();
 		PreparedStatement pstmt= con.prepareStatement(
-			"insert into MW.revision(mwuser_id,page_id,when,size,revcomment) values" +
-			"(?,?,?,?,?)"
+			"insert into MW.revision(mwuser_id,page_id,when,size,revcomment,id) values" +
+			"(?,?,?,?,?,?)"
 			);
 		pstmt.setInt(1, user_id);
 		pstmt.setInt(2, page_id);
 		pstmt.setTimestamp(3, new Timestamp(rev.getDate().getTime()));
 		pstmt.setInt(4, rev.getSize());
 		pstmt.setString(5, rev.getComment());
-		if(pstmt.executeUpdate()!=1) throw new SQLException("Cannot insert "+rev);
+		pstmt.setInt(6, rev.getRedId());
+		
+		try
+			{
+			if(pstmt.executeUpdate()!=1) throw new SQLException("Cannot insert "+rev);
+			}
+		catch(SQLIntegrityConstraintViolationException e)
+			{
+			//just ignore for duplicate
+			}
 		con.close();
 		}
 	
