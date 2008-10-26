@@ -1,9 +1,7 @@
-package org.lindenb.wikipedia.tool;
+package org.lindenb.wikipedia.api;
 
 
 import java.io.File;
-import java.io.IOException;
-import java.io.PrintStream;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -21,8 +19,7 @@ import java.util.Stack;
 import java.util.TreeSet;
 
 import org.lindenb.sql.SQLUtilities;
-import org.lindenb.sw.vocabulary.DC;
-import org.lindenb.sw.vocabulary.RDF;
+
 import org.lindenb.wikipedia.api.Category;
 import org.lindenb.wikipedia.api.Entry;
 import org.lindenb.wikipedia.api.MWNamespace;
@@ -30,11 +27,11 @@ import org.lindenb.wikipedia.api.MWQuery;
 import org.lindenb.wikipedia.api.Page;
 import org.lindenb.wikipedia.api.Revision;
 import org.lindenb.wikipedia.api.User;
-import org.lindenb.xml.XMLUtilities;
 
 
 
-public class Statistics
+public class DerbyStorageModel
+	extends AbstractStorageModel
 	{
 	private static final String VERSION="1.0.1";
 	private static final String JDBC_DRIVER_NAME="org.apache.derby.jdbc.EmbeddedDriver";
@@ -43,7 +40,7 @@ public class Statistics
 
 	
 	
-	public Statistics()
+	public DerbyStorageModel()
 		{
 		}
 	
@@ -139,7 +136,9 @@ public class Statistics
 		connectionsStack.push(con);
 		}
 	
-	public void clear() throws SQLException
+	public void clear() throws MWException
+		{
+		try
 		{
 		Connection con= getConnection();
 		Statement stmt= con.createStatement();
@@ -149,6 +148,7 @@ public class Statistics
 			}
 		stmt.close();
 		recycleConnection(con);
+		} catch(SQLException err) { throw new MWException(err);}
 		}
 	
 	public Entry findEntryById(int id) throws SQLException
@@ -181,8 +181,9 @@ public class Statistics
 			User user,
 			Timestamp start,
 			Timestamp end
-			)   throws SQLException
+			)   throws MWException
 		{
+		try {
 		ArrayList<Revision> items= new ArrayList<Revision>();
 		Number user_id = null;
 		Number entry_id = null;
@@ -232,6 +233,7 @@ public class Statistics
 		
 		recycleConnection(con);
 		return items;
+		} catch(SQLException err) { throw new MWException(err);}
 		}
 	
 	public Number findEntryId(Entry entry) throws SQLException
@@ -246,8 +248,9 @@ public class Statistics
 		return id;
 		}
 	
-	public int insertEntry(Entry entry) throws SQLException
+	protected int _insertEntry(Entry entry) throws SQLException
 		{
+		
 		Number id=null;
 		
 		while(true)
@@ -264,15 +267,24 @@ public class Statistics
 			}
 		
 		return id.intValue();
+		
 		}
 
-	public void insertLinks(Entry one,Collection<? extends Entry> many) throws SQLException
+	public void insertEntry(Entry entry) throws MWException
 		{
-		Number id1=insertEntry(one);
+		try{
+			_insertEntry(entry);
+		} catch(SQLException err) { throw new MWException(err);}
+		}
+	
+	public void insertLinks(Entry one,Collection<? extends Entry> many) throws MWException
+		{
+		try{
+		Number id1=_insertEntry(one);
 		
 		for(Entry child : many)
 			{
-			Number id2= insertEntry(child);
+			Number id2= _insertEntry(child);
 			Connection con= getConnection();
 			PreparedStatement pstmt= con.prepareStatement(
 				"insert into MW.entry2entry(entry1_id,entry2_id) values(?,?)");
@@ -289,13 +301,15 @@ public class Statistics
 				}
 			recycleConnection(con);
 			}
+		} catch(SQLException err) { throw new MWException(err);}
 		}
 	
 	
-	public Collection<Entry> listEntries(MWNamespace ns) throws SQLException
+	public Set<Entry> listEntries(MWNamespace ns) throws MWException
 		{
+		try{
 		Connection con= getConnection();
-		ArrayList<Entry> items= new ArrayList<Entry>();
+		Set<Entry> items= new TreeSet<Entry>();
 		PreparedStatement pstmt= con.prepareStatement(
 			"select name from MW.entry where namespace=?"	
 			);
@@ -307,35 +321,15 @@ public class Statistics
 			}
 		recycleConnection(con);
 		return items;
+		} catch(SQLException err) { throw new MWException(err);}
 		}
 	
-	public <T extends Entry >Collection<T> listEntries(MWNamespace ns,Class<T> clazz) throws SQLException
-		{
-		ArrayList<T> items= new ArrayList<T>();
-		for(Entry e: listEntries(ns))
-			{
-			items.add(clazz.cast(e));
-			}
-		return items;
-		}
 	
-	public Collection<Page> listPages() throws SQLException
-		{
-		return listEntries(MWNamespace.Main,Page.class);
-		}
-	
-	public Collection<User> listUsers() throws SQLException
-		{
-		return listEntries(MWNamespace.User,User.class);
-		}
-	public Collection<Category> listCategories() throws SQLException
-		{
-		return listEntries(MWNamespace.Category,Category.class);
-		}
 	//"create table MW.entry2cat(entry_id int not null,cat_id int not null,unique (entry_id,cat_id));"
 	
-	public Set<Category> listCategories(Entry entry) throws SQLException
+	public Set<Category> listCategories(Entry entry) throws MWException
 		{
+		try{
 		Set<Category> items= new TreeSet<Category>();
 		Number entryid= findEntryId(entry);
 		if(entryid==null) return items;
@@ -360,12 +354,14 @@ public class Statistics
 			}
 		recycleConnection(con);
 		return items;
+		} catch(SQLException err) { throw new MWException(err);}
 		}
 	
-	public void insertRevision(Revision rev) throws SQLException
+	public void insertRevision(Revision rev) throws MWException
 		{
-		int user_id= insertEntry(rev.getUser());
-		int page_id= insertEntry(rev.getEntry());
+		try{
+		int user_id= _insertEntry(rev.getUser());
+		int page_id= _insertEntry(rev.getEntry());
 		Connection con= getConnection();
 		PreparedStatement pstmt= con.prepareStatement(
 			"insert into MW.revision(mwuser_id,page_id,when,size,revcomment,id) values" +
@@ -387,49 +383,15 @@ public class Statistics
 			//just ignore for duplicate
 			}
 		con.close();
+		} catch(SQLException err) { throw new MWException(err);}
 		}
 	
 	
-	public void toRDF(PrintStream out,String base) throws SQLException,IOException
-		{
-		out.println("<rdf:RDF xmlns:rdf=\""+RDF.NS+"\"" +
-				" xmlns:dc=\"" + DC.NS+"\""+
-				" xmlns=\"http://"+base+"\">");
-		for(Page page:listPages())
-			{
-			out.println("  <Page rdf:about=\""+base+ "/"+
-					page.getQNameEncoded()
-					+"\">");
-			for(Category cat: listCategories(page))
-				{
-				out.println("    <category rdf:resource=\""+
-						base+ "/"+ cat.getQNameEncoded()
-						+"\"/>");
-				}
-			
-			
-
-			out.println("  </Page>");
-			}
-		for(Page page:listPages())
-			{
-			for(Revision rev: listRevisions(page,null,null,null))
-				{
-				out.println("  <Revision rdf:ID=\"#rev"+rev.getRevId()+"\">");
-				out.println("    <dc:date>"+XMLUtilities.escape(rev.getDate().toString())+"</dc:date>");
-				out.println("    <page rdf:resource=\""+base+ "/"+ page.getQNameEncoded() +"\"/>");
-				out.println("    <user rdf:resource=\""+base+ "/"+ rev.getUser().getQNameEncoded() +"\"/>");
-				if(rev.getSize()>0) out.println("    <size>"+rev.getSize()+"</size>");
-				out.println("    <comment>"+XMLUtilities.escape(rev.getComment())+"</comment>");
-				out.println("  </Revision>");
-				}
-			}
-		out.println("<rdf:RDF>");
-		}
+	
 	
 	public static void main(String[] args) {
 		try {
-			Statistics app= new Statistics();
+			DerbyStorageModel app= new DerbyStorageModel();
 			app.open(new File("/home/lindenb/tmp/derbydb"));
 			app.clear();
 			for(Revision r:new MWQuery().listRevisions(new Page("Rotavirus")))
