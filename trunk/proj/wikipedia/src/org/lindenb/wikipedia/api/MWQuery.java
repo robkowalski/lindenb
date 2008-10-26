@@ -274,7 +274,7 @@ public class MWQuery
 						"&prop=revisions" +
 						(rvstartid!=null?"&rvstartid="+rvstartid:"")+
 						"&titles="+escape(entry)+
-						"&rvlimit=15" +
+						"&rvlimit=" + getLimit()+
 						"&rvprop=ids|flags|timestamp|user|size|comment" 
 						;
 				XMLEventReader reader= open(url);
@@ -293,20 +293,22 @@ public class MWQuery
 							Attribute timestamp =e.getAttributeByName(AttTimestamp);
 							Attribute comment =e.getAttributeByName(AttComment);
 							Attribute size =e.getAttributeByName(AttSize);
+							if(size==null) System.err.println("SIZE==NULL !!");
 							Attribute revid =e.getAttributeByName(AttRevId);
+							
 							
 							if(revid!=null &&
 							   user!=null &&
 							   timestamp!=null &&
-							   comment!=null &&
-							   size!=null)
+							   comment!=null
+							   )//!size can be null
 								{
 								Revision rev=new Revision(
 									Integer.parseInt(revid.getValue()),
 									entry,
 									DATE_FORMAT.parse(timestamp.getValue()),
 									new User(user.getValue()),
-									Integer.parseInt(size.getValue()),
+									(size==null?-1:Integer.parseInt(size.getValue())),
 									comment.getValue()
 									);
 								if(filter==null || filter.accept(rev))
