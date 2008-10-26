@@ -9,6 +9,8 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -133,7 +135,10 @@ public class GeneWikiAnalysis
 		{
 		Connection con= getConnection();
 		Statement stmt= con.createStatement();
-		Timestamp minDate= SQLUtilities.selectOneValue(stmt.executeQuery("select min(when) from MW.revision"), Timestamp.class);
+		Timestamp minDate= SQLUtilities.selectOneValue(stmt.executeQuery(
+				"select min(when) from MW.revision"+
+				(use_size_instead_of_rev?" where size>0":"")
+				), Timestamp.class);
 		recycleConnection(con);
 		return minDate;
 		}
@@ -142,7 +147,10 @@ public class GeneWikiAnalysis
 		{
 		Connection con= getConnection();
 		Statement stmt= con.createStatement();
-		Timestamp maxDate= SQLUtilities.selectOneValue(stmt.executeQuery("select max(when) from MW.revision"), Timestamp.class);
+		Timestamp maxDate= SQLUtilities.selectOneValue(stmt.executeQuery(
+				"select max(when) from MW.revision"+
+				(use_size_instead_of_rev?" where size>0":"")
+		), Timestamp.class);
 		recycleConnection(con);
 		return maxDate;
 		}
@@ -154,6 +162,16 @@ public class GeneWikiAnalysis
 		return new SVGOutput();
 		}
 	
+	private boolean use_size_instead_of_rev=true;
+	private int user_window=5;
+	private int revisions_window=10;
+	
+	private static String range(int value, int window)
+		{
+		int step=value/window;
+		return "["+step*window+"-"+(step+1)*window+"[";
+		}
+	
 	private void manyEyes(PrintStream out) throws SQLException
 		{
 		final String TAB="\t";
@@ -161,9 +179,13 @@ public class GeneWikiAnalysis
 		Timestamp minDate= getMinDate();
 		Timestamp maxDate= getMaxDate();
 		double timeunit=(maxDate.getTime()-minDate.getTime())/(double)step;
+		
+		
+		
 		out.print("Page"+TAB);
 		out.print("Chromosome"+TAB);
-		out.print("Users");
+		out.print("Users"+TAB);
+		out.print("Revisions"+TAB);
 		for(int i=0;i+1< step;++i)
 			{
 			out.print(TAB);
@@ -194,10 +216,17 @@ public class GeneWikiAnalysis
 				{
 				users.add(r.getUser());
 				}
-			out.print(users.size());
+
+			out.print("users:"+range(users.size(), user_window));
+			out.print(TAB);
 			
+			Collection<Revision> pageRevisions=listRevisions(page, null, null,null);
+			out.print("revisions:"+range(pageRevisions.size(), revisions_window));
+			int prev_size=0;
 			for(int i=0;i+1< step;++i)
 				{
+				int size_in_this_range=0;
+				int revisions_in_this_range=0;
 				out.print(TAB);
 				Timestamp start=new Timestamp(
 						(long)(minDate.getTime()+ i*timeunit )
@@ -206,11 +235,37 @@ public class GeneWikiAnalysis
 						(long)(minDate.getTime()+ (i+1)*timeunit )
 						);
 				
-				for(@SuppressWarnings("unused") Revision r: listRevisions(page, null, start, end))
+				
+				for(Revision r:pageRevisions)
 					{
-					countRevisions++;
+					if(	start.getTime()<= r.getDate().getTime() &&
+							r.getDate().getTime()<end.getTime() )
+						{
+						revisions_in_this_range++;
+						size_in_this_range+= Math.max(r.getSize(),0);//size undefined before 2007 in wikipedia
+						}
 					}
-				out.print(countRevisions);
+				
+				
+				if(revisions_in_this_range==0)
+					{
+					size_in_this_range=prev_size;
+					}
+				else
+					{
+					size_in_this_range/=revisions_in_this_range;
+					}
+				
+				
+				if(use_size_instead_of_rev)
+					{
+					out.print(size_in_this_range);
+					}
+				else
+					{
+					out.print(countRevisions);
+					}
+				prev_size=size_in_this_range;
 				}
 			out.println();
     		}
