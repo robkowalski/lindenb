@@ -29,7 +29,7 @@ public class MWQuery
 	private static final QName AttEicontinue=new QName("eicontinue");
 	private static final QName AttRvstartid=new QName("rvstartid");
 	private static final QName AttClcontinue=new QName("clcontinue");
-	private static final QName AttPlcontinue=new QName("plcontinue");
+	//private static final QName AttPlcontinue=new QName("plcontinue");
 
 	private static final QName AttRevId=new QName("revid");
 	private static final QName AttSize =new QName("size");
@@ -318,8 +318,7 @@ public class MWQuery
 							
 							if(revid!=null &&
 							   user!=null &&
-							   timestamp!=null &&
-							   comment!=null
+							   timestamp!=null
 							   )//!size can be null
 								{
 								Revision rev=new Revision(
@@ -327,8 +326,8 @@ public class MWQuery
 									entry,
 									DATE_FORMAT.parse(timestamp.getValue()),
 									new User(user.getValue()),
-									(size==null?-1:Integer.parseInt(size.getValue())),
-									comment.getValue()
+									(size==null?Revision.NO_SIZE:Integer.parseInt(size.getValue())),
+									(comment==null?"N/A":comment.getValue())
 									);
 								if(filter==null || filter.accept(rev))
 									{

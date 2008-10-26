@@ -2,7 +2,6 @@ package org.lindenb.wikipedia.api;
 
 
 import java.io.PrintStream;
-import java.util.Collection;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -46,6 +45,7 @@ public abstract class AbstractStorageModel
 		{
 		return listEntries(MWNamespace.Category,Category.class);
 		}
+	
 	
 	public void toRDF(PrintStream out,String base) throws MWException
 		{

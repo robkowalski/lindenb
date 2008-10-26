@@ -30,7 +30,6 @@ import org.lindenb.wikipedia.api.Revision;
 import org.lindenb.wikipedia.api.Template;
 import org.lindenb.wikipedia.api.User;
 import org.lindenb.wikipedia.api.Wikipedia;
-import org.lindenb.wikipedia.tool.Statistics;
 import org.lindenb.xml.XMLUtilities;
 
 public class GeneWikiAnalysis
@@ -172,12 +171,101 @@ public class GeneWikiAnalysis
 		return "["+step*window+"-"+(step+1)*window+"[";
 		}
 	
+	private void export2(PrintStream out) throws SQLException,MWException
+		{
+		final String TAB="\t";
+		final int step=20;
+		Timestamp minDate= getMinDate();
+		Timestamp maxDate= getMaxDate();
+		maxDate= new Timestamp(maxDate.getTime()+1L);
+		double timeunit=(maxDate.getTime()-minDate.getTime())/(double)step;
+		
+		
+		out.print("#Page"+TAB);
+		out.print("Category"+TAB);
+		out.print("Users"+TAB);
+		out.print("Revisions"+TAB);
+		for(int i=0;i+1< step;++i)
+			{
+			out.print(TAB);
+			out.print(new Timestamp(
+					(long)(minDate.getTime()+ i*timeunit )
+				));
+			}
+		out.println();
+		
+		for(Page page: this.listPages())
+    		{
+			out.print(page.getLocalName());
+			out.print(TAB);
+			boolean found=false;
+			for(Category c: listCategories(page))
+				{
+				if(found)out.print('|');
+				out.print(c.getLocalName());
+				found=true;
+				}
+
+			out.print(TAB);
+			Set<User> users= new HashSet<User>();
+			Collection<Revision> pageRevisions=listRevisions(page, null, null,null);
+			for(Revision r: pageRevisions)
+				{
+				users.add(r.getUser());
+				}
+
+			out.print(users.size());
+			out.print(TAB);
+			
+			
+			out.print(pageRevisions.size());
+			int prev_size=0;
+			int prev_revisions=0;
+			for(int i=0;i< step;++i)
+				{
+				int size_in_this_range=Revision.NO_SIZE;
+				
+				out.print(TAB);
+				Timestamp start=new Timestamp(
+						(long)(minDate.getTime()+ i*timeunit )
+						);
+				Timestamp end=new Timestamp(
+						(long)(minDate.getTime()+ (i+1)*timeunit )
+						);
+				
+				
+				for(Revision r:pageRevisions)
+					{
+					if(	start.getTime()<= r.getDate().getTime() &&
+							r.getDate().getTime()<end.getTime() )
+						{
+						prev_revisions++;
+						if(r.getSize()!=Revision.NO_SIZE)
+							{
+							size_in_this_range=Math.max(r.getSize(),size_in_this_range);
+							}
+						}
+					}
+				if(size_in_this_range==Revision.NO_SIZE)
+					{
+					size_in_this_range=prev_size;
+					}
+				out.print(""+size_in_this_range+";"+prev_revisions);
+				
+				
+				prev_size=size_in_this_range;
+				}
+			out.println();
+    		}
+		}
+	
 	private void manyEyes(PrintStream out) throws SQLException,MWException
 		{
 		final String TAB="\t";
 		final int step=20;
 		Timestamp minDate= getMinDate();
 		Timestamp maxDate= getMaxDate();
+		maxDate= new Timestamp(maxDate.getTime()+1L);
 		double timeunit=(maxDate.getTime()-minDate.getTime())/(double)step;
 		
 		
@@ -212,7 +300,8 @@ public class GeneWikiAnalysis
 			int countRevisions=0;
 			out.print(TAB);
 			Set<User> users= new HashSet<User>();
-			for(Revision r: listRevisions(page, null, null,null))
+			Collection<Revision> pageRevisions=listRevisions(page, null, null,null);
+			for(Revision r:pageRevisions)
 				{
 				users.add(r.getUser());
 				}
@@ -220,10 +309,10 @@ public class GeneWikiAnalysis
 			out.print("users:"+range(users.size(), user_window));
 			out.print(TAB);
 			
-			Collection<Revision> pageRevisions=listRevisions(page, null, null,null);
+			
 			out.print("revisions:"+range(pageRevisions.size(), revisions_window));
 			int prev_size=0;
-			for(int i=0;i+1< step;++i)
+			for(int i=0;i< step;++i)
 				{
 				int size_in_this_range=0;
 				int revisions_in_this_range=0;
@@ -331,6 +420,7 @@ public class GeneWikiAnalysis
 					System.err.println("	svg  :dump diagram of the database");
 					System.err.println("	ibm  :dump diagram of the IBM/ManyEyes");
 					System.err.println("	rdf  :dump diagram to RDF");
+					System.err.println("	export2  :dump diagram to export2 fmt");
 					return;
 					}
 				 else if (args[optind].equals("-f"))
@@ -449,6 +539,13 @@ public class GeneWikiAnalysis
 		    	PrintStream out= System.out;
 		    	if(outFile!=null) out= new PrintStream(outFile);
 		    	app.toRDF(out,Wikipedia.BASE+"/wiki");
+		    	if(outFile!=null) { out.flush(); out.close();}
+		    	}
+		    else if(command.equals("export2"))
+		    	{
+		    	PrintStream out= System.out;
+		    	if(outFile!=null) out= new PrintStream(outFile);
+		    	app.export2(out);
 		    	if(outFile!=null) { out.flush(); out.close();}
 		    	}
 		    else
