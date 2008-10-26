@@ -38,6 +38,7 @@ import javax.swing.event.ListSelectionListener;
 import org.lindenb.awt.ColorUtils;
 import org.lindenb.swing.SwingUtils;
 import org.lindenb.util.Compilation;
+import org.lindenb.util.Debug;
 import org.lindenb.wikipedia.api.Category;
 import org.lindenb.wikipedia.api.Page;
 
@@ -174,7 +175,7 @@ public class RevisionVisualization extends JFrame
 			private static final long serialVersionUID = 1L;
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
-				pageList.clearSelection();
+				pageList.getSelectionModel().clearSelection();
 				}
 			}));
 		
@@ -193,7 +194,7 @@ public class RevisionVisualization extends JFrame
 			private static final long serialVersionUID = 1L;
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
-				catList.clearSelection();
+				catList.getSelectionModel().clearSelection();
 				}
 			}));
 		
@@ -242,6 +243,7 @@ public class RevisionVisualization extends JFrame
 			{
 			@Override
 			public void valueChanged(ListSelectionEvent e) {
+				Debug.debug();
 				dirty=true;
 				drawingArea.repaint();
 				}
@@ -261,6 +263,7 @@ public class RevisionVisualization extends JFrame
 	
 	private void computeShapes()
 		{
+		Debug.debug();
 		int drawingHeight= this.drawingArea.getHeight()-1;
 		boolean useRevision= useRevisionInsteadOfSize.isSelected();
 		Object array[]=this.pageList.getSelectedValues();
@@ -285,7 +288,7 @@ public class RevisionVisualization extends JFrame
 			{
 			f.displayed=true;
 			f.shape=null;
-			
+	
 			if(!selPages.isEmpty() && !selPages.contains(f))
 				{
 				f.displayed=false;
@@ -315,7 +318,7 @@ public class RevisionVisualization extends JFrame
 				{
 				all_sizes[i] += f.sizes[i];
 				all_revs[i] += f.revisions[i];
-				
+				if(i>0) all_revs[i]+=all_revs[i-1];
 				if(!useRevision)
 					{
 					max_xxx=Math.max(all_sizes[i],max_xxx);
@@ -336,7 +339,7 @@ public class RevisionVisualization extends JFrame
 			{
 			f.shape=null;
 			if(!f.displayed) continue;			
-			f.fill= gradient(index,countVisible);
+			f.fill= GRADIENT[index%GRADIENT.length];
 			++index;
 			
 			f.shape=new GeneralPath();
@@ -356,6 +359,7 @@ public class RevisionVisualization extends JFrame
 			for(int i= header.length-1;i>=0;--i)
 				{
 				curr_y[i] = prev_y[i]+f.sizes[i];
+				if(i>0) curr_y[i]+=f.sizes[i-1];
 				f.shape.lineTo(i*pixwin,
 						drawingHeight- (curr_y[i]/max_xxx)*drawingHeight
 						);
@@ -363,13 +367,15 @@ public class RevisionVisualization extends JFrame
 			f.shape.closePath();
 			prev_y=curr_y;
 			}
+		Debug.debug();
 		dirty=false;
 		}
 	
 	private void paintDrawingArea(Graphics2D g)
 		{
-		if(dirty) computeShapes();
 		
+		if(dirty) computeShapes();
+
 	
 		for(Figure f: this.figures)
 			{
@@ -377,6 +383,7 @@ public class RevisionVisualization extends JFrame
 			g.setColor(f.fill);
 			g.fill(f.shape);
 			}
+		
 		}
 	
 	/**
@@ -385,6 +392,7 @@ public class RevisionVisualization extends JFrame
 	public static void main(String[] args) {
 		try {
 			JFrame.setDefaultLookAndFeelDecorated(true);
+			Debug.setDebugging(true);
 			BufferedReader r= new BufferedReader(new FileReader(new File("/home/pierre/jeter2.txt")));
 			RevisionVisualization frame=new RevisionVisualization(r);
 			r.close();
