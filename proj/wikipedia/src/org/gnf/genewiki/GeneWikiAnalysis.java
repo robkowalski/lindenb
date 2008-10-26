@@ -9,7 +9,6 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
@@ -21,7 +20,9 @@ import org.lindenb.sw.vocabulary.XLINK;
 import org.lindenb.util.C;
 import org.lindenb.util.Compilation;
 import org.lindenb.wikipedia.api.Category;
+import org.lindenb.wikipedia.api.DerbyStorageModel;
 import org.lindenb.wikipedia.api.Entry;
+import org.lindenb.wikipedia.api.MWException;
 import org.lindenb.wikipedia.api.MWNamespace;
 import org.lindenb.wikipedia.api.MWQuery;
 import org.lindenb.wikipedia.api.Page;
@@ -33,7 +34,7 @@ import org.lindenb.wikipedia.tool.Statistics;
 import org.lindenb.xml.XMLUtilities;
 
 public class GeneWikiAnalysis
-	extends Statistics
+	extends DerbyStorageModel
 	{
 	/**
 	 * Outout as SVG
@@ -47,7 +48,7 @@ public class GeneWikiAnalysis
 		int height=1000;
 		int pixWindow=200;
 		
-		void print() throws SQLException,IOException
+		void print() throws MWException,IOException,SQLException
 			{
 
 			final String pallette[]=new String[]{
@@ -126,9 +127,8 @@ public class GeneWikiAnalysis
 		
 		}
 	
-	private GeneWikiAnalysis(File dbFile) throws SQLException
+	private GeneWikiAnalysis()
 		{
-		super(dbFile);
 		}
 	
 	private Timestamp getMinDate() throws SQLException
@@ -172,10 +172,10 @@ public class GeneWikiAnalysis
 		return "["+step*window+"-"+(step+1)*window+"[";
 		}
 	
-	private void manyEyes(PrintStream out) throws SQLException
+	private void manyEyes(PrintStream out) throws SQLException,MWException
 		{
 		final String TAB="\t";
-		final int step=100;
+		final int step=20;
 		Timestamp minDate= getMinDate();
 		Timestamp maxDate= getMaxDate();
 		double timeunit=(maxDate.getTime()-minDate.getTime())/(double)step;
@@ -271,7 +271,7 @@ public class GeneWikiAnalysis
     		}
 		}
 	
-	private void dump(PrintStream out) throws SQLException
+	private void dump(PrintStream out) throws SQLException,MWException
 		{
 		final String TAB="\t";
 		for(Page page: this.listPages())
@@ -307,10 +307,12 @@ public class GeneWikiAnalysis
 		{
 		try {
 			Template template=new Template("PBB Controls");
+			GeneWikiAnalysis app= new GeneWikiAnalysis();
 			File dbFile= null;
 			File outFile= null;
 			int limit=Integer.MAX_VALUE;
 			int optind=0;
+			String command=null;
 		    while(optind<args.length)
 				{
 				if(args[optind].equals("-h"))
@@ -322,12 +324,13 @@ public class GeneWikiAnalysis
 					System.err.println("-L <integer> limit input for build default:"+limit);
 					System.err.println("-o <file> output (default: stdout)");
 					System.err.println("-t <template> qualified templateused as seed default:"+template);
-					System.err.println("<command> can be:");
+					System.err.println("-p program can be:");
 					System.err.println("	clear :clear the database");
 					System.err.println("	build :fill the database with the revisions of all pages containing "+template);
 					System.err.println("	dump  :dump text file the database");
 					System.err.println("	svg  :dump diagram of the database");
 					System.err.println("	ibm  :dump diagram of the IBM/ManyEyes");
+					System.err.println("	rdf  :dump diagram to RDF");
 					return;
 					}
 				 else if (args[optind].equals("-f"))
@@ -352,6 +355,10 @@ public class GeneWikiAnalysis
 				     {
 					 outFile= new File(args[++optind]);
 				     }
+				 else if (args[optind].equals("-p"))
+				     {
+					 command=args[++optind];
+				     }
 				 else if (args[optind].equals("--"))
 				     {
 				     ++optind;
@@ -375,22 +382,27 @@ public class GeneWikiAnalysis
 		    	return;
 		    	}
 		    
-		    if(optind==args.length)	
+		    if(optind!=args.length)	
 		    	{
-		    	System.err.println("argument missing");
+		    	System.err.println("Illegal number of arguments");
 		    	return;
 		    	}
 		    
-		    if(optind+1==args.length && args[optind].equals("clear"))	
+		    if(command==null)
 		    	{
-		    	GeneWikiAnalysis app = new GeneWikiAnalysis(dbFile);
+		    	System.err.println("argument for program missing");
+		    	return;
+		    	}
+		    
+		    app.open(dbFile);
+		    
+		    if(command.equals("clear"))	
+		    	{
 		    	app.clear();
-		    	app.close();
 		    	System.out.println("Done.");
 		    	}
-		    else if(optind+1==args.length && args[optind].equals("build"))	
+		    else if(command.equals("build"))	
 		    	{
-		    	GeneWikiAnalysis app = new GeneWikiAnalysis(dbFile);
 		    	MWQuery query= new MWQuery();
 		    	int count=0;
 		    	for(Page page:query.listPagesEmbedding(template))
@@ -402,50 +414,50 @@ public class GeneWikiAnalysis
 		    			{
 		    			app.insertRevision(rev);
 		    			}
-		    		
-		    		
+
 		    		app.insertLinks(page,query.listCategories(page));
-		    			
-		    		
+		    				    		
 		    		count++;
 		    		}
-		    	app.close();
 		    	System.out.println("Done.");
 		    	}
-		    else if(optind+1==args.length && args[optind].equals("dump"))
+		    else if(command.equals("dump"))
 		    	{
-		    	
 		    	PrintStream out= System.out;
 		    	if(outFile!=null) out= new PrintStream(outFile);
-		    	GeneWikiAnalysis app = new GeneWikiAnalysis(dbFile);
 		    	app.dump(out);
-		    	app.close();
 		    	if(outFile!=null) { out.flush(); out.close();}
 		    	}
-		    else if(optind+1==args.length && args[optind].equals("svg"))
+		    else if(command.equals("svg"))
 		    	{
 		    	PrintStream out= System.out;
 		    	if(outFile!=null) out= new PrintStream(outFile);
-		    	GeneWikiAnalysis app = new GeneWikiAnalysis(dbFile);
 		    	SVGOutput svgOutput= app.newSVGOutput();
 		    	svgOutput.out=out;
 		    	svgOutput.print();
-		    	app.close();
 		    	if(outFile!=null) { out.flush(); out.close();}
 		    	}
-		    else if(optind+1==args.length && args[optind].equals("ibm"))
+		    else if(command.equals("ibm"))
 		    	{
 		    	PrintStream out= System.out;
 		    	if(outFile!=null) out= new PrintStream(outFile);
-		    	GeneWikiAnalysis app = new GeneWikiAnalysis(dbFile);
 		    	app.manyEyes(out);
-		    	app.close();
+		    	if(outFile!=null) { out.flush(); out.close();}
+		    	}
+		    else if(command.equals("rdf"))
+		    	{
+		    	PrintStream out= System.out;
+		    	if(outFile!=null) out= new PrintStream(outFile);
+		    	app.toRDF(out,Wikipedia.BASE+"/wiki");
 		    	if(outFile!=null) { out.flush(); out.close();}
 		    	}
 		    else
 		    	{
 		    	System.err.println("Illegal arguments");
 		    	}
+		    
+		    app.close();
+		    
 		} catch (Exception e) {
 		e.printStackTrace();
 	}

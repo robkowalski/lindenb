@@ -1,5 +1,8 @@
 package org.lindenb.wikipedia.api;
 
+import java.io.IOException;
+import java.net.URLEncoder;
+
 public abstract class Entry
 implements Comparable<Entry>
 {
@@ -65,6 +68,17 @@ public String toString() {
 
 public abstract MWNamespace getNamespace();
 
+public String getQNameEncoded()
+	{
+	try
+		{
+		return URLEncoder.encode(getQName().replace(' ', '_'),"UTF-8");
+		}
+	catch(IOException e)
+		{
+		throw new RuntimeException(e);
+		}
+	}
 
 public static Entry create(MWNamespace ns,String localName)
 	{

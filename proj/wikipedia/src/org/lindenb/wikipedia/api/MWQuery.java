@@ -64,9 +64,29 @@ public class MWQuery
 	
 	protected XMLEventReader open(String url) throws IOException,XMLStreamException
 		{
+		final int tryNumber=10;
+		IOException lastError=null;
 		URL net = new URL(url);
-		InputStream in=net.openStream();
-		return this.xmlInputFactory.createXMLEventReader(in);
+		for(int i=0;i< tryNumber;++i)
+			{
+			try
+				{
+				InputStream in=net.openStream();
+				return this.xmlInputFactory.createXMLEventReader(in);
+				}
+			catch(IOException err)
+				{
+				lastError=err;
+				System.err.println("Trying "+i+" "+err.getMessage());
+				try {
+					Thread.sleep(10000);//sleep 10secs
+				} catch (Exception e) {
+					
+				}
+				continue;
+				}
+			}
+		throw lastError;
 		}
 	
 	public String getBase()
@@ -293,7 +313,6 @@ public class MWQuery
 							Attribute timestamp =e.getAttributeByName(AttTimestamp);
 							Attribute comment =e.getAttributeByName(AttComment);
 							Attribute size =e.getAttributeByName(AttSize);
-							if(size==null) System.err.println("SIZE==NULL !!");
 							Attribute revid =e.getAttributeByName(AttRevId);
 							
 							

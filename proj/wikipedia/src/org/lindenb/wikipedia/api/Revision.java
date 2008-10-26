@@ -19,7 +19,7 @@ public class Revision
 		this.size=size;
 		this.comment=comment;
 		}
-	public int getRedId()
+	public int getRevId()
 		{
 		return this.revid;
 		}	

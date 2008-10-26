@@ -2,6 +2,8 @@ package org.lindenb.wikipedia.tool;
 
 
 import java.io.File;
+import java.io.IOException;
+import java.io.PrintStream;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -19,6 +21,8 @@ import java.util.Stack;
 import java.util.TreeSet;
 
 import org.lindenb.sql.SQLUtilities;
+import org.lindenb.sw.vocabulary.DC;
+import org.lindenb.sw.vocabulary.RDF;
 import org.lindenb.wikipedia.api.Category;
 import org.lindenb.wikipedia.api.Entry;
 import org.lindenb.wikipedia.api.MWNamespace;
@@ -26,6 +30,7 @@ import org.lindenb.wikipedia.api.MWQuery;
 import org.lindenb.wikipedia.api.Page;
 import org.lindenb.wikipedia.api.Revision;
 import org.lindenb.wikipedia.api.User;
+import org.lindenb.xml.XMLUtilities;
 
 
 
@@ -33,13 +38,18 @@ public class Statistics
 	{
 	private static final String VERSION="1.0.1";
 	private static final String JDBC_DRIVER_NAME="org.apache.derby.jdbc.EmbeddedDriver";
-	private File dbFile;
+	private File dbFile=null;
 	private Stack<Connection> connectionsStack= new Stack<Connection>();
 
 	
 	
-	public Statistics(File dbFile) throws SQLException
+	public Statistics()
 		{
+		}
+	
+	public void open(File dbFile) throws SQLException
+		{
+		if(this.dbFile!=null) close();
 		try {
 			Class.forName(JDBC_DRIVER_NAME);
 		} catch (ClassNotFoundException e) {
@@ -93,6 +103,8 @@ public class Statistics
 	
 	public void close()
 		{
+		if(this.dbFile==null) return;
+		
 		while(!connectionsStack.isEmpty())
 			{
 			SQLUtilities.safeClose(connectionsStack.pop());
@@ -105,10 +117,12 @@ public class Statistics
 			{
 			DriverManager.getConnection("jdbc:derby:"+this.dbFile,dbProperties);
 			} catch(Exception err) {}
+		this.dbFile=null;
 		}
 	
 	protected Connection getConnection() throws SQLException 
 		{
+		if(this.dbFile==null) throw new NullPointerException("DB was not open");
 		if(!connectionsStack.isEmpty()) return connectionsStack.pop();
 		Properties dbProperties=new Properties();
 		dbProperties.setProperty("user", "anonymous");
@@ -362,7 +376,7 @@ public class Statistics
 		pstmt.setTimestamp(3, new Timestamp(rev.getDate().getTime()));
 		pstmt.setInt(4, rev.getSize());
 		pstmt.setString(5, rev.getComment());
-		pstmt.setInt(6, rev.getRedId());
+		pstmt.setInt(6, rev.getRevId());
 		
 		try
 			{
@@ -375,9 +389,48 @@ public class Statistics
 		con.close();
 		}
 	
+	
+	public void toRDF(PrintStream out,String base) throws SQLException,IOException
+		{
+		out.println("<rdf:RDF xmlns:rdf=\""+RDF.NS+"\"" +
+				" xmlns:dc=\"" + DC.NS+"\""+
+				" xmlns=\"http://"+base+"\">");
+		for(Page page:listPages())
+			{
+			out.println("  <Page rdf:about=\""+base+ "/"+
+					page.getQNameEncoded()
+					+"\">");
+			for(Category cat: listCategories(page))
+				{
+				out.println("    <category rdf:resource=\""+
+						base+ "/"+ cat.getQNameEncoded()
+						+"\"/>");
+				}
+			
+			
+
+			out.println("  </Page>");
+			}
+		for(Page page:listPages())
+			{
+			for(Revision rev: listRevisions(page,null,null,null))
+				{
+				out.println("  <Revision rdf:ID=\"#rev"+rev.getRevId()+"\">");
+				out.println("    <dc:date>"+XMLUtilities.escape(rev.getDate().toString())+"</dc:date>");
+				out.println("    <page rdf:resource=\""+base+ "/"+ page.getQNameEncoded() +"\"/>");
+				out.println("    <user rdf:resource=\""+base+ "/"+ rev.getUser().getQNameEncoded() +"\"/>");
+				if(rev.getSize()>0) out.println("    <size>"+rev.getSize()+"</size>");
+				out.println("    <comment>"+XMLUtilities.escape(rev.getComment())+"</comment>");
+				out.println("  </Revision>");
+				}
+			}
+		out.println("<rdf:RDF>");
+		}
+	
 	public static void main(String[] args) {
 		try {
-			Statistics app= new Statistics(new File("/home/lindenb/tmp/derbydb"));
+			Statistics app= new Statistics();
+			app.open(new File("/home/lindenb/tmp/derbydb"));
 			app.clear();
 			for(Revision r:new MWQuery().listRevisions(new Page("Rotavirus")))
 				{
