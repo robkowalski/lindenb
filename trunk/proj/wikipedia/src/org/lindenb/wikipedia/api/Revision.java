@@ -4,6 +4,7 @@ import java.util.Date;
 
 public class Revision
 	{
+	public static final int NO_SIZE=-1;
 	private int revid;
 	private Entry entry;
 	private Date date;

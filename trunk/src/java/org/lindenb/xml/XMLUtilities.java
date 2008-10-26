@@ -12,6 +12,9 @@ import org.w3c.dom.Node;
 /** Static methods for XML */
 public class XMLUtilities
 	{
+	public static final String VERSION= "1.0";
+	/** xml header encoding UTF-8 */
+	public static final String DECLARATION_UTF8= "<?xml version=\""+VERSION +"\" encoding=\"UTF-8\"?>";
 	private XMLUtilities() {}
 	
 	
