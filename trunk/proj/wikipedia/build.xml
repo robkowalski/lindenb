@@ -8,6 +8,11 @@
  <property name="compiledir" value="${builddir}/compile"/>
  <property name="testdir" value="${home.dir}/tmp/derbydb"/>
 	
+	<!-- properties for java web start -->
+	<property name="key.alias" value="tititoto"/>
+	<property name="keystore.location" value="/tmp/project.keys"/>
+	<property name="keystore.password" value="tititoto"/>
+	
   <path id="derbylib">
     <pathelement path="${derby.lib}/derby.jar"/>
   	 <pathelement path="${derby.lib}/derbyclient.jar"/>
@@ -15,10 +20,13 @@
 
 	
 
- <target name="all" depends="genewikistats">
+ <target name="all" depends="genewikistats,revisionviz">
 </target>
 
-
+ <target name="generate-keys">
+    <delete file="${keystore.location}"/>
+   <genkey alias="${key.alias}" keystore="${keystore.location}" storepass="${keystore.password}" validity="3650" dname="CN=Pierre, OU=Lindenbaum, O=Ceph, C=FR"/>
+</target>
 
  <target name="taskdefs">
  	
@@ -28,9 +36,12 @@
 	  <include name="org/lindenb/ant/CompileInfoTask.java"/>
 	</javac>
  	
-    <taskdef name="compileInfoTask"
+ <taskdef name="compileInfoTask"
         	 classname="org.lindenb.ant.CompileInfoTask"
-        	 classpath="${rootdir}/build/ant"/>
+        	 classpath="${builddir}/ant"/>
+ <taskdef name="makeSplash"
+	     classname="org.lindenb.ant.SplashTask"
+	     classpath="${builddir}/ant"/>
  </target>
 	
 	
@@ -63,7 +74,7 @@
 		 <delete includeEmptyDirs="true">
 			 <fileset dir="${compiledir}" includes="**/*.java"/>
 		 </delete>
-		 <jar destfile="${rootdir}/build/genewikistats.jar"
+		 <jar destfile="${builddir}/genewikistats.jar"
 		      basedir="${compiledir}">
 			 <manifest>
 				 <attribute
@@ -75,48 +86,44 @@
 		 <delete dir="${compiledir}"/> 
 	 </target>
 	
-	<target name="run" depends="genewikistats" >
-		<!-- <java classname="org.gnf.genewiki.GeneWikiAnalysis">
-			<classpath>
-				<path refid="derbylib"/>
-				<pathelement path="${rootdir}/build/genewikistats"/>
-			</classpath>
-			 <arg value="-f"/>
-			 <arg value="${testdir}"/>
-			 <arg value="clear"/>
-		</java>
-		
-		<java classname="org.gnf.genewiki.GeneWikiAnalysis">
-			<classpath>
-				<path refid="derbylib"/>
-				<pathelement path="${rootdir}/build/genewikistats"/>
-			</classpath>
-			 <arg value="-f"/>
-			 <arg value="${testdir}"/>
-			 <arg value="build"/>
-		</java> 
+	 <!-- =================================================================== -->
+	 <!-- =================================================================== -->
+	 <!-- =================================================================== -->
+	 <!-- =================================================================== -->
+	 
+	 <target name="revisionviz" depends="taskdefs">
+		 <mkdir dir="${compiledir}"/>
+		 <mkdir dir="${compiledir}/images"/>
+		 <makeSplash title="RevisionsViz" file="${compiledir}/images/splash.jpeg"/>
+		 <copy todir="${compiledir}" includeEmptyDirs="false">
+			<fileset dir="src"/>
+		 </copy>
+		 <copy todir="${compiledir}" includeEmptyDirs="false">
+			<fileset dir="${rootdir}/src/java"/>
+		 </copy>
+		 <compileInfoTask name="RevisionsViz" package="org.lindenb.util" dir="${compiledir}"/>
+		 <javac srcdir="${compiledir}"
+			destdir="${compiledir}"
+			source="1.6"
+			target="1.6">
+			 <include name="**/RevisionVisualization.java"/>
+		 </javac>
 
-		<java classname="org.gnf.genewiki.GeneWikiAnalysis">
-			<classpath>
-				<path refid="derbylib"/>
-				<pathelement path="${rootdir}/build/genewikistats"/>
-			</classpath>
-			 <arg value="-f"/>
-			 <arg value="${testdir}"/>
-			 <arg value="dump"/>
-		</java>			-->
 		
-		<java classname="org.gnf.genewiki.GeneWikiAnalysis">
-			<classpath>
-				<path refid="derbylib"/>
-				<pathelement path="${rootdir}/build/genewikistats.jar"/>
-			</classpath>
-			 <arg value="-f"/>
-			 <arg value="${testdir}"/>
-			 <arg value="-o"/>
-			<arg value="${home.dir}/jeter.svg"/>
-			 <arg value="svg"/>
-		</java>	
-		
-	</target>
+		<delete includeEmptyDirs="true">
+			 <fileset dir="${compiledir}" includes="**/*.java"/>
+		 </delete>
+		 <jar destfile="${builddir}/revisionsviz.jar"
+		      basedir="${compiledir}">
+			 <manifest>
+				 <attribute name="Main-Class" value="org.lindenb.wikipedia.swing.RevisionVisualization"/>
+				 <attribute name="SplashScreen-Image" value="images/splash.jpeg"/>
+			 </manifest>
+		 </jar>
+		<delete dir="${compiledir}"/>
+
+		<signjar jar="${builddir}/revisionsviz.jar"  alias="${key.alias}" keystore="${keystore.location}" storepass="${keystore.password}"/>
+
+	 </target>
+	
 </project>

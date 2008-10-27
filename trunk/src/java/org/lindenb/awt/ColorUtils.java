@@ -174,6 +174,24 @@ public class ColorUtils
     	}
     
     /**
+     * Choose a gradient color between twio colors
+     * @param first the first Color
+     * @param second the second Color
+     * @param ratio the fraction of the first/second colors
+     * @return the gradient color
+     */
+    public static Color between(Color first,Color second,double ratio)
+    	{
+    	if(ratio<0 || ratio>1.0) throw new IllegalArgumentException("0<=ratio<=1 but ratio="+ratio);
+    	return new Color(
+    			(int)(first.getRed()+ (second.getRed()-first.getRed())*ratio),
+    			(int)(first.getGreen()+ (second.getGreen()-first.getGreen())*ratio),
+    			(int)(first.getBlue()+ (second.getBlue()-first.getBlue())*ratio),
+    			(int)(first.getAlpha()+ (second.getAlpha()-first.getAlpha())*ratio)
+    			);
+    	}
+    
+    /**
      * convert this color as "rgb(red,green,blue)"
      * @param c the color
      * @return null if c is null or the rgb string

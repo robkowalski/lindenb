@@ -28,6 +28,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.URI;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.TreeSet;
@@ -161,7 +163,7 @@ public class RevisionVisualization extends JFrame
 		left.add(pane1);
 		pane1.setBorder(new TitledBorder("Pages"));
 		
-		this.pageList=new JList(figures);
+		this.pageList=new JList(new Vector<Figure>(this.figures));
 		this.pageList.setCellRenderer(new DefaultListCellRenderer()
 			{
 			private static final long serialVersionUID = 1L;
@@ -346,6 +348,14 @@ public class RevisionVisualization extends JFrame
 				JOptionPane.showMessageDialog(RevisionVisualization.this, Compilation.getLabel());
 				}
 			});
+		menu.add(new AbstractAction("About me")
+		{
+		private static final long serialVersionUID = 1L;
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			JOptionPane.showMessageDialog(RevisionVisualization.this,"Pierre Lindenbaum PhD. "+Me.MAIL+" "+Me.WWW);
+			}
+		});
 		menu.add(new JSeparator());
 		menu.add(new AbstractAction("Save as SVG")
 			{
@@ -387,6 +397,15 @@ public class RevisionVisualization extends JFrame
 				RevisionVisualization.this.dispose();
 				}
 			});
+		
+		Collections.sort(this.figures,new Comparator<Figure>()
+			{
+			@Override
+			public int compare(Figure o1, Figure o2) {
+				return o1.revisions[header.length-1]-o2.revisions[header.length-1];
+				}	
+			});
+		
 		}
 	
 	private Color gradient(int index,int countElements)
