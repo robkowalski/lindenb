@@ -18,6 +18,8 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.PathIterator;
@@ -26,8 +28,10 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.URI;
+import java.net.URL;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -38,11 +42,13 @@ import java.util.regex.Pattern;
 
 import javax.swing.AbstractAction;
 import javax.swing.DefaultListCellRenderer;
+import javax.swing.JApplet;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
@@ -52,10 +58,15 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
+import javax.swing.JTree;
 import javax.swing.ListSelectionModel;
 import javax.swing.border.TitledBorder;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
+import javax.swing.event.TreeSelectionEvent;
+import javax.swing.event.TreeSelectionListener;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.TreePath;
 
 import org.lindenb.awt.ColorUtils;
 import org.lindenb.io.PreferredDirectory;
@@ -71,7 +82,12 @@ import org.lindenb.wikipedia.api.Page;
 import org.lindenb.wikipedia.api.Wikipedia;
 import org.lindenb.xml.XMLUtilities;
 
-
+/**
+ * par of the project with Andrew Su
+ * see http://friendfeed.com/e/afa1d1e4-3466-4ae6-8043-3f5472fb75c1
+ * @author pierre
+ *
+ */
 public class RevisionVisualization extends JFrame
 	{
 	
@@ -84,7 +100,14 @@ public class RevisionVisualization extends JFrame
 	private double max_of_all_y;
 	private BufferedImage offscreen;
 	private Figure highlitedFigure=null;
+	private JTree treeGroup;
 	
+	
+	
+	/**
+	 * Figure
+	 *
+	 */
 	private static class Figure
 		{
 		Page page;
@@ -108,11 +131,143 @@ public class RevisionVisualization extends JFrame
 			}
 		}
 	
+	private abstract class AbstractCollectionOfFigureTreeNode
+		extends DefaultMutableTreeNode
+		{
+		private static final long serialVersionUID = 1L;
+
+		public AbstractCollectionOfFigureTreeNode(String name,boolean allowChilren)
+			{
+			super(name,allowChilren);
+			}
+		
+		public abstract Set<Figure> getFigures();
+		}
+	
+	private final Comparator<Figure> compareOnRevisions=new Comparator<Figure>()
+		{
+		@Override
+		public int compare(Figure o1, Figure o2) {
+			return o1.revisions[header.length-1]-o2.revisions[header.length-1];
+			}	
+		};
+	
+	private class LeafCollectionOfFigures
+	extends AbstractCollectionOfFigureTreeNode
+		{
+		private static final long serialVersionUID = 1L;
+		private Set<Figure> figures;
+		public LeafCollectionOfFigures(String name,Set<Figure> figures)
+			{
+			super(name,false);
+			this.figures=figures;
+			}
+		@Override
+		public Set<Figure> getFigures() {
+			return figures;
+			}
+		}
+	
+	private class BranchCollectionOfFigures
+	extends AbstractCollectionOfFigureTreeNode
+		{
+		private static final long serialVersionUID = 1L;
+		public BranchCollectionOfFigures(String name)
+			{
+			super(name,true);
+			}
+		@Override
+		public Set<Figure> getFigures()
+			{
+			Set<Figure> figures= new HashSet<Figure>();
+			for(int i=0;i< getChildCount();++i)
+				{
+				figures.addAll(LeafCollectionOfFigures.class.cast(getChildAt(i)).getFigures());
+				}
+			return figures;
+			}
+		}
+	
+	/**
+	 * AsApplet
+	 */
+	public static class AsApplet
+		extends JApplet
+		{
+		private static final long serialVersionUID = 1L;
+		AbstractAction openAction;
+		@Override
+		public void init()
+			{
+			try {
+				String version=System.getProperty("java.runtime.version","");
+				if(!version.matches("1\\.[6789]\\..*"))
+					{
+					this.getContentPane().add(new JLabel("Sorry bad java Version :"+version+". expected at least 1.6"));
+					return;
+					}
+				String input=this.getParameter("src");
+				if(input==null)
+					{
+					this.getContentPane().add(new JLabel("parameter src undefined"));
+					return;
+					}
+				JPanel pane= new JPanel(new BorderLayout());
+				this.setContentPane(pane);
+				openAction=new AbstractAction("Run")
+					{
+					private static final long serialVersionUID = 1L;
+
+					@Override
+					public void actionPerformed(ActionEvent ae) {
+						String input= getParameter("src");
+						try
+							{
+							URL url= new URL(getCodeBase(),input);
+							BufferedReader r= new BufferedReader(new InputStreamReader(url.openStream()));
+							RevisionVisualization app= new RevisionVisualization(r,AsApplet.this);
+							r.close();
+							app.addWindowListener(new WindowAdapter()
+								{
+								@Override
+								public void windowOpened(WindowEvent e) {
+									openAction.setEnabled(false);
+									}
+								
+								@Override
+								public void windowClosed(WindowEvent e) {
+									openAction.setEnabled(true);
+								}
+								});
+							SwingUtils.center(app,100,100);
+							SwingUtils.show(app);
+							}
+						catch(Exception err)
+							{
+							ThrowablePane.show(AsApplet.this, err);
+							}
+						}
+					};
+				JButton button= new JButton(openAction);
+				button.setFont(new Font("Dialog",Font.BOLD,18));
+				pane.add(button,BorderLayout.CENTER);
+				pane.add(new JLabel("Pierre Lindenbaum "+Me.MAIL),
+						BorderLayout.SOUTH);
+				
+				} 
+			catch (Exception e)
+				{
+				this.setContentPane(new ThrowablePane(e,e.getMessage()));
+				}
+			}
+		}
+	
 	private Vector<Figure> figures=new Vector<Figure>(1000,500);
 	private String header[];
 	private JCheckBox useRevisionInsteadOfSize;
-	
-	RevisionVisualization(BufferedReader r) throws IOException
+	private JApplet appletContext;
+
+	private RevisionVisualization(BufferedReader r,JApplet appletContext) throws IOException
 		{
 		super(Compilation.getName());
 		this.setDefaultCloseOperation(DISPOSE_ON_CLOSE);
@@ -161,7 +316,7 @@ public class RevisionVisualization extends JFrame
 		JPanel pane1= new JPanel(new BorderLayout());
 		pane1.setPreferredSize(new Dimension(200,200));
 		left.add(pane1);
-		pane1.setBorder(new TitledBorder("Pages"));
+		pane1.setBorder(new TitledBorder("Pages ("+this.figures.size()+")"));
 		
 		this.pageList=new JList(new Vector<Figure>(this.figures));
 		this.pageList.setCellRenderer(new DefaultListCellRenderer()
@@ -211,6 +366,24 @@ public class RevisionVisualization extends JFrame
 				}
 			}));
 		
+		pane1= new JPanel(new BorderLayout());
+		left.add(pane1);
+		this.treeGroup= new JTree(buildTree());
+		pane1.setBorder(new TitledBorder("Groups"));
+		scroll=new JScrollPane(this.treeGroup);
+		scroll.setPreferredSize(new Dimension(200,200));
+		pane1.add(scroll,BorderLayout.CENTER);
+		pane2= new JPanel(new FlowLayout(FlowLayout.TRAILING));
+		pane1.add(pane2,BorderLayout.SOUTH);
+		pane2.add(new JButton(new AbstractAction("Clear")
+			{
+			private static final long serialVersionUID = 1L;
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				treeGroup.getSelectionModel().clearSelection();
+				}
+			}));
+		
 		this.drawingArea= new JPanel(null)
 			{
 			private static final long serialVersionUID = 1L;
@@ -238,57 +411,74 @@ public class RevisionVisualization extends JFrame
 				return b.toString();
 				}
 			};
-	MouseAdapter mouse=		new MouseAdapter()
-			{
-			@Override
-			public void mouseEntered(MouseEvent e)
+			MouseAdapter mouse=		new MouseAdapter()
 				{
-				highlitedFigure=null;
-				}
-			@Override
-			public void mouseExited(MouseEvent e) {
-				drawHigLightedFigure();
-				highlitedFigure=null;
-				}
-			
-			@Override
-			public void mouseMoved(MouseEvent e)
-				{
-				Figure f= getFigureAt(e.getX(),e.getY());
-				if(f==highlitedFigure) return;
-				if(highlitedFigure!=null) drawHigLightedFigure();
-				highlitedFigure= f;
-				drawHigLightedFigure();
-				}
-			
-			@Override
-			public void mousePressed(MouseEvent e) {
-				Figure f= getFigureAt(e.getX(),e.getY());
-				if(f==null) return;
-				if(!(e.isPopupTrigger() || e.isControlDown())) return;
-				JPopupMenu popup= new JPopupMenu();
-				JMenuItem menu= new JMenuItem(new ObjectAction<Page>(f.page,"Open "+f.page)
+				@Override
+				public void mouseEntered(MouseEvent e)
 					{
-					private static final long serialVersionUID = 1L;
-
-					@Override
-					public void actionPerformed(ActionEvent e) {
-						try
+					highlitedFigure=null;
+					}
+				@Override
+				public void mouseExited(MouseEvent e) {
+					drawHigLightedFigure();
+					highlitedFigure=null;
+					}
+				
+				@Override
+				public void mouseMoved(MouseEvent e)
+					{
+					Figure f= getFigureAt(e.getX(),e.getY());
+					if(f==highlitedFigure) return;
+					if(highlitedFigure!=null) drawHigLightedFigure();
+					highlitedFigure= f;
+					drawHigLightedFigure();
+					}
+				
+				@Override
+				public void mousePressed(MouseEvent e) {
+					Figure f= getFigureAt(e.getX(),e.getY());
+					if(f==null) return;
+					if(!(e.isPopupTrigger() || e.isControlDown())) return;
+					JPopupMenu popup= new JPopupMenu();
+					JMenuItem menu= new JMenuItem(new ObjectAction<Page>(f.page,"Open "+f.page)
+						{
+						private static final long serialVersionUID = 1L;
+	
+						@Override
+						public void actionPerformed(ActionEvent e)
 							{
-							Desktop d=Desktop.getDesktop();
-							d.browse(new URI(Wikipedia.BASE+"/wiki/"+getObject().getQNameEncoded()));
+							String uri=Wikipedia.BASE+"/wiki/"+getObject().getQNameEncoded();
+							
+								try
+									{
+									if(RevisionVisualization.this.appletContext==null)
+										{
+										Desktop d=Desktop.getDesktop();
+										d.browse(new URI(uri));
+										}
+									else
+										{
+										RevisionVisualization.this.appletContext.getAppletContext().showDocument(
+											new URL(uri),
+											"_"+System.currentTimeMillis()
+											);
+										}
+									}
+								catch(Exception err)
+									{
+									ThrowablePane.show(RevisionVisualization.this,err);
+									}
+							
 							}
-						catch(Exception err)
-							{
-							ThrowablePane.show(RevisionVisualization.this,err);
-							}
-						}
-					});
-				menu.setEnabled(Desktop.isDesktopSupported());
-				popup.add(menu);
-				popup.show(drawingArea, e.getX(), e.getY());
-				}
-			};
+						});
+					menu.setEnabled(
+							RevisionVisualization.this.appletContext==null && 
+							Desktop.isDesktopSupported()
+							);
+					popup.add(menu);
+					popup.show(drawingArea, e.getX(), e.getY());
+					}
+				};
 			
 		this.drawingArea.addMouseListener(mouse);
 		this.drawingArea.addMouseMotionListener(mouse);
@@ -336,6 +526,19 @@ public class RevisionVisualization extends JFrame
 				drawingArea.repaint();
 				}
 			});
+		
+		this.treeGroup.addTreeSelectionListener(new TreeSelectionListener()
+			{
+			@Override
+			public void valueChanged(TreeSelectionEvent e) {
+				dirty=true;
+				drawingArea.repaint();
+				
+				}
+			});
+		
+		SwingUtils.setFontSize(left, 10);
+		
 		JMenuBar bar= new JMenuBar();
 		setJMenuBar(bar);
 		JMenu menu= new JMenu("File");
@@ -357,7 +560,8 @@ public class RevisionVisualization extends JFrame
 			}
 		});
 		menu.add(new JSeparator());
-		menu.add(new AbstractAction("Save as SVG")
+		
+		AbstractAction action=new AbstractAction("Save as SVG")
 			{
 			private static final long serialVersionUID = 1L;
 			@Override
@@ -386,7 +590,14 @@ public class RevisionVisualization extends JFrame
 					ThrowablePane.show(RevisionVisualization.this, e2);
 					}
 				}
-			});
+			};
+		
+		menu.add(action);
+		
+		
+		action.setEnabled(RevisionVisualization.this.appletContext==null);
+			
+		
 		menu.add(new AbstractAction("Quit")
 			{
 			private static final long serialVersionUID = 1L;
@@ -398,15 +609,56 @@ public class RevisionVisualization extends JFrame
 				}
 			});
 		
-		Collections.sort(this.figures,new Comparator<Figure>()
-			{
-			@Override
-			public int compare(Figure o1, Figure o2) {
-				return o1.revisions[header.length-1]-o2.revisions[header.length-1];
-				}	
-			});
+		Collections.sort(this.figures,compareOnRevisions);
 		
 		}
+	
+	private AbstractCollectionOfFigureTreeNode buildTree()
+		{
+		BranchCollectionOfFigures root=new BranchCollectionOfFigures("All");
+		buildTree(root,new HashSet<Figure>(this.figures),1000);
+		return root;
+		}
+	
+	private void buildTree(
+			AbstractCollectionOfFigureTreeNode root,
+			Set<Figure> set,
+			int to_size
+			)
+		{
+		int maxRev=0;
+		for(Figure f:set)
+			{
+			maxRev=Math.max(maxRev, f.revisions[header.length-1]);
+			}
+		
+		for(int i=0;i< maxRev;i+=to_size)
+			{
+			Set<Figure> subset= new HashSet<Figure>();
+			for(Figure f:set)
+				{
+				int n= f.revisions[header.length-1];
+				if(i<=n && n<i+to_size)
+					{
+					subset.add(f);
+					}
+				}
+			if(subset.isEmpty()) continue;
+			String title="Top:"+i+"-"+(i+to_size);
+			if(to_size/10>=10)
+				{
+				BranchCollectionOfFigures node = new BranchCollectionOfFigures(title);
+				buildTree(node,subset,to_size/10);
+				root.add(node);
+				}
+			else
+				{
+				root.add(new LeafCollectionOfFigures(title,subset));
+				}
+			}
+		}
+	
+
 	
 	private Color gradient(int index,int countElements)
 		{
@@ -511,6 +763,15 @@ public class RevisionVisualization extends JFrame
 		int all_sizes[]=new int[header.length];
 		int all_revs[]=new int[header.length];
 		
+		Set<Figure> selGroup= new HashSet<Figure>();
+		if(!treeGroup.isSelectionEmpty())
+			{
+			TreePath path=treeGroup.getSelectionPath();
+			AbstractCollectionOfFigureTreeNode node=AbstractCollectionOfFigureTreeNode.class.cast(path.getLastPathComponent());
+			selGroup.addAll(node.getFigures());
+			}
+		
+		
 		int countVisible=0;
 		for(Figure f:this.figures)
 			{
@@ -518,6 +779,11 @@ public class RevisionVisualization extends JFrame
 			f.shape=null;
 	
 			if(!selPages.isEmpty() && !selPages.contains(f))
+				{
+				f.displayed=false;
+				continue;
+				}
+			if(!selGroup.isEmpty() && !selGroup.contains(f))
 				{
 				f.displayed=false;
 				continue;
@@ -540,6 +806,9 @@ public class RevisionVisualization extends JFrame
 					continue;
 					}
 				}
+			
+			
+			
 			countVisible++;
 
 			for(int i=0;i< header.length;++i)
@@ -701,14 +970,14 @@ public class RevisionVisualization extends JFrame
 	    	if(chooser.showOpenDialog(null)!=JFileChooser.APPROVE_OPTION) return;
 	    	File f= chooser.getSelectedFile();
 	    	BufferedReader r= new BufferedReader(new FileReader(f));
-	    	frame=new RevisionVisualization(r);
+	    	frame=new RevisionVisualization(r,null);
 	    	r.close();
 	    	PreferredDirectory.setPreferredDirectory(f);
 	    	}
 	    else if(optind+1==args.length)
 	    	{
 	    	BufferedReader r= new BufferedReader(new FileReader(args[optind++]));
-	    	frame=new RevisionVisualization(r);
+	    	frame=new RevisionVisualization(r,null);
 	    	r.close();
 	    	}
 	    else
