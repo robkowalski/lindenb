@@ -184,8 +184,8 @@ public class GeneWikiAnalysis
 		out.print("#Page"+TAB);
 		out.print("Category"+TAB);
 		out.print("Users"+TAB);
-		out.print("Revisions"+TAB);
-		for(int i=0;i+1< step;++i)
+		out.print("Revisions");
+		for(int i=0;i< step;++i)
 			{
 			out.print(TAB);
 			out.print(new Timestamp(
