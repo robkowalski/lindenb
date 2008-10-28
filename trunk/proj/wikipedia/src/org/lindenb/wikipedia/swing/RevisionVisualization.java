@@ -200,12 +200,12 @@ public class RevisionVisualization extends JFrame
 		public void init()
 			{
 			try {
-				String version=System.getProperty("java.runtime.version","");
+				/*String version=System.getProperty("java.runtime.version","");
 				if(!version.matches("1\\.[6789]\\..*"))
 					{
 					this.getContentPane().add(new JLabel("Sorry bad java Version :"+version+". expected at least 1.6"));
 					return;
-					}
+					}*/
 				String input=this.getParameter("src");
 				if(input==null)
 					{
