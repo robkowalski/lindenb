@@ -37,7 +37,7 @@ Pierre
 
 <xsl:template match="/">
 graph G {
-
+edge[fontsize="6.0",fontcolor = "blue"]
 <xsl:apply-templates/>
 
 }
