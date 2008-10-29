@@ -384,7 +384,7 @@ public class RevisionVisualization extends JFrame
 				}
 			}));
 		
-		this.drawingArea= new JPanel(null)
+		this.drawingArea= new JPanel(null,false)
 			{
 			private static final long serialVersionUID = 1L;
 			@Override
@@ -392,6 +392,9 @@ public class RevisionVisualization extends JFrame
 				super.paintComponent(g);
 				paintDrawingArea(Graphics2D.class.cast(g));
 				}
+			
+
+			
 			@Override
 			public String getToolTipText(MouseEvent event)
 				{
@@ -644,7 +647,7 @@ public class RevisionVisualization extends JFrame
 					}
 				}
 			if(subset.isEmpty()) continue;
-			String title="Top:"+i+"-"+(i+to_size);
+			String title="Revisions:"+i+"-"+(i+to_size);
 			if(to_size/10>=10)
 				{
 				BranchCollectionOfFigures node = new BranchCollectionOfFigures(title);
