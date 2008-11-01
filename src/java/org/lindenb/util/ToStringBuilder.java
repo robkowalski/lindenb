@@ -69,10 +69,12 @@ private void appendValue(Object value)
 
 
 
-public void append(String key,Object value)
+public ToStringBuilder append(String key,Object value)
 	{
+	this.builder.append(",");
 	this.builder.append(key).append(":");
 	appendValue(value);
+	return this;
 	}
 
 @Override
