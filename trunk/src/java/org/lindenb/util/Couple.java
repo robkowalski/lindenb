@@ -45,7 +45,7 @@ public class Couple<T> extends Pair<T, T> {
 	@Override
 	public boolean equals(Object obj) {
 		if(obj==this) return true;
-		if(obj==null || obj.getClass()!=this.getClass()) return false;
+		if(obj==null || !(obj instanceof Couple)) return false;
 		Couple<?> cp=Couple.class.cast(obj);
 		return (first().equals(cp.first())  && second().equals(cp.second())) ||
 			   (first().equals(cp.second()) && second().equals(cp.first()));

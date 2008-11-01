@@ -72,8 +72,45 @@ public static Writer escape(Writer out,CharSequence s) throws IOException
 	return out;
 	}
 
+/** Lousy function removing the tags in a string, it does NOT unescapes the entities */
+public static String removeTags(CharSequence seq)
+	{
+	boolean inXML=false;
+	StringBuilder b= new StringBuilder(seq.length());
+	for(int i=0;i< seq.length();++i)
+		{
+		if(inXML)
+			{
+			if(seq.charAt(i)=='>')
+				{
+				inXML=false;
+				}	
+			}
+		else
+			{
+			if(seq.charAt(i)=='<')
+				{
+				inXML=true;
+				}
+			else
+				{
+				b.append(seq.charAt(i));
+				}
+			}
+		}
+	return b.toString();
+	}
 
 
+public static String unescape(CharSequence seq)
+	{
+	return removeTags(seq)
+		.replaceAll("&gt;", ">")
+		.replaceAll("&lt;", "<")
+		.replaceAll("&apos;", "\'")
+		.replaceAll("&quot;", "\"")
+		.replaceAll("&amp;", "&");
+	}
 
 /**
  * return wether the given node matches ns and localName
