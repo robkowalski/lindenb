@@ -52,6 +52,7 @@ import org.lindenb.util.Compilation;
 import org.lindenb.util.Pair;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
 import org.xml.sax.helpers.DefaultHandler;
 
 import com.hp.hpl.jena.rdf.model.Literal;
@@ -561,6 +562,10 @@ private class RssHandler
 				this.parser.parse(subject.getURI(), handler);
 				}
 			catch(IOException err)
+				{
+				cout().println("Error "+err.getMessage()+":"+subject.getURI());
+				}
+			catch(SAXParseException err)
 				{
 				cout().println("Error "+err.getMessage()+":"+subject.getURI());
 				}
