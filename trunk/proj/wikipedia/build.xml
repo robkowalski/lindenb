@@ -101,15 +101,16 @@
 			<fileset dir="${rootdir}/src/java"/>
 		 </copy>
 		 <compileInfoTask name="RevisionsViz" package="org.lindenb.util" dir="${compiledir}"/>
+
 		 <javac srcdir="${compiledir}"
 			destdir="${compiledir}"
 			source="1.6"
 			target="1.6">
-			 <include name="${compiledir}/**/RevisionVisualization.java"/>
+			 <include name="**/swing/RevisionVisualization.java"/>
 		 </javac>
 
 		
-		<delete includeEmptyDirs="true">
+		 <delete includeEmptyDirs="true">
 			 <fileset dir="${compiledir}" includes="**/*.java"/>
 		 </delete>
 		 <jar destfile="${builddir}/revisionsviz.jar"
@@ -119,7 +120,7 @@
 				 <attribute name="SplashScreen-Image" value="images/splash.jpeg"/>
 			 </manifest>
 		 </jar>
-		<delete dir="${compiledir}"/>
+		<!-- <delete dir="${compiledir}"/> -->
 
 		<signjar jar="${builddir}/revisionsviz.jar"  alias="${key.alias}" keystore="${keystore.location}" storepass="${keystore.password}"/>
 
