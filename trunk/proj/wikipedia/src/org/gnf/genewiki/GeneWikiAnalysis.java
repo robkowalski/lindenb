@@ -163,7 +163,7 @@ public class GeneWikiAnalysis
 	
 	private boolean use_size_instead_of_rev=true;
 	private int user_window=5;
-	private int revisions_window=10;
+	private int revisions_window=20;
 	
 	private static String range(int value, int window)
 		{
@@ -174,18 +174,19 @@ public class GeneWikiAnalysis
 	private void export2(PrintStream out) throws SQLException,MWException
 		{
 		final String TAB="\t";
-		final int step=20;
 		Timestamp minDate= getMinDate();
+		
+		
 		Timestamp maxDate= getMaxDate();
 		maxDate= new Timestamp(maxDate.getTime()+1L);
-		double timeunit=(maxDate.getTime()-minDate.getTime())/(double)step;
+		double timeunit=(maxDate.getTime()-minDate.getTime())/(double)revisions_window;
 		
 		
 		out.print("#Page"+TAB);
 		out.print("Category"+TAB);
 		out.print("Users"+TAB);
 		out.print("Revisions");
-		for(int i=0;i< step;++i)
+		for(int i=0;i< revisions_window;++i)
 			{
 			out.print(TAB);
 			out.print(new Timestamp(
@@ -221,7 +222,7 @@ public class GeneWikiAnalysis
 			out.print(pageRevisions.size());
 			int prev_size=0;
 			int prev_revisions=0;
-			for(int i=0;i< step;++i)
+			for(int i=0;i< revisions_window;++i)
 				{
 				int size_in_this_range=Revision.NO_SIZE;
 				
@@ -410,6 +411,7 @@ public class GeneWikiAnalysis
 					System.err.println(Compilation.getLabel());
 					System.err.println("-h this screen");
 					System.err.println("-f <directory> derby database folder");
+					System.err.println("-w <window> number of columns for export minimum:5 default:"+app.revisions_window);
 					System.err.println("-L <integer> limit input for build default:"+limit);
 					System.err.println("-o <file> output (default: stdout)");
 					System.err.println("-t <template> qualified templateused as seed default:"+template);
@@ -430,6 +432,10 @@ public class GeneWikiAnalysis
 				 else if (args[optind].equals("-L"))
 				     {
 					 limit= Integer.parseInt(args[++optind]);
+				     }
+				 else if (args[optind].equals("-w"))
+				     {
+					 app.revisions_window= Integer.parseInt(args[++optind]);
 				     }
 				 else if (args[optind].equals("-t"))
 				     {

@@ -401,7 +401,7 @@ public class RevisionVisualization extends JFrame
 				Figure f= getFigureAt(event.getX(),event.getY());
 				if(f==null) return null;
 				
-				int i=(int)((header.length/(double)drawingArea.getWidth())*event.getX());
+				int i=(int)(((header.length-1)/(double)drawingArea.getWidth())*event.getX());
 				if(i>=header.length) return f.page.getLocalName();
 				StringBuilder b=new StringBuilder("<html><body>");
 				b.append("<b>").append(XMLUtilities.escape(f.page.getLocalName())).append("</b>");
@@ -832,7 +832,7 @@ public class RevisionVisualization extends JFrame
 		
 		int prev_y[]=new int[header.length];
 		for(int i=0;i< prev_y.length;++i) prev_y[i]=0;
-		double pixwin= (this.drawingArea.getWidth()/(double)header.length);
+		double pixwin= (this.drawingArea.getWidth()/(double)(header.length-1));
 		
 		int index=0;
 		for(Figure f:this.figures)
@@ -910,13 +910,30 @@ public class RevisionVisualization extends JFrame
 				}
 			
 			g2.setColor(Color.LIGHT_GRAY);
-			for(int i=1;i<6;++i)
+			for(int i=1;i<6 && max_of_all_y>0.0;++i)
 				{
 				int H=(this.drawingArea.getHeight()-1);
 				int y=(int) (H- (H/6.0)*i);
 				float v=(float)( (max_of_all_y/6.0)*i);
 				g2.drawString( String.valueOf(v),font_size,y-font_size);
 				g2.drawLine(0, y, this.drawingArea.getWidth(), y);
+				}
+			
+			//print Y-axis
+				{
+				g2.setColor(Color.BLACK);
+				AffineTransform old= g2.getTransform();
+				AffineTransform tr= new AffineTransform(old);
+				
+				tr.translate(font_size,drawingArea.getHeight()/2);
+				tr.rotate(Math.PI/2);
+				g2.setTransform(tr);
+				
+				g2.drawString(
+						this.useRevisionInsteadOfSize.isSelected()?"Revisions":"Sizes"
+						,0,0);
+				
+				g2.setTransform(old);
 				}
 			
 			for(Figure f: this.figures)
