@@ -59,7 +59,7 @@ public class Verticalize
 				out.print("$"+(i+1)+" ");
 				out.print(header[i]);
 				out.print(" : ");
-				out.println("!N/A");
+				out.print("!N/A");
 				out.println();
 				}
 			out.println("<<"+nLine);

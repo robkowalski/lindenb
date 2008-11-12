@@ -333,7 +333,7 @@
 		 </copy>
 		 
 		 <compileInfoTask
-				 name="Java2Dot"
+				 name="Verticalize"
 				 package="org.lindenb.util"
 				 dir="${compiledir}"
 				 />
@@ -361,5 +361,7 @@
 		 </jar>
 		 <delete dir="${compiledir}"/> 
 	 </target>		
+	
+
 	
 </project>
