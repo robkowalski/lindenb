@@ -189,8 +189,15 @@ public class GeneWikiAnalysis
 		for(int i=0;i< revisions_window;++i)
 			{
 			out.print(TAB);
+			/*
+			 '+1' for:
+			 I think the ideal metric to report is the size of the edit immediately before the start of the period. 
+			 So, in the example below, the bin currently labeled "4/20/2008" reflects edits between 4/20/2008 and 5/18/2008.
+			 I would change the bin label to "5/18/2008" and report the size of the last edit during the period.
+			  
+			 */
 			out.print(new Timestamp(
-					(long)(minDate.getTime()+ i*timeunit )
+					(long)(minDate.getTime()+ (i+1)*timeunit )
 				));
 			}
 		out.println();
@@ -243,7 +250,10 @@ public class GeneWikiAnalysis
 						prev_revisions++;
 						if(r.getSize()!=Revision.NO_SIZE)
 							{
-							size_in_this_range=Math.max(r.getSize(),size_in_this_range);
+							/*
+							report the size of the last edit during the period.
+							 */
+							size_in_this_range= r.getSize();
 							}
 						}
 					}
