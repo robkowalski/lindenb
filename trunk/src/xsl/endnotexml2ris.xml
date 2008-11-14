@@ -1,0 +1,116 @@
+<?xml version='1.0' encoding="UTF-8"?>
+<xsl:stylesheet
+	xmlns:xsl='http://www.w3.org/1999/XSL/Transform'
+	xmlns:dia="http://www.lysator.liu.se/~alla/dia/"
+	version='1.0'
+	>
+
+<!--
+
+This stylesheet transforms the output of endnode xml to RIS (for zotero)
+
+-->
+<xsl:output method="text" version="1.0" encoding="ASCII"/>
+
+<xsl:template match="/">
+<xsl:apply-templates/>
+</xsl:template>
+
+<xsl:template match="xml">
+<xsl:apply-templates select="records"/>
+</xsl:template>
+
+<xsl:template match="records">
+<xsl:apply-templates select="record"/>
+</xsl:template>
+
+<xsl:template match="record">
+<xsl:variable name="type"><xsl:value-of select="ref-type/@name"/></xsl:variable>
+<xsl:choose>
+ <xsl:when test="$type='Book'">TY  - BOOK
+</xsl:when>
+ <xsl:when test="$type='Book Section'">TY  - CHAP
+</xsl:when>
+<xsl:when test="$type='Conference Proceedings'">TY  - CONF
+</xsl:when>
+<xsl:when test="$type='Edited Book'">TY  - BOOK
+</xsl:when>
+<xsl:when test="$type='Generic'">TY  - GEN
+</xsl:when>
+<xsl:when test="$type='Journal Article'">TY  - JOUR
+</xsl:when>
+<xsl:when test="$type='Thesis'">TY  - THES
+</xsl:when>
+</xsl:choose><xsl:apply-templates select="(abstract|call-num|contributors|dates|edition|keywords|label|notes|number|num-vols|pages|periodical|publisher|pub-location|titles|urls|volume|work-type)"/>
+<xsl:text>ER  -
+
+</xsl:text>
+</xsl:template>
+
+
+<xsl:template match="contributors">
+<xsl:apply-templates select="authors"/>
+</xsl:template>
+<xsl:template match="authors">
+<xsl:apply-templates select="author"/>
+</xsl:template>
+<xsl:template match="authors">AU  - <xsl:value-of select="normalize-space(.)"/><xsl:text>
+</xsl:text></xsl:template>
+
+
+<xsl:template match="titles">
+<xsl:if test="title">T1  - <xsl:value-of select="normalize-space(title[1])"/><xsl:text>
+</xsl:text></xsl:if><xsl:if test="secondary-title">T2  - <xsl:value-of select="normalize-space(secondary-title[1])"/><xsl:text>
+</xsl:text></xsl:if>
+</xsl:template>
+
+<xsl:template match="pages">SP  - <xsl:value-of select="normalize-space(.)"/><xsl:text>
+</xsl:text></xsl:template>
+
+<xsl:template match="volume">VL  - <xsl:value-of select="normalize-space(.)"/><xsl:text>
+</xsl:text></xsl:template>
+
+<xsl:template match="edition">IS  - <xsl:value-of select="normalize-space(.)"/><xsl:text>
+</xsl:text></xsl:template>
+
+<xsl:template match="number">IS  - <xsl:value-of select="normalize-space(.)"/><xsl:text>
+</xsl:text></xsl:template>
+
+<xsl:template match="dates">
+<xsl:if test="year">Y1  - <xsl:value-of select="normalize-space(year)"/><xsl:text>
+</xsl:text></xsl:if></xsl:template>
+
+<xsl:template match="pub-location">AD  - <xsl:value-of select="normalize-space(.)"/><xsl:text>
+</xsl:text></xsl:template>
+
+<xsl:template match="abstract">AB  - <xsl:value-of select="normalize-space(.)"/><xsl:text>
+</xsl:text></xsl:template>
+
+<xsl:template match="call-num">M1  - <xsl:value-of select="normalize-space(.)"/><xsl:text>
+</xsl:text></xsl:template>
+
+<xsl:template match="notes">N2  - <xsl:value-of select="normalize-space(.)"/><xsl:text>
+</xsl:text></xsl:template>
+
+<xsl:template match="label">KW  - <xsl:value-of select="normalize-space(.)"/><xsl:text>
+</xsl:text></xsl:template>
+
+<xsl:template match="keywords"><xsl:for-each select="keyword">KW  - <xsl:value-of select="normalize-space(.)"/><xsl:text>
+</xsl:text></xsl:for-each>
+</xsl:template>
+<xsl:template match="periodical">JA  - <xsl:value-of select="normalize-space(full-title)"/><xsl:text>
+</xsl:text></xsl:template>
+
+<xsl:template match="publisher">IS  - <xsl:value-of select="normalize-space(.)"/><xsl:text>
+</xsl:text></xsl:template>
+
+<xsl:template match="num-vols">M2  - <xsl:value-of select="normalize-space(.)"/><xsl:text>
+</xsl:text></xsl:template>
+
+<xsl:template match="urls">UR  - <xsl:value-of select="normalize-space(.)"/><xsl:text>
+</xsl:text></xsl:template>
+
+
+</xsl:stylesheet>
+
+
