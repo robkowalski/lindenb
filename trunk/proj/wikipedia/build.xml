@@ -106,7 +106,7 @@
 			destdir="${compiledir}"
 			source="1.6"
 			target="1.6">
-			 <include name="**/swing/RevisionVisualization.java"/>
+			 <include name="${compiledir}/**/swing/RevisionVisualization.java"/>
 		 </javac>
 
 		
