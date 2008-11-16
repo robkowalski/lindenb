@@ -21,6 +21,8 @@ import javax.xml.stream.events.Attribute;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 
+import org.lindenb.xml.XMLUtilities;
+
 
 
 public class MWQuery
@@ -200,6 +202,49 @@ public class MWQuery
 			}
 		}*/
 	
+	public String getRevisionId(Entry entry,String revId) throws IOException
+		{
+		String url=getBaseApi()+"?action=query" +
+			"&format=xml" +
+			"&prop=revisions" +
+			"&titles="+escape(entry)+
+			"&rvlimit=1"+
+			"&rvprop=content|ids"+
+			"&rvstartid="+XMLUtilities.escape(revId)
+			;
+		try
+			{
+			XMLEventReader reader= open(url);
+			while(reader.hasNext())
+				{
+				XMLEvent event = reader.nextEvent();
+				if(event.isStartElement())
+					{
+					StartElement e=event.asStartElement();
+					String name=e.getName().getLocalPart();
+					if(name.equals("rev"))
+						{
+						Attribute att =e.getAttributeByName(AttRevId);
+						if(att==null) continue;
+						if(!att.getValue().equals(revId)) continue;
+						String s= reader.getElementText();
+						reader.close();
+						return s;
+						}
+					}
+				}
+			reader.close();
+			return null;
+			}
+		catch(XMLStreamException err)
+			{
+			throw new IOException(err);
+			}
+		}
+	
+	/**
+	 * listCategories
+	 */
 	public Collection<Category> listCategories(Entry entry)  throws IOException
 		{
 		boolean dirty=true;
@@ -321,12 +366,31 @@ public class MWQuery
 							   timestamp!=null
 							   )//!size can be null
 								{
+								int pageLength=Revision.NO_SIZE;
+								
+								if(size!=null)
+									{
+									pageLength = Integer.parseInt(size.getValue());
+									}
+								else
+									{
+									System.err.println("Fetching size for "+entry+" @revid="+revid.getValue());
+									try {
+										String content= getRevisionId(entry, revid.getValue());
+										if(content!=null) pageLength = content.length();
+									} catch (IOException err2)
+										{
+										pageLength=Revision.NO_SIZE;
+										}
+									}
+								
+								
 								Revision rev=new Revision(
 									Integer.parseInt(revid.getValue()),
 									entry,
 									DATE_FORMAT.parse(timestamp.getValue()),
 									new User(user.getValue()),
-									(size==null?Revision.NO_SIZE:Integer.parseInt(size.getValue())),
+									pageLength,
 									(comment==null?"N/A":comment.getValue())
 									);
 								if(filter==null || filter.accept(rev))
