@@ -14,6 +14,8 @@ import java.util.TreeSet;
 
 
 import javax.xml.namespace.QName;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
@@ -22,6 +24,9 @@ import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 
 import org.lindenb.xml.XMLUtilities;
+import org.xml.sax.Attributes;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
 
 
 
@@ -43,7 +48,7 @@ public class MWQuery
 
 	private String base;
 	private XMLInputFactory xmlInputFactory;
-	
+	private SAXParser saxParser;
 
 	public MWQuery()
 		{
@@ -57,6 +62,16 @@ public class MWQuery
 		this.xmlInputFactory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, Boolean.FALSE);
 		this.xmlInputFactory.setProperty(XMLInputFactory.IS_COALESCING, Boolean.TRUE);
 		this.xmlInputFactory.setProperty(XMLInputFactory.IS_REPLACING_ENTITY_REFERENCES, Boolean.TRUE);
+		SAXParserFactory saxParserFactory= SAXParserFactory.newInstance();
+		saxParserFactory.setNamespaceAware(false);
+		saxParserFactory.setValidating(false);
+		try {
+			this.saxParser= saxParserFactory.newSAXParser();
+			}
+		catch (Throwable e)
+			{
+			throw new RuntimeException(e);
+			}
 		}
 	
 	protected String escape(Entry entry) throws IOException
@@ -64,7 +79,7 @@ public class MWQuery
 		return URLEncoder.encode(entry.getQName().replace(' ', '_'),"UTF-8");
 		}
 	
-	protected XMLEventReader open(String url) throws IOException,XMLStreamException
+	protected InputStream openStream(String url) throws IOException
 		{
 		final int tryNumber=10;
 		IOException lastError=null;
@@ -74,7 +89,7 @@ public class MWQuery
 			try
 				{
 				InputStream in=net.openStream();
-				return this.xmlInputFactory.createXMLEventReader(in);
+				return in;
 				}
 			catch(IOException err)
 				{
@@ -89,6 +104,11 @@ public class MWQuery
 				}
 			}
 		throw lastError;
+		}
+	
+	protected XMLEventReader open(String url) throws IOException,XMLStreamException
+		{
+		return this.xmlInputFactory.createXMLEventReader(openStream(url));	
 		}
 	
 	public String getBase()
@@ -202,6 +222,52 @@ public class MWQuery
 			}
 		}*/
 	
+	private static class GetRevisionHandler
+		extends DefaultHandler
+		{
+		private String revId;
+		private StringBuilder sb=null;
+		private String content=null;
+		GetRevisionHandler(String revId)
+			{
+			this.revId=revId;
+			}
+		
+		@Override
+		public void startElement(String uri, String localName, String name,
+				Attributes attributes) throws SAXException
+			{
+			if(this.content==null && name.equals("rev") &&
+				this.revId.equals(attributes.getValue("revid")))
+				{
+				this.sb= new StringBuilder();
+				}
+			}
+		
+		@Override
+		public void endElement(String uri, String localName, String name)
+				throws SAXException
+			{
+			if(sb!=null)
+				{
+				this.content=sb.toString();
+				this.sb=null;
+				}
+			}
+		
+		public String getContent()
+			{
+			return this.content;
+			}
+		
+		@Override
+		public void characters(char[] ch, int start, int length)
+				throws SAXException {
+			if(sb!=null) sb.append(ch,start,length);
+			}
+		
+		}
+	
 	public String getRevisionId(Entry entry,String revId) throws IOException
 		{
 		String url=getBaseApi()+"?action=query" +
@@ -212,34 +278,23 @@ public class MWQuery
 			"&rvprop=content|ids"+
 			"&rvstartid="+XMLUtilities.escape(revId)
 			;
-		try
-			{
-			XMLEventReader reader= open(url);
-			while(reader.hasNext())
+		
+		try {
+			GetRevisionHandler h= new GetRevisionHandler(revId);
+			InputStream in= openStream(url);
+			this.saxParser.parse(in, h);
+			in.close();
+			if(h.getContent()==null)
 				{
-				XMLEvent event = reader.nextEvent();
-				if(event.isStartElement())
-					{
-					StartElement e=event.asStartElement();
-					String name=e.getName().getLocalPart();
-					if(name.equals("rev"))
-						{
-						Attribute att =e.getAttributeByName(AttRevId);
-						if(att==null) continue;
-						if(!att.getValue().equals(revId)) continue;
-						String s= reader.getElementText();
-						reader.close();
-						return s;
-						}
-					}
+				System.err.println("(no content for "+url+ ")");
 				}
-			reader.close();
-			return null;
-			}
-		catch(XMLStreamException err)
+			return h.getContent();
+			} 
+		catch (SAXException e1)
 			{
-			throw new IOException(err);
+			throw new IOException(e1);
 			}
+		
 		}
 	
 	/**
@@ -374,14 +429,16 @@ public class MWQuery
 									}
 								else
 									{
-									System.err.println("Fetching size for "+entry+" @revid="+revid.getValue());
+									System.err.print("Fetching size for "+entry+" @revid="+revid.getValue());
 									try {
 										String content= getRevisionId(entry, revid.getValue());
 										if(content!=null) pageLength = content.length();
 									} catch (IOException err2)
 										{
+										System.err.println(" error:" + err2.getMessage());
 										pageLength=Revision.NO_SIZE;
 										}
+									System.err.println(" size:"+pageLength);
 									}
 								
 								
