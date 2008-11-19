@@ -1,11 +1,8 @@
 package org.lindenb.swapp;
 
-import java.awt.Component;
 
-import javax.swing.DefaultListCellRenderer;
 import javax.swing.JComponent;
-import javax.swing.JList;
-import javax.swing.ListCellRenderer;
+
 
 import com.hp.hpl.jena.rdf.model.Model;
 import com.hp.hpl.jena.rdf.model.Property;

@@ -10,6 +10,8 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.event.ActionEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 
@@ -88,6 +90,15 @@ public class SimpleDialog extends JDialog
 		d1.setSize(Math.max(d1.width, d2.width), Math.max(d1.height, d2.height));
 		button1.setPreferredSize(d1);
 		button2.setPreferredSize(d2);
+		
+		this.addWindowListener(new WindowAdapter()
+			{
+			@Override
+			public void windowOpened(WindowEvent e) {
+				SwingUtils.center(SimpleDialog.this);
+				removeWindowListener(this);
+				}
+			});
 		}
 	
 	protected String getCancelLabel()
