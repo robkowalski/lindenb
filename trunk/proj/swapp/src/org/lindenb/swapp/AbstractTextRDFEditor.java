@@ -10,8 +10,29 @@ extends RDFEditor
     /** text field */
     private JTextField tf= new JTextField(15);
     private boolean required=false;
-
+    /** maximum length */
+    private Integer maxLength=null;
+    /** minimum length */
+    private Integer minLength=null;
     JTextField getTextField() { return this.tf;}
+    
+   
+    
+    public void setMaxLength(Integer maxLength) {
+		this.maxLength = maxLength;
+		}
+    
+    public void setMinLength(Integer minLength) {
+		this.minLength = minLength;
+		}
+     
+    public Integer getMinLength() {
+		return minLength;
+		}
+   
+    public Integer getMaxLength() {
+		return maxLength;
+		}
     
     @Override
     public boolean isEmpty()
@@ -32,4 +53,22 @@ extends RDFEditor
 		return getTextField();
 	   }
 
+	@Override
+	public String getValidationMessage() {
+		String s= getTextField().getText();
+		if(s.length()==0 && !isRequired()) return null;
+		
+		if(getMinLength()!=null && s.length()< getMinLength())
+			{
+			return getSchema().lang("TOO_SHORT");
+			}
+		
+		if(getMaxLength()!=null && s.length()>= getMaxLength())
+			{
+			return getSchema().lang("TOO_LARGE");
+			}
+		
+		return null;
+		}
+	
 	}

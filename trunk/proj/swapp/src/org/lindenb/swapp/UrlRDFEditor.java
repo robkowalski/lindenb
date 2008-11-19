@@ -18,6 +18,8 @@ public class UrlRDFEditor extends AbstractTextRDFEditor
     @Override
     public String getValidationMessage()
 		{
+    	String s= super.getValidationMessage();
+    	if(s!=null) return null;
     	if(isEmpty())
     		{
     		if(isRequired())
