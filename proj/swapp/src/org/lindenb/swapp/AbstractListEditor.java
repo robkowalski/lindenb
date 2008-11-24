@@ -24,7 +24,8 @@ import org.lindenb.swing.SwingUtils;
 import com.hp.hpl.jena.rdf.model.NodeIterator;
 import com.hp.hpl.jena.rdf.model.RDFNode;
 
-public  abstract class AbstractListEditor extends RDFEditor {
+public  abstract class AbstractListEditor extends RDFEditor
+	{
 	private JPanel pane;
 	private JTextField inputField;
 	protected JList list;

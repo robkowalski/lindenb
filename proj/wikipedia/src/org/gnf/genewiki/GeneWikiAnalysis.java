@@ -1,7 +1,9 @@
 package org.gnf.genewiki;
 
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.URLEncoder;
@@ -9,6 +11,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
@@ -410,6 +413,7 @@ public class GeneWikiAnalysis
 			GeneWikiAnalysis app= new GeneWikiAnalysis();
 			File dbFile= null;
 			File outFile= null;
+			File pagesFile=null;
 			int limit=Integer.MAX_VALUE;
 			int optind=0;
 			String command=null;
@@ -425,6 +429,7 @@ public class GeneWikiAnalysis
 					System.err.println("-L <integer> limit input for build default:"+limit);
 					System.err.println("-o <file> output (default: stdout)");
 					System.err.println("-t <template> qualified templateused as seed default:"+template);
+					System.err.println("-k <file> used with -p 'build', a file containing a list of pages to be build");
 					System.err.println("-p program can be:");
 					System.err.println("	clear :clear the database");
 					System.err.println("	build :fill the database with the revisions of all pages containing "+template);
@@ -438,6 +443,10 @@ public class GeneWikiAnalysis
 				 else if (args[optind].equals("-f"))
 				     {
 					 dbFile= new File(args[++optind]);
+				     }
+				 else if (args[optind].equals("-k"))
+				     {
+					 pagesFile= new File(args[++optind]);
 				     }
 				 else if (args[optind].equals("-L"))
 				     {
@@ -510,8 +519,25 @@ public class GeneWikiAnalysis
 		    else if(command.equals("build"))	
 		    	{
 		    	MWQuery query= new MWQuery();
+		    	Collection<Entry> pages=new ArrayList<Entry>();
+		    	if(pagesFile!=null)
+		    		{
+		    		BufferedReader reader= new BufferedReader(new FileReader(pagesFile));
+		    		String line;
+		    		while((line=reader.readLine())!=null)
+		    			{
+		    			if(line.trim().length()==0 || line.startsWith("#")) continue;
+		    			pages.add(Entry.create(line));
+		    			}
+		    		reader.close();
+		    		}
+		    	else
+		    		{
+		    		pages.addAll( query.listPagesEmbedding(template) );
+		    		}
+		    	
 		    	int count=0;
-		    	for(Page page:query.listPagesEmbedding(template))
+		    	for(Entry page:pages)
 		    		{
 		    		if(count >= limit) break;
 		    	
