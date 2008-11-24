@@ -157,7 +157,7 @@ private class RssHandler
 			Attributes attributes) throws SAXException
 		{
 		this.content.setLength(0);
-		if(localName.equals("item"))
+		if(localName.equals("item") || localName.equals("entry"))
 			{
 			item=new Item();
 			}
@@ -165,12 +165,17 @@ private class RssHandler
 			{
 			item.imageURL= attributes.getValue("url");
 			}
+		else if(localName.equals("link") && item!=null)
+			{
+			if(item.imageURL==null && "enclosure".equals(attributes.getValue("rel"))) item.imageURL= attributes.getValue("href");
+			if(item.link==null && "alternate".equals(attributes.getValue("rel"))) item.link= attributes.getValue("href");
+			}
 		}
 	@Override
 	public void endElement(String uri, String localName, String name)
 			throws SAXException
 		{
-		if(localName.equals("item")&& item!=null)
+		if((localName.equals("item") || localName.equals("entry")) && item!=null)
 			{
 			if(item.imageURL!=null &&
 			   item.date!=null &&
@@ -197,7 +202,7 @@ private class RssHandler
 			}
 		else if(name.equals("link") && item!=null)
 			{
-			item.link=this.content.toString();
+			if(item.link==null) item.link=this.content.toString();
 			}
 		else if(name.equals("description") && item!=null)
 			{
@@ -214,7 +219,7 @@ private class RssHandler
 					}
 				}
 			}
-		else if(localName.equals("date.Taken") &&
+		else if(localName.equals("date.Taken")  &&
 				DC.NS.equals(uri) &&
 				item!=null)
 			{
@@ -559,6 +564,7 @@ private class RssHandler
 			Resource subject = iter.nextResource();
 			try
 				{
+				//System.err.println(subject.getURI());
 				this.parser.parse(subject.getURI(), handler);
 				}
 			catch(IOException err)
