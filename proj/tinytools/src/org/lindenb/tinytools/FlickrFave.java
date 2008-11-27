@@ -347,6 +347,7 @@ private class RssHandler
 				imageURL= imageURL.replace("_m.", ".");
 				imageURL= imageURL.replace("_s.", ".");
 				BufferedImage img= ImageIO.read(new URL(imageURL));
+				setTitle(imageURL);
 				next.setEnabled(index+1< this.items.size());
 				prev.setEnabled(index-1>=0);
 				this.label.setIcon(new ImageIcon(img));
