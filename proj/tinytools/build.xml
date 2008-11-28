@@ -7,7 +7,7 @@
  <property name="compiledir" value="${builddir}/compile"/>
 
 
- <target name="all" depends="sortpubmed,meshfreq,pictools,aboutrslist,java2dot,verticalize">
+ <target name="all" depends="sortpubmed,meshfreq,pictools,aboutrslist,java2dot,verticalize,findjar">
 </target>
 
  <target name="build-ant-tasks">
@@ -356,6 +356,51 @@
 				 <attribute
 					   name="Main-Class"
 					   value="org.lindenb.tinytools.Verticalize"
+					   />
+			 </manifest>
+		 </jar>
+		 <delete dir="${compiledir}"/> 
+	 </target>		
+	 <!-- =================================================================== -->
+	 <!-- =================================================================== -->
+	 <!-- =================================================================== -->
+	 <!-- =================================================================== -->
+	 
+	 <target name="findjar" depends="declare-ant-tasks">
+		 <mkdir dir="${compiledir}"/>
+		 
+		 
+		 <copy todir="${compiledir}" includeEmptyDirs="false">
+			 <fileset dir="src"/>
+			 <fileset dir="${rootdir}/src/java">
+				 <filename name="**/*.java"/>
+			 </fileset>
+		 </copy>
+		 
+		 <compileInfoTask
+				 name="FindJar"
+				 package="org.lindenb.util"
+				 dir="${compiledir}"
+				 />
+		 
+		 
+		 <javac srcdir="${compiledir}"
+			destdir="${compiledir}"
+			debug="true"
+			source="1.6"
+			target="1.6">
+			 <include name="**/tinytools/FindJar.java"/>
+		 </javac>
+		 
+		 <delete includeEmptyDirs="true">
+			 <fileset dir="${compiledir}" includes="**/*.java"/>
+		 </delete>
+		 <jar destfile="../../build/findjar.jar"
+		      basedir="${compiledir}">
+			 <manifest>
+				 <attribute
+					   name="Main-Class"
+					   value="org.lindenb.tinytools.FindJar"
 					   />
 			 </manifest>
 		 </jar>
