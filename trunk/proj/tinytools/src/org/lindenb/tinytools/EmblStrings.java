@@ -296,6 +296,21 @@ extends Base
 		return	(first().equals(cp.first()) &&  second().equals(cp.second()) )
 				;
 		}
+	
+	public String pmidAsComma()
+		{
+		StringBuilder b= new StringBuilder();
+		boolean f=false;
+		if(this.experiment==null) return "";
+		for(String e:this.experiment.pmids)
+			{
+			if(f) b.append(",");
+			f=true;
+			b.append(e);
+			}
+		return b.toString();
+		}
+	
 	@Override
 	public String toString() {
 		return "("+this.interactors[0].toString()+" / "+this.interactors[1]+")";
@@ -487,7 +502,8 @@ private static class EntrySet
 		
 		for(Interaction link:this.interactions)
 			{
-			out.println("p"+prot2id.get(link.first())+" -- p"+ +prot2id.get(link.second()) +"[URL=\"http://www.ebi.ac.uk/intact/search/do/search?searchString="+ "A" +"&filter=ac\", label=\""+"B"+"\"];");
+			out.println("p"+prot2id.get(link.first())+" -- p"+ +prot2id.get(link.second()) +
+					"[URL=\"http://www.ncbi.nlm.nih.gov/entrez/query.fcgi?cmd=retrieve&amp;db=pubmed&amp;list_uids="+link.pmidAsComma()+"&amp;dopt=AbstractPlus\", label=\""+link.pmidAsComma()+"\"];");
 			}
 		
 		out.println("}");

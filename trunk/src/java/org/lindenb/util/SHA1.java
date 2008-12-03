@@ -1,5 +1,8 @@
 package org.lindenb.util;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -20,7 +23,35 @@ public static boolean isImplemented()
 		return false;
 		}
 	}
-	
+
+
+
+public static String encrypt(File file) throws IOException
+	{
+	byte[] hash = null;
+	try {
+		FileInputStream in= new FileInputStream(file);
+		MessageDigest instance=MessageDigest.getInstance(ALGORITHM);
+		byte array[]=new byte[2048];
+		int len;
+		while((len=in.read(array))!=-1)
+			{
+			instance.update(array, 0, len);
+			}
+		hash = instance.digest();
+		in.close();
+		}
+	catch (NoSuchAlgorithmException err)
+		{
+		throw new IOException(err);
+		}
+	catch (UnsupportedEncodingException err)
+		{
+		throw new IOException(err);
+		}
+	return getHashString(hash);
+	}
+
 public static String encrypt(String string)
 	{
 	byte[] hash = null;
@@ -35,6 +66,11 @@ public static String encrypt(String string)
 		{
 		throw new Error("no "+ENCODING+" support in this VM");
 		}
+	return getHashString(hash);
+	}
+
+private static String getHashString(byte[] hash)
+	{
 	StringBuilder hashString = new StringBuilder(42);
 
 	for (int i = 0; i < hash.length; ++i)
@@ -46,6 +82,7 @@ public static String encrypt(String string)
 
 	return hashString.toString();
 	}
+
 public static void main(String[] args)
 	{
 	if(!isImplemented())

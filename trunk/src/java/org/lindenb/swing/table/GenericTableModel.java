@@ -29,6 +29,13 @@ public abstract class GenericTableModel<T> extends AbstractGenericTableModel<T>
 		return this.data;
 		}
 	
+	
+	public void setElementAt(T object,int rowIndex )
+		{
+		getDataVector().setElementAt(object, rowIndex);
+		fireTableRowsUpdated(rowIndex, rowIndex);
+		}
+	
 	@Override
 	public T elementAt(int rowIndex) {
 		return getDataVector().elementAt(rowIndex);
