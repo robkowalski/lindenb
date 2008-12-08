@@ -2,11 +2,11 @@ package org.lindenb.berkeley;
 
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
 import org.lindenb.util.Pair;
+import org.lindenb.util.iterator.CloseableIterator;
 
 import com.sleepycat.bind.tuple.TupleBinding;
 import com.sleepycat.je.Cursor;
@@ -16,6 +16,7 @@ import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.DatabaseException;
 import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
+import com.sleepycat.je.Transaction;
 
 /**
  * AbstractDatabase
@@ -26,8 +27,11 @@ import com.sleepycat.je.OperationStatus;
  */
 public abstract class AbstractDatabase<K, V>
 	{
+	/** berkeleyDB database */
 	private Database database;
+	/** binding for key */
 	private TupleBinding<K> keyBinding;
+	/** binding for value */
 	private TupleBinding<V> valueBinding;
 	
 	/**
@@ -35,7 +39,7 @@ public abstract class AbstractDatabase<K, V>
 	 *
 	 */
 	protected abstract class AbstractIterator<X>
-	implements Iterator<X>
+	implements CloseableIterator<X>
 		{
 		@Override
 		public void remove() {
@@ -87,11 +91,13 @@ public abstract class AbstractDatabase<K, V>
 			return i;
 			}
 		
+		/** close this iterator */
 		public void close()
 			{
 			
 			}
 		}
+	
 	
 	
 	public class KeyValueIterator
@@ -112,6 +118,9 @@ public abstract class AbstractDatabase<K, V>
 	            this.cursor=cursor;
 	            }
 	    
+	    
+	  
+	    
 	    @Override
 	    public void remove()
 	            {
@@ -126,11 +135,8 @@ public abstract class AbstractDatabase<K, V>
 	    
 	    public void close()
 	            {
-	            if(this.cursor!=null)
-	                    {
-	                   	try { this.cursor.close();} catch(Throwable err) { }
-	                    this.cursor=null;
-	                    }
+	            BerkeleyUtils.safeClose(this.cursor);
+	            this.cursor=null;
 	            }
 	    
 
@@ -174,10 +180,14 @@ public abstract class AbstractDatabase<K, V>
 	    		hasNext();
 	    		}
 	    	if(!_hasNext)  throw new IllegalStateException();
-	    	return new Pair<K, V>(
-	    		getKeyBinding().entryToObject(_nextValue.first()),
-	    		getValueBinding().entryToObject(_nextValue.second())
+	    	this._hasNextTested=false;
+	    	this._hasNext=false;
+	    	Pair<K, V> p= new Pair<K, V>(
+	    		entryToKey(_nextValue.first()),
+	    		entryToValue(_nextValue.second())
 	    		);
+	    	
+	    	return p;
 	    	}
 	
 	    protected Cursor getCursor()
@@ -260,20 +270,56 @@ public abstract class AbstractDatabase<K, V>
 		)
 		{
 		this.database=database;
+		this.keyBinding= keyBinding;
+		this.valueBinding= valueBinding;
 		}
 	
-	protected Cursor cursor() throws DatabaseException
+	public Cursor cursor() throws DatabaseException
 		{
 		CursorConfig cfg= new CursorConfig();
 		return getDatabase().openCursor(null,cfg );
 		}
 	
-	protected TupleBinding<K> getKeyBinding() {
+	public TupleBinding<K> getKeyBinding() {
 		return keyBinding;
 		}
 	
-	protected TupleBinding<V> getValueBinding() {
+	public TupleBinding<V> getValueBinding() {
 		return valueBinding;
+		}
+	
+	public DatabaseEntry keyToEntry(K key)
+		{
+		DatabaseEntry entry= new DatabaseEntry();
+		getKeyBinding().objectToEntry(key, entry);
+		return entry;
+		}
+	
+	public DatabaseEntry valueToEntry(V value)
+		{
+		DatabaseEntry entry= new DatabaseEntry();
+		getValueBinding().objectToEntry(value, entry);
+		return entry;
+		}
+
+	public K entryToKey(DatabaseEntry entry)
+		{
+		return getKeyBinding().entryToObject(entry);
+		}
+	
+	public V entryToValue(DatabaseEntry entry)
+		{
+		return getValueBinding().entryToObject(entry);
+		}
+	
+	public OperationStatus delete(K key) throws DatabaseException
+		{
+		return delete(null,key);
+		}
+	
+	public OperationStatus delete(Transaction txn,K key) throws DatabaseException
+		{
+		return getDatabase().delete(txn, keyToEntry(key));
 		}
 	
 	public Database getDatabase()
@@ -295,13 +341,59 @@ public abstract class AbstractDatabase<K, V>
 		}
 	
 	@Override
-	protected Object clone() throws CloneNotSupportedException
+	public Object clone() throws CloneNotSupportedException
 		{
 		throw new CloneNotSupportedException("Cannot clone "+getClass());
+		}
+	
+	public long size() throws DatabaseException
+		{
+		return getDatabase().count();
 		}
 	
 	@Override
 	public String toString() {
 		return getClass().getName();
 		}
+	
+	
+	
+	
+	public KeyValueIterator listKeyValues() throws DatabaseException
+		{
+		return new KeyValueIterator(cursor());
+		}
+	
+	public ValueIterator listValues() throws DatabaseException
+		{
+		return new ValueIterator(listKeyValues());
+		}
+	
+	public List<V> getValues() throws DatabaseException
+		{
+		return listValues().asList();
+		}
+	
+	public Set<K> getKeys() throws DatabaseException
+		{
+		return listKeys().asSet();
+		}
+	
+	public KeyIterator listKeys() throws DatabaseException
+		{
+		return new KeyIterator(listKeyValues());
+		}
+	
+	
+	
+	public KeyValueIterator iterator()
+		{
+		try {
+			return listKeyValues();
+			}
+		catch (DatabaseException e) {
+			throw new RuntimeException(e);
+			}
+		}
+	
 	}

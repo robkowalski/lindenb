@@ -20,10 +20,9 @@ public abstract class GenericTableModel<T> extends AbstractGenericTableModel<T>
 	private Vector<T> data= new Vector<T>();
 	
 	public GenericTableModel()
-		{
-		
+		{		
 		}
-
+	
 	protected Vector<T> getDataVector()
 		{
 		return this.data;
