@@ -41,12 +41,10 @@ public class SingleMapDatabase<K,V>
 		}
 	
 	
-	
-	
-	public V get(K key) throws DatabaseException
+	public V get(Transaction txn,K key) throws DatabaseException
 		{
 		DatabaseEntry value= new DatabaseEntry();
-		OperationStatus op=getDatabase().get(null,
+		OperationStatus op=getDatabase().get(txn,
 				keyToEntry(key),
 				value,
 				null);
@@ -55,6 +53,11 @@ public class SingleMapDatabase<K,V>
 			return entryToValue(value);
 			}
 		return null;
+		}
+	
+	public V get(K key) throws DatabaseException
+		{
+		return get(null,key);
 		}
 	
 	public Map<K, V> get(Set<K> keys) throws DatabaseException
