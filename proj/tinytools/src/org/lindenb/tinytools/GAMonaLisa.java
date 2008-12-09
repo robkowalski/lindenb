@@ -1,3 +1,9 @@
+/*
+ * 
+ * Pierre Lindenbaum PhD plindenbaum@yahoo.fr
+ *  to create images inspired by Roger Alsing's blog:
+ * http://rogeralsing.com/2008/12/07/genetic-programming-evolution-of-mona-lisa/
+ */
 package org.lindenb.tinytools;
 
 import java.awt.AlphaComposite;
@@ -21,11 +27,7 @@ import javax.imageio.ImageIO;
 
 import org.lindenb.util.Compilation;
 
-/*
- * GeneticAlgorithm
- * inspired by Roger Alsing's blog:
- * http://rogeralsing.com/2008/12/07/genetic-programming-evolution-of-mona-lisa/
- */
+
 public class GAMonaLisa
 	{
 	private BufferedImage imageSrc;
