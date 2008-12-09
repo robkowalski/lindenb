@@ -1,6 +1,7 @@
 package org.lindenb.util;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.math.BigInteger;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Vector;
@@ -60,7 +61,7 @@ public class SmartComparator implements Comparator<CharSequence>
                 int j[]={i[0]+1,i[1]+1};
                 try
 	                {
-	                long values[]={0,0};
+	                BigInteger values[]={null,null};
 	                for(int side=0;side<2;++side)
 	                    {
 	                    while(  j[side]< ss[side].length() &&
@@ -68,12 +69,12 @@ public class SmartComparator implements Comparator<CharSequence>
                             {
                             j[side]++;
                             }
-	                    values[side]=Long.parseLong(ss[side].substring(i[side],j[side]));
+	                    values[side]=new BigInteger(ss[side].substring(i[side],j[side]));
 	                    }
-	                long k=values[0]-values[1];
+	                int k=values[0].compareTo(values[1]);
 	                i[0]=j[0];
 	                i[1]=j[1];
-	                if(k!=0L) return (k<0L?-1:1);
+	                if(k!=0) return k;
 	                continue;
 	                }
                 catch(NumberFormatException err)
