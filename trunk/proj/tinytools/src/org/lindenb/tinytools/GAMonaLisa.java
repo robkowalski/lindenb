@@ -12,9 +12,11 @@ import java.awt.Composite;
 import java.awt.Graphics2D;
 import java.awt.Polygon;
 import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
@@ -54,17 +56,44 @@ public class GAMonaLisa
 			{
 			this.color= randColor();
 			this.alpha= rand.nextFloat();
-			int halfw= imageSrc.getWidth()/2;
-			int halfh= imageSrc.getHeight()/2;
+			
 			
 			this.x[0]= rand.nextInt(imageSrc.getWidth());
 			this.y[0]= rand.nextInt(imageSrc.getHeight());
 			
-			this.x[1]= halfw + sign() * rand.nextInt(imageSrc.getWidth());
-			this.y[1]= halfh + sign() * rand.nextInt(imageSrc.getHeight());
-			
-			this.x[2]= halfw + sign() * rand.nextInt(imageSrc.getWidth());
-			this.y[2]= halfh + sign() * rand.nextInt(imageSrc.getHeight());
+			if(rand.nextInt(100)<10)//create small figure sometimes
+				{
+				int max=2+ rand.nextInt(Math.min(imageSrc.getWidth(), imageSrc.getHeight())/50);
+				this.x[1]= this.x[0] + sign() * rand.nextInt(max);
+				this.y[1]= this.x[0] + sign() * rand.nextInt(max);
+				
+				this.x[2]= this.x[0] + sign() * rand.nextInt(max);
+				this.y[2]= this.x[0] + sign() * rand.nextInt(max);
+				}
+			else
+				{
+				int halfw= imageSrc.getWidth()/2;
+				int halfh= imageSrc.getHeight()/2;
+				
+				this.x[1]= halfw + sign() * rand.nextInt(imageSrc.getWidth());
+				this.y[1]= halfh + sign() * rand.nextInt(imageSrc.getHeight());
+				
+				this.x[2]= halfw + sign() * rand.nextInt(imageSrc.getWidth());
+				this.y[2]= halfh + sign() * rand.nextInt(imageSrc.getHeight());
+				}
+			}
+		
+		public Triangle(String line)
+			{
+			String token[]=line.split("[ ]");
+			for( int i=0;i< 3;++i)
+				{
+				int j= token[i].indexOf(',');
+				x[i]= Integer.parseInt( token[i].substring(0, j));
+				y[i]= Integer.parseInt( token[i].substring(j+1));
+				}
+			this.color= ColorUtils.parseColor(token[3]);
+			this.alpha= Float.parseFloat(token[4])/10000f;
 			}
 		
 		public Triangle(Triangle cp)
@@ -77,7 +106,7 @@ public class GAMonaLisa
 		
 		private void toSVG(PrintStream out)
 			{
-			out.print("<svg:points style='fill:"+ColorUtils.toRGB(this.color)+";fill-opacity:"+ this.alpha+";' points='"+
+			out.print("<svg:polygon style='fill:"+ColorUtils.toRGB(this.color)+";fill-opacity:"+ this.alpha+";' points='"+
 					x[0]+","+y[0]+" "+
 					x[1]+","+y[1]+" "+
 					x[2]+","+y[2]+"'/>"
@@ -173,11 +202,11 @@ public class GAMonaLisa
 		private void toSVG(PrintStream out)
 			{
 			out.println(SVG.DOCTYPE);
-			out.println("<svg:svg xmlns:svg='"+ SVG.NS+ "' version='1.1' width='"+imageSrc.getWidth()+" height='"+imageSrc.getHeight()+"' style='stroke:none;'>");
-			out.print("<svg:title>Generation "+generation+" fitness:"+getFitness()+"</svg.title>");
-			out.print("<svg:rect x='0' y='0' style='fill:white;' width='"+(imageSrc.getWidth()-1)+" height='"+(imageSrc.getHeight()-1)+" />");
+			out.println("<svg:svg xmlns:svg='"+ SVG.NS+ "' version='1.1' width='"+imageSrc.getWidth()+"' height='"+imageSrc.getHeight()+"' style='stroke:none;'>");
+			out.print("<svg:title>Generation "+generation+" fitness:"+getFitness()+"</svg:title>");
+			out.print("<svg:rect x='0' y='0' style='fill:white;' width='"+(imageSrc.getWidth()-1)+"' height='"+(imageSrc.getHeight()-1)+"' />");
 			for(Triangle t:this.items) t.toSVG(out);
-			out.print("<svg:rect x='0' y='0' style='fill:none;stroke:balck;' width='"+(imageSrc.getWidth()-1)+" height='"+(imageSrc.getHeight()-1)+" />");
+			out.print("<svg:rect x='0' y='0' style='fill:none;stroke:balck;' width='"+(imageSrc.getWidth()-1)+"' height='"+(imageSrc.getHeight()-1)+"' />");
 			out.print("</svg:svg>");
 			out.flush();
 			}
@@ -191,6 +220,12 @@ public class GAMonaLisa
 		
 		private void mute()
 			{
+			if(rand.nextInt(100)<5)
+				{
+				Collections.shuffle(this.items);
+				return;
+				}
+			
 			if(this.items.size()>1 &&
 				rand.nextInt(100)<20)
 				{
@@ -398,6 +433,26 @@ public class GAMonaLisa
 			}
 		}
 	
+	private void preReadSolution(File f) throws IOException
+		{
+		List<Triangle> items= new ArrayList<Triangle>();
+		BufferedReader r= new BufferedReader(new FileReader(f));
+		String line;
+		while((line=r.readLine())!=null)
+			{
+			if(line.startsWith("#"))
+				{
+				int j=line.indexOf(",");
+				if(j>0) this.generation=Math.max(this.generation, 1+Integer.parseInt(line.substring(1,j)));
+				continue;
+				}
+			if(line.trim().length()==0) continue;
+			items.add(new Triangle(line));
+			}
+		r.close();
+		this.population.add(new Solution(items));
+		}
+	
 	private void loadImage(String uri) throws IOException
 		{
 		InputStream in=null;
@@ -428,7 +483,7 @@ public class GAMonaLisa
 					System.err.println("Inspired by Roger Alsing's blog: http://rogeralsing.com/2008/12/07/genetic-programming-evolution-of-mona-lisa/ ");
 					System.err.println(" -i input image (file|url) <required>");
 					System.err.println(" -d output directory");
-					
+					System.err.println(" -r read previous chilren <*.txt>");
 					}
 				else if(args[optind].equals("-i"))
 					{
@@ -437,6 +492,10 @@ public class GAMonaLisa
 				else if(args[optind].equals("-d"))
 					{
 					app.outDir= new File(args[++optind]);
+					}
+				else if(args[optind].equals("-r"))
+					{
+					app.preReadSolution(new File(args[++optind]));
 					}
 				else if(args[optind].equals("--"))
 					{
