@@ -39,6 +39,7 @@ import org.lindenb.util.Compilation;
 public class GAMonaLisa
 	{
 	private BufferedImage imageSrc;
+	private BufferedImage currentImage;
 	private Random rand= new Random(System.currentTimeMillis());
 	private int maxTrianglePerSolution=250;
 	private int minTrianglePerSolution=50;
@@ -261,10 +262,14 @@ public class GAMonaLisa
 		
 		public BufferedImage createImage()
 			{
-			BufferedImage img= new BufferedImage(imageSrc.getWidth(),imageSrc.getHeight(),imageSrc.getType());
-			Graphics2D g=img.createGraphics();
+			if(currentImage==null)
+				{
+				currentImage= new BufferedImage(imageSrc.getWidth(),imageSrc.getHeight(),imageSrc.getType());
+				}
+			
+			Graphics2D g=currentImage.createGraphics();
 			g.setColor(Color.WHITE);
-			g.fillRect(0, 0, img.getWidth(), img.getHeight());
+			g.fillRect(0, 0, currentImage.getWidth(), currentImage.getHeight());
 			Composite comp= g.getComposite();
 			for(Triangle t:this.items)
 				{
@@ -274,7 +279,7 @@ public class GAMonaLisa
 				}
 			g.setComposite(comp);
 			g.dispose();
-			return img;
+			return currentImage;
 			}
 		
 		public Long getFitness()
