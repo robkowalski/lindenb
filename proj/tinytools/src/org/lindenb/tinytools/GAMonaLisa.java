@@ -267,11 +267,11 @@ public class GAMonaLisa
 	void run()
 		{
 		
-		for(int generation=0;generation<1000;generation++)
+		for(int generation=0;generation<10000;generation++)
 			{
 			System.err.println("g="+generation);
 			List<Solution> children=new ArrayList<Solution>();
-			while(this.population.size()<20)
+			while(this.population.size()<30)
 				{
 				this.population.add(new Solution());
 				}
@@ -299,7 +299,7 @@ public class GAMonaLisa
 				children.remove(children.size()-1);
 				}
 			this.population=children;
-			if(generation%10==0)
+			if(generation%100==0)
 				{
 				try
 					{
