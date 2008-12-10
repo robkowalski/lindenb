@@ -8,7 +8,6 @@ import com.sleepycat.bind.tuple.IntegerBinding;
 import com.sleepycat.bind.tuple.LongBinding;
 import com.sleepycat.bind.tuple.StringBinding;
 import com.sleepycat.bind.tuple.TupleBinding;
-import com.sleepycat.je.Cursor;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.DatabaseException;
@@ -25,6 +24,17 @@ public class SingleMapDatabase<K,V>
 		super(database, keyBinding, valueBinding);
 		}
 	
+	
+	public OperationStatus remove(Transaction txn,K key) throws DatabaseException
+		{
+		return getDatabase().delete(txn, keyToEntry(key));
+		}
+	
+	public OperationStatus remove(K key) throws DatabaseException
+		{
+		return remove(null,key);
+		}
+
 	/**  Stores the key/data pair into the database. */
 	public  OperationStatus put(Transaction txn,K key,V value) throws DatabaseException
 		{
@@ -72,41 +82,50 @@ public class SingleMapDatabase<K,V>
 		return map;
 		}
 	
-	public static class ComparableDB<X extends Comparable<X>,Y>
+	private static class SingleComparableDB<X extends Comparable<X>,Y>
 		extends SingleMapDatabase<X, Y>
 		{
-		protected ComparableDB(Database db,TupleBinding<X> keyBinding,TupleBinding<Y> valueBinding)
+
+		public SingleComparableDB(Database database,
+				TupleBinding<X> keyBinding, TupleBinding<Y> valueBinding)
 			{
-			super(db,keyBinding,valueBinding);
-			}	
+			super(database,keyBinding,valueBinding);
+			}
+		
+	
 		
 		}
 	
 	public static class INTEGER<Y>
-	extends ComparableDB<Integer, Y>
+	extends SingleComparableDB<Integer, Y>
 		{
-		public INTEGER(Database db,TupleBinding<Y> valueBinding)
+		public INTEGER(Database database,
+				TupleBinding<Y> valueBinding)
 			{
-			super(db,new IntegerBinding(),valueBinding);
+			super(database,new IntegerBinding(),valueBinding);
 			}
 		}
 	
 	public static class LONG<Y>
-	extends ComparableDB<Long, Y>
+	extends SingleComparableDB<Long, Y>
 		{
-		public LONG(Database db,TupleBinding<Y> valueBinding)
+		public LONG(Database database,
+				TupleBinding<Y> valueBinding)
 			{
-			super(db,new LongBinding(),valueBinding);
+			super(database,new LongBinding(),valueBinding);
 			}
 		}
+	
 	
 	public static class STRING<Y>
-	extends ComparableDB<String, Y>
+	extends SingleComparableDB<String, Y>
 		{
-		public STRING(Database db,TupleBinding<Y> valueBinding)
+		public STRING(Database database,
+				TupleBinding<Y> valueBinding)
 			{
-			super(db,new StringBinding(),valueBinding);
+			super(database,new StringBinding(),valueBinding);
 			}
 		}
 	
+
 	}
