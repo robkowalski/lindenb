@@ -10,7 +10,7 @@ package org.lindenb.util;
  * keeping the id
  *
  */
-public class NamedKey<K extends Comparable<K>> extends Pair<K,String> {
+public class NamedKey<K extends Comparable<K>> extends NamedObject<K> {
 
 	/**
 	 * @param key
@@ -26,17 +26,7 @@ public class NamedKey<K extends Comparable<K>> extends Pair<K,String> {
 	
 	public K getId()
 		{
-		return first();
-		}
-	
-	public String getName()
-		{
-		return second();
-		}
-	
-	@Override
-	public int hashCode() {
-		return getId().hashCode();
+		return getObject();
 		}
 	
 	@Override
@@ -47,9 +37,4 @@ public class NamedKey<K extends Comparable<K>> extends Pair<K,String> {
 		return this.getId().equals(p.getId())
 				;
 		}
-	
-	@Override
-	public String toString() {
-		return getName();
-		}
-}
+	}

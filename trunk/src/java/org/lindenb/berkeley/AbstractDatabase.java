@@ -270,8 +270,8 @@ public abstract class AbstractDatabase<K, V>
 		)
 		{
 		this.database=database;
-		this.keyBinding= keyBinding;
-		this.valueBinding= valueBinding;
+		this.keyBinding=keyBinding;
+		this.valueBinding=valueBinding;
 		}
 	
 	public Cursor cursor() throws DatabaseException

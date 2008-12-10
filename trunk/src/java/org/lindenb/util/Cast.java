@@ -14,6 +14,7 @@ import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
+
 /**
  * Utilities to cast String to another java type
  */
@@ -161,14 +162,14 @@ public final static Cast<java.net.URI> OpaqueURI= new CasterOpaqueURI();
 public final static Cast<java.net.URI> AbsoluteURI= new CasterAbsoluteURI();
 public final static Cast<BigInteger> BigInteger= new Cast<BigInteger>(BigInteger.class);
 public final static Cast<BigDecimal> BigDecimal= new Cast<BigDecimal>(BigDecimal.class);
-public final static Cast<String> String= new Cast<String>(String.class);
+public final static Cast<java.lang.String> String= new Cast<java.lang.String>(java.lang.String.class);
 public final static Cast<Character> Character= new CharPattern();
-public final static Cast<Long> Long= new Cast<Long>(Long.class);
-public final static Cast<Integer> Integer= new Cast<Integer>(Integer.class);
-public final static Cast<Short> Short= new Cast<Short>(Short.class);
-public final static Cast<Double> Double= new Cast<Double>(Double.class);
-public final static Cast<Float> Float= new Cast<Float>(Float.class);
-public final static Cast<Boolean> Boolean = new CastBoolean();
+public final static Cast<java.lang.Long> Long= new Cast<java.lang.Long>(Long.class);
+public final static Cast<java.lang.Double> Double= new Cast<java.lang.Double>(java.lang.Double.class);
+public final static Cast<java.lang.Float> Float= new Cast<java.lang.Float>(java.lang.Float.class);
+public final static Cast<java.lang.Integer> Integer= new Cast<java.lang.Integer>(java.lang.Integer.class);
+public final static Cast<java.lang.Short> Short= new Cast<java.lang.Short>(java.lang.Short.class);
+public final static Cast<java.lang.Boolean> Boolean = new CastBoolean();
 public final static Cast<String> XMLNS = new CasterXML(true);
 public final static Cast<String> XML = new CasterXML(false);
 public final static Cast<java.util.regex.Pattern> Pattern = new CasterPattern();
