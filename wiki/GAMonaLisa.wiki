@@ -5,7 +5,7 @@ This tool uses a *genetic algorithm* to find the best set of colored triangles t
 
 The tool is available as a java jar executable program (JSE 1.6).
 
-http://lindenb.googlecode.com/files
+http://code.google.com/p/lindenb/downloads/list
 
 = Screenshots =
 
