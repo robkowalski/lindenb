@@ -34,12 +34,20 @@ import org.lindenb.util.Compilation;
 import org.lindenb.util.SHA1;
 
 
-
+/**
+ * Finds protein interactors at two degrees of separation
+ * 
+ * @author lindenb
+ *
+ */
 public class EmblStrings
 	{
 	//private static final String PSI="net:sf:psidev:mi";
 	private XMLInputFactory inputFactory;
 	
+	/** an external source of candidate loaded in the 'main'
+	 * with a p-value.
+	 */
 	private static class Candidate
 		{
 		String acn=null;
@@ -47,10 +55,14 @@ public class EmblStrings
 		double foldChange=0.0;
 		}
 	
+	/** all the candidates */
 	private List<Candidate> candidates= new ArrayList<Candidate>();
 	
+	
+	/** base class for the elements of the PSI file */
 	private static class Base
 		{
+		/** getAttribute */
 		protected String getAttribute(StartElement e,String name)
 			{
 			//BUG in StAX API ??? implemented this function due to exception at 
@@ -66,6 +78,7 @@ public class EmblStrings
 			return null;
 			}
 		
+		/** skip the node and its children */
 		protected void skip(XMLEventReader r,String localName)throws XMLStreamException
 			{
 			while((r.hasNext()))
@@ -79,10 +92,14 @@ public class EmblStrings
 			}
 		}
 	
+	/** description of an experiment */
 	private static class ExperimentDescription
 	extends Base
 		{
+		/* a list of PMID */
 		private Set<String> pmids=new HashSet<String>();
+		
+		/** parse the XML stream and fetch the PMID */
 		ExperimentDescription(XMLEventReader r)throws XMLStreamException
 			{
 			while((r.hasNext()))
@@ -92,7 +109,8 @@ public class EmblStrings
 					{
 					StartElement e=evt.asStartElement();
 					String localName=e.getName().getLocalPart();
-					if(localName.equals("primaryRef") || localName.equals("secondaryRef"))
+					if( localName.equals("primaryRef") ||
+						localName.equals("secondaryRef"))
 						{
 						Attribute att =e.getAttributeByName(new QName("db"));
 						if(!"pubmed".equals(att.getValue())) continue;
@@ -111,13 +129,17 @@ public class EmblStrings
 			}
 		}
 
-
+/** class about an interactor */
 private static class Interactor
 	extends Base
 	{
+	//short name
 	private String shortLabel;
+	//full name
 	private String fullName;
+	//a primary ref is the unique ID of this interactor. Best seems to be the ENSEMBL-ID
 	private String primaryRef;
+	//alternative name for this protein
 	private Set<String> names= new HashSet<String>();
 	
 	Interactor(XMLEventReader r)throws XMLStreamException
@@ -156,6 +178,7 @@ private static class Interactor
 				else if(localName.equals("interactorType")
 				  )
 					{
+					//skip to avoid some other tags <fullName>,...
 					skip(r,localName);
 					}
 				}
@@ -184,11 +207,13 @@ private static class Interactor
 		return names;
 		}
 	
+	/** return true if the this.names contains the string */
 	public boolean hasName(String s)
 		{
 		return getNames().contains(s.toUpperCase());
 		}
 	
+	/** two Interactors are the same if they share the same getPrimaryRef */
 	@Override
 	public boolean equals(Object obj)
 		{
@@ -211,12 +236,24 @@ private static class Interactor
 
 	}
 
+/** An interaction = 2 interactors */
 private static class Interaction
 extends Base
 	{
+	/** the two interactors */
 	private Interactor interactors[]=new Interactor[]{null,null};
+	/** the experiment associated */
 	private ExperimentDescription experiment;
 	
+	
+	Interaction(Interactor i1,Interactor i2, ExperimentDescription experiment)
+		{
+		this.interactors[0]=i1;
+		this.interactors[1]=i2;
+		this.experiment=experiment;
+		}
+	
+	/** constructor */
 	Interaction(EntrySet entrySet, XMLEventReader r)throws XMLStreamException
 		{
 		while((r.hasNext()))
@@ -226,6 +263,7 @@ extends Base
 				{
 				StartElement e=evt.asStartElement();
 				String localName=e.getName().getLocalPart();
+				//we found an interactor
 				if(localName.equals("interactorRef"))
 					{
 					String iRef=r.getElementText();
@@ -233,15 +271,20 @@ extends Base
 					if(i==null) throw new XMLStreamException("Cannot find interactor id"+iRef+" in "+entrySet.id2interactor.keySet());
 					this.interactors[this.interactors[0]==null?0:1]=i;
 					}
+				//we found the experiment
 				else if(localName.equals("experimentRef"))
 					{
 					String exp= r.getElementText();
-					if(!(exp.equals("0") || exp.length()==0))
+					
+					this.experiment = entrySet.id2experiment.get(exp);
+					
+					if(this.experiment==null)
 						{
-						this.experiment = entrySet.id2experiment.get(exp);
-						if(this.experiment==null) throw new XMLStreamException("Cannot find experimentRef:"+exp+" in "+entrySet.id2experiment.keySet());
+						System.err.println("[WARNING]cannot get experiment id="+exp+" ? ignoring this experiment");
 						}
+					
 					}
+				//skip the other informations
 				else if(localName.equals("confidenceList"))
 					{
 					skip(r, localName);
@@ -252,6 +295,11 @@ extends Base
 				EndElement e=evt.asEndElement();
 				if(e.getName().getLocalPart().equals("interaction"))
 					{
+					if(this.interactors[0]==null && this.interactors[1]==null)
+						{
+						throw new XMLStreamException("interactors==null !");
+						}
+					System.err.println("##new interaction in this entry "+this.interactors[0]+" "+this.interactors[1]);
 					return;
 					}
 				}
@@ -292,7 +340,6 @@ extends Base
 		if(this==obj) return true;
 		if(obj==null || this.getClass()!=obj.getClass()) return false;
 		Interaction cp=Interaction.class.cast(obj);
-		
 		return	(first().equals(cp.first()) &&  second().equals(cp.second()) )
 				;
 		}
@@ -318,6 +365,7 @@ extends Base
 	
 	}
 
+/** describe a PSI XML File downloaded from EMBL */
 private static class EntrySet
 	{
 	private Map<String, Interactor> id2interactor= new HashMap<String, Interactor>();
@@ -339,16 +387,19 @@ private static class EntrySet
 				if(localName.equals("interactor"))
 					{
 					id=e.getAttributeByName(idAtt).getValue();
+					if(id==null) throw new XMLStreamException("id missing");
 					id2interactor.put(id, new Interactor(r));
 					}
 				else if(localName.equals("interaction"))
 					{
 					id=e.getAttributeByName(idAtt).getValue();
+					if(id==null) throw new XMLStreamException("id missing");
 					id2interaction.put(id, new Interaction(this,r));
 					}
 				else if(localName.equals("experimentDescription"))
 					{
 					id=e.getAttributeByName(idAtt).getValue();
+					if(id==null) throw new XMLStreamException("id missing");
 					id2experiment.put(id, new ExperimentDescription(r));
 					}
 				
@@ -366,7 +417,9 @@ private static class EntrySet
 	}
 
 
-	
+	/** constructor
+	 * we need the input Factory
+	 */
 	private EmblStrings()
 		{
 		this.inputFactory= XMLInputFactory.newInstance();
@@ -375,7 +428,10 @@ private static class EntrySet
 		this.inputFactory.setProperty(XMLInputFactory.IS_VALIDATING, Boolean.FALSE);
 		}
 	
+	/** store the XML file on disk instead of downloading from the server each time */
 	private boolean useCache=false;
+	
+	/** open a stream from a url, check before if it is stored on the disk */
 	private InputStream open(String url) throws IOException
 		{
 		debug(url);
@@ -384,6 +440,7 @@ private static class EntrySet
 			return new URL(url).openStream();
 			}
 		File f= new File(System.getProperty("java.io.tmpdir","."),SHA1.encrypt(url)+".xml");
+		debug("Cache : "+f);
 		if(f.exists())
 			{
 			return new FileInputStream(f);
@@ -399,7 +456,7 @@ private static class EntrySet
 	
 	
 
-	
+	/** download an entry set for this identifier */
 	private EntrySet parse(String identifier) throws XMLStreamException,IOException
 		{
 		EntrySet set=null;
@@ -414,6 +471,7 @@ private static class EntrySet
 				StartElement e=evt.asStartElement();
 				if(e.getName().getLocalPart().equals("entry"))
 					{
+					if(set!=null) throw new IOException("found two set !");
 					set= new EntrySet(r);
 					}
 				}
@@ -422,26 +480,45 @@ private static class EntrySet
 		return set;
 		}
 	
+	/** main node */
 	private Interactor partner1=null;
+	/** all the interactions */
 	private Set<Interaction> interactions= new HashSet<Interaction>();
+	/** all the interactors */
 	private Set<Interactor> interactors= new HashSet<Interactor>();
 	
+	private Interactor merge(Interactor i)
+		{
+		for(Interactor interactor: this.interactors)
+			{
+			if(interactor.equals(i))
+				{
+				debug("merge "+i+" already found");
+				return interactor;
+				}
+			}
+		this.interactors.add(i);
+		return i;
+		}
+	
+	/** build the network from the given query */
 	private void build(String query) throws IOException,XMLStreamException
 		{
 		this.partner1=null;
 		EntrySet entry= parse(query);
 		
+		//fill the data
 		this.interactions.addAll(entry.id2interaction.values());
 		this.interactors.addAll(entry.id2interactor.values());
 		if(this.interactions.isEmpty()) return;
 		
-		
+		//search for our query in the input
 		for(Interactor i:this.interactors)
 			{
 			if(i.hasName(query))
 				{
+				if(this.partner1!=null) throw new IOException("query found twice");
 				this.partner1=i;
-				break;
 				}
 			}
 		
@@ -449,25 +526,36 @@ private static class EntrySet
 			{
 			throw new IOException("Cannot find root "+query+" in "+this.interactors);
 			}
-		
+		//now fetch an entry for all thos interactors
 		for(Interactor i:new HashSet<Interactor>(this.interactors))//work on a copy
-			{			
+			{
+			//parse a new entry for this interactor
+			debug("second interactor is "+i.getShortLabel()+" "+i.getPrimaryRef());
 			entry= parse(i.getPrimaryRef());
 			Set<Interaction> newinteractions= new HashSet<Interaction>(entry.id2interaction.values());
-			newinteractions.removeAll(this.interactions);
-			this.interactions.addAll(newinteractions);
+			
+			//newinteractions.removeAll(this.interactions);
+			//this.interactions.addAll(newinteractions);
+			
 			for(Interaction bind: newinteractions)
 				{
-				this.interactors.add(bind.first());
-				this.interactors.add(bind.second());
+				debug(i.getPrimaryRef()+": found interaction between "+bind.first()+" and "+bind.second());
+				
+				Interactor i1= merge(bind.first());
+				Interactor i2= merge(bind.second());
+				if( this.interactions.add(new Interaction(i1,i2,bind.experiment)))
+					{
+					debug("This is a new interaction");
+					}
+				else
+					{
+					debug("Interaction already found");
+					}
 				}
 			}
 		}
 	
-	
-	
-	
-	
+	/** output this result to dot */
 	public void toDot(PrintStream out)
 		{
 		out.println("Graph G {");
@@ -488,7 +576,7 @@ private static class EntrySet
 					}
 				}
 			
-			out.print("p"+prot2id.get(interactor)+"[label=\""+interactor.getShortLabel()+morelabel+"\" ");
+			out.print("p"+prot2id.get(interactor)+"[label=\""+interactor.getShortLabel()+" ("+interactor.getPrimaryRef()+") "+morelabel+"\" ");
 			if(this.partner1.equals(interactor))
 				{
 				out.println("style=filled  shape=box  fillcolor=blue  ");
@@ -515,6 +603,8 @@ private static class EntrySet
 		System.err.println(String.valueOf(o));
 		}
 	
+	
+	/** read the candidate name acn/protName/p-value we got from a microaaray analysis*/
 	private void readAltNames(File f) throws IOException
 		{
 		BufferedReader r= new BufferedReader(new FileReader(f));
@@ -554,6 +644,7 @@ private static class EntrySet
 			EmblStrings app= new EmblStrings();
 			String root=null;
 			int optind=0;
+			File output=null;
 			while(optind< args.length)
 				{
 				if(args[optind].equals("-h"))
@@ -561,6 +652,7 @@ private static class EntrySet
 					System.err.println("EmblString "+Me.FIRST_NAME+" "+Me.LAST_NAME+" "+Me.MAIL+" "+Me.WWW);
 					System.err.println("Finds protein-protein interaction up to 2 degrees of freedom on Embl-Strings ");
 					System.err.println("  -c use cache (default : false)");
+					System.err.println("  -o ou-file (default : stdout)");
 					System.err.println("  -f <file> read alternate names (name <tab> alt-name <tab> weight )");
 					System.err.println("  <root identifier>");
 					System.err.println(Compilation.getLabel());
@@ -568,6 +660,10 @@ private static class EntrySet
 				else if(args[optind].equals("-c"))
 					{
 					app.useCache=true;
+					}
+				else if(args[optind].equals("-o"))
+					{
+					output = new File(args[++optind]);
 					}
 				else if(args[optind].equals("-f"))
 					{
@@ -604,10 +700,19 @@ private static class EntrySet
 		    	}
 			 app.build(root);
 			 
-			 PrintStream dot= new PrintStream(new FileOutputStream("/home/lindenb/jeter.dot"));
-				app.toDot(dot);
-				dot.flush();
+			 PrintStream dot=System.out;
+			 if(output!=null)
+			 	{
+				dot= new PrintStream(new FileOutputStream(output)); 
+			 	}
+			  
+			app.toDot(dot);
+			dot.flush();
+				
+			if(output!=null)
+				{
 				dot.close();
+				}
 			} 
 		catch(Throwable err)
 			{
