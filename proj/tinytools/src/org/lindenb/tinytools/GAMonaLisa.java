@@ -52,7 +52,45 @@ public class GAMonaLisa
 	private boolean exportSVG=false;
 	private int numberOfIndividualSurviving=10;
 	private int initialPopulationSize=40;
-
+	private long minDiffSaveMillisec=0L;
+	private int maxThreadCount=4;
+	
+	
+	
+	private class FitnessThread
+		extends Thread
+		{
+		int rowStart;
+		int rowEnd;
+		long fitness=0L;
+		
+		FitnessThread(int rowStart,int rowEnd)
+			{
+			this.rowStart=rowStart;
+			this.rowEnd=rowEnd;
+			}
+		
+		@Override
+		public void run()
+			{
+			fitness=0L;
+			for(int y=this.rowStart;y<this.rowEnd;++y)
+				{
+				for(int x=0;x<imageSrc.getWidth();++x)
+					{
+					Color c1= new Color(imageSrc.getRGB(x,y));
+					Color c2= new Color(currentImage.getRGB(x,y));
+					this.fitness+= Math.abs(c1.getRed()-c2.getRed());
+					this.fitness+= Math.abs(c1.getGreen()-c2.getGreen());
+					this.fitness+= Math.abs(c1.getBlue()-c2.getBlue());
+					}
+				}
+			}
+		
+		}
+	
+	
+	
 	private class Triangle
 		{
 		private Color color; 
@@ -337,20 +375,45 @@ public class GAMonaLisa
 		public Long getFitness()
 			{
 			if(fitness!=null) return fitness;
-			BufferedImage img = createImage();
+			createImage();
 			this.fitness=0L;
-			for(int x=0;x<img.getWidth();++x)
+			
+			List<FitnessThread> fitnessThreads=new ArrayList<FitnessThread>(maxThreadCount);
+			int y0=0;
+			int dY=  imageSrc.getHeight()/maxThreadCount;
+			if(dY==0) dY=1;
+			
+			while(true)
 				{
-				for(int y=0;y<img.getHeight();++y)
+				int rowEnd= Math.min(y0+dY,imageSrc.getHeight());
+				fitnessThreads.add(new FitnessThread
+					(
+					y0,rowEnd
+					));
+				if( rowEnd >= imageSrc.getHeight() ) break;
+				y0 = rowEnd;
+				}
+			
+			
+			for(FitnessThread thread: fitnessThreads)
+				{
+				thread.start();
+				}
+			
+			for(FitnessThread thread: fitnessThreads)
+				{
+				
+				try {
+					thread.join();
+					
+					this.fitness+= thread.fitness;
+					}
+				catch (InterruptedException e)
 					{
-					Color c1= new Color(imageSrc.getRGB(x,y));
-					Color c2= new Color(img.getRGB(x,y));
-					this.fitness+= Math.abs(c1.getRed()-c2.getRed());
-					this.fitness+= Math.abs(c1.getGreen()-c2.getGreen());
-					this.fitness+= Math.abs(c1.getBlue()-c2.getBlue());
+					throw new RuntimeException(e);
 					}
 				}
-			img=null;
+			
 			return fitness;
 			}
 		
@@ -419,6 +482,11 @@ public class GAMonaLisa
 	
 	void run()
 		{
+		long lastSave=0L;
+		
+		
+		
+		
 		while(true)
 			{
 			long now=System.currentTimeMillis();
@@ -452,41 +520,45 @@ public class GAMonaLisa
 				children.remove(children.size()-1);
 				}
 			
-			if(this.population.get(0).getFitness() < children.get(0).getFitness())
+			if( this.population.get(0).getFitness() < children.get(0).getFitness())
 				{
 				children.add(0, this.population.get(0));
 				}
-			else
+			else 
 				{
-				System.out.println("Generation "+this.generation+"\t\tFitness:"+children.get(0).getFitness());
+				System.out.print("\tFitness:"+children.get(0).getFitness());
 				System.out.flush();
-				Formatter formatter = new Formatter();
-				formatter.format("%05d", this.generation);
-				String prefix= formatter.out().toString();
-				try
+				if(System.currentTimeMillis() - lastSave > this.minDiffSaveMillisec)
 					{
-					File file=new File(this.outDir,"img"+ prefix+".png");
-					ImageIO.write(this.population.get(0).createImage(), "png", file);
-					PrintStream out=null;
-					if(exportSVG) 
+					Formatter formatter = new Formatter();
+					formatter.format("%05d", this.generation);
+					String prefix= formatter.out().toString();
+					System.out.println("\tsaving to "+prefix);
+					try
 						{
-						file=new File(this.outDir,"img"+ prefix+".svgz");
-						out= new PrintStream(new GZIPOutputStream(new FileOutputStream(file)));
-						children.get(0).toSVG(out);
+						File file=new File(this.outDir,"img"+ prefix+".png");
+						ImageIO.write(this.population.get(0).createImage(), "png", file);
+						PrintStream out=null;
+						if(exportSVG) 
+							{
+							file=new File(this.outDir,"img"+ prefix+".svgz");
+							out= new PrintStream(new GZIPOutputStream(new FileOutputStream(file)));
+							children.get(0).toSVG(out);
+							out.flush();
+							out.close();
+							}
+						file=new File(this.outDir,"img"+ prefix+".txt");
+						out= new PrintStream(new FileOutputStream(file));
+						children.get(0).toText(out);
 						out.flush();
 						out.close();
 						}
-					file=new File(this.outDir,"img"+ prefix+".txt");
-					out= new PrintStream(new FileOutputStream(file));
-					children.get(0).toText(out);
-					out.flush();
-					out.close();
+					catch(IOException err)
+						{
+						err.printStackTrace();
+						}
+					lastSave= System.currentTimeMillis();
 					}
-				catch(IOException err)
-					{
-					err.printStackTrace();
-					}
-				
 				}
 			this.population=children;
 			this.generation++;
@@ -528,6 +600,7 @@ public class GAMonaLisa
 			}
 		this.imageSrc= ImageIO.read(in);
 		in.close();
+		if(this.imageSrc==null) throw new IOException("Cannot read "+uri);
 		}
 	
 	public static void main(String[] args)
@@ -547,10 +620,46 @@ public class GAMonaLisa
 					System.err.println(" -d output directory");
 					System.err.println(" -r read previous chilren <*.txt>");
 					System.err.println(" -s export SVG");
+					System.err.println(" -n1 numberOfIndividualSurviving="+app.numberOfIndividualSurviving);
+					System.err.println(" -n2 initialPopulationSize="+app.initialPopulationSize);
+					System.err.println(" -n3 max_generation="+app.max_generation);
+					System.err.println(" -n4 max Diff time Saving Millisec="+app.minDiffSaveMillisec);
+					System.err.println(" -n5 max Triangle per solution ="+app.maxTrianglePerSolution);
+					System.err.println(" -n6 min Triangle per solution ="+app.minTrianglePerSolution);
+					System.err.println(" -n7 min Thread count ="+app.maxThreadCount);
+					return;
 					}
 				else if(args[optind].equals("-i"))
 					{
 					app.loadImage(args[++optind]);
+					}
+				else if(args[optind].equals("-n1"))
+					{
+					app.numberOfIndividualSurviving = Integer.parseInt(args[++optind]);
+					}
+				else if(args[optind].equals("-n2"))
+					{
+					app.initialPopulationSize = Integer.parseInt(args[++optind]);
+					}
+				else if(args[optind].equals("-n3"))
+					{
+					app.max_generation = Integer.parseInt(args[++optind]);
+					}
+				else if(args[optind].equals("-n4"))
+					{
+					app.minDiffSaveMillisec = Long.parseLong(args[++optind]);
+					}
+				else if(args[optind].equals("-n5"))
+					{
+					app.maxTrianglePerSolution = Integer.parseInt(args[++optind]);
+					}
+				else if(args[optind].equals("-n6"))
+					{
+					app.minTrianglePerSolution = Integer.parseInt(args[++optind]);
+					}
+				else if(args[optind].equals("-n7"))
+					{
+					app.maxThreadCount = Integer.parseInt(args[++optind]);
 					}
 				else if(args[optind].equals("-s"))
 					{
