@@ -11,6 +11,9 @@ import java.awt.Color;
 import java.awt.Composite;
 import java.awt.Graphics2D;
 import java.awt.Polygon;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.Point2D;
+import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.File;
@@ -46,7 +49,10 @@ public class GAMonaLisa
 	private int generation=0;
 	private int max_generation=-1;
 	private File outDir=null;
-	
+	private boolean exportSVG=false;
+	private int numberOfIndividualSurviving=10;
+	private int initialPopulationSize=40;
+
 	private class Triangle
 		{
 		private Color color; 
@@ -56,15 +62,15 @@ public class GAMonaLisa
 		public Triangle()
 			{
 			this.color= randColor();
-			this.alpha= rand.nextFloat();
+			this.alpha= 0.5f+rand.nextFloat()*0.5f;
 			
 			
 			this.x[0]= rand.nextInt(imageSrc.getWidth());
 			this.y[0]= rand.nextInt(imageSrc.getHeight());
 			
-			if(rand.nextInt(100)<10)//create small figure sometimes
+			if(rand.nextInt(100)<40)//create small figure sometimes
 				{
-				int max=2+ rand.nextInt(Math.min(imageSrc.getWidth(), imageSrc.getHeight())/50);
+				int max=10+ rand.nextInt(Math.min(imageSrc.getWidth(), imageSrc.getHeight())/50);
 				this.x[1]= this.x[0] + sign() * rand.nextInt(max);
 				this.y[1]= this.x[0] + sign() * rand.nextInt(max);
 				
@@ -126,35 +132,60 @@ public class GAMonaLisa
 		
 		public void mute()
 			{
-			int i= rand.nextInt(3);
-			if(rand.nextInt(100)<33)
+			int choice=rand.nextInt(5);
+			switch(choice)
 				{
-				this.x[i]+= rand.nextInt(20)*sign();
-				this.y[i]+= rand.nextInt(20)*sign();
-				}
-			
-			if(rand.nextInt(100)<33)
-				{
-				int dc= sign()*(1+rand.nextInt(10));
-				int r= this.color.getRed();
-				int g= this.color.getGreen();
-				int b= this.color.getBlue();
-				switch(rand.nextInt(3))
+				case 0: break;//no mutation
+				case 1:
 					{
-					case 0: if(r+dc>=0 && r+dc<=255) r+=dc; break;
-					case 1: if(g+dc>=0 && g+dc<=255) g+=dc; break;
-					case 2: if(b+dc>=0 && b+dc<=255) b+=dc; break;
+					int i= rand.nextInt(3);
+					int len= 1+rand.nextInt(20);
+					this.x[i]+= rand.nextInt(len)*sign();
+					this.y[i]+= rand.nextInt(len)*sign();
+					break;
 					}
-				this.color= new Color(r,g,b);
-				}
-			if(rand.nextInt(100)<33)
-				{
-				float da= sign()*rand.nextFloat()*0.8f;
-				if(this.alpha+da>=0f && this.alpha+da<=1f)
+				case 2:
 					{
-					this.alpha+=da;
+					int dc= sign()*(1+rand.nextInt(5));
+					int r= this.color.getRed();
+					int g= this.color.getGreen();
+					int b= this.color.getBlue();
+					switch(rand.nextInt(3))
+						{
+						case 0: if(r+dc>=0 && r+dc<=255) r+=dc; break;
+						case 1: if(g+dc>=0 && g+dc<=255) g+=dc; break;
+						case 2: if(b+dc>=0 && b+dc<=255) b+=dc; break;
+						}
+					this.color= new Color(r,g,b);
+					break;
 					}
-				
+				case 3:
+					{
+					float da= sign()*rand.nextFloat()*0.8f;
+					if(this.alpha+da>=0f && this.alpha+da<=1f)
+						{
+						this.alpha+=da;
+						}
+					break;
+					}
+				case 4:
+					{
+					Rectangle2D p=getShape().getBounds2D();
+					double cx=(int)p.getCenterX();
+					double cy=(int)p.getCenterY();
+					AffineTransform tr= AffineTransform.getTranslateInstance(-cx, -cy);
+					tr.rotate(rand.nextDouble()*0.1);
+					tr.translate(cx, cy);
+					Point2D.Double ptDst= new Point2D.Double();
+					for(int i=0;i< 3;++i)
+						{
+						tr.transform(new Point2D.Double(x[i],y[i]), ptDst);
+						x[i]=(int)ptDst.getX();
+						y[i]=(int)ptDst.getY();
+						}
+					break;
+					}
+				default:break;
 				}
 			}	
 		
@@ -221,43 +252,64 @@ public class GAMonaLisa
 		
 		private void mute()
 			{
-			if(rand.nextInt(100)<5)
+			int choice= rand.nextInt(7);
+			switch(choice)
 				{
-				Collections.shuffle(this.items);
-				return;
-				}
-			
-			if(this.items.size()>1 &&
-				rand.nextInt(100)<20)
-				{
-				int n= rand.nextInt(this.items.size());
-				this.items.remove(n);
-				}
-			if(this.items.size()+1< maxTrianglePerSolution &&
-				rand.nextInt(100)<20)
-				{
-				int n= rand.nextInt(this.items.size());
-				this.items.add(n, new Triangle());
-				}
-			
-			if(rand.nextInt(100)<30)
-				{
-				int n1= rand.nextInt(this.items.size());
-				int n2= rand.nextInt(this.items.size());
-				
-				Triangle t1= this.items.get(n1);
-				Triangle t2= this.items.get(n1);
-				this.items.set(n1, t2);
-				this.items.set(n2, t1);
-				}
-			
-			for(Triangle t:this.items)
-				{
-				if(rand.nextInt(100)<20)
+				case 0:
 					{
-					t.mute();
+					Collections.shuffle(this.items);
+					break;
+					}
+				case 1:
+					{
+					if(this.items.size()<2) break;	
+					int n= rand.nextInt(this.items.size());
+					this.items.remove(n);
+					break;
+					}
+				case 2:
+						{
+						if(this.items.size()+1>= maxTrianglePerSolution) break;
+						
+						int n= rand.nextInt(this.items.size());
+						Triangle t=null;
+						if(rand.nextInt(100)<50)
+							{
+							t=new Triangle();
+							}
+						else
+							{
+							t= new Triangle(this.items.get(n));
+							t.mute();
+							}
+						
+						this.items.add(n,t);
+						break;
+						}
+				case 3:
+					{
+					int n1= rand.nextInt(this.items.size());
+					int n2= rand.nextInt(this.items.size());
+					
+					Triangle t1= this.items.get(n1);
+					Triangle t2= this.items.get(n2);
+					this.items.set(n1, t2);
+					this.items.set(n2, t1);
+					break;
+					}
+				case 4:case 5:case 6:
+					{
+					for(Triangle t:this.items)
+						{
+						if(rand.nextInt(100)<20)
+							{
+							t.mute();
+							}
+						}
+					break;
 					}
 				}
+			
 			}
 		
 		public BufferedImage createImage()
@@ -329,16 +381,15 @@ public class GAMonaLisa
 			);
 		}
 	
-	private Solution[] cross(Solution father,Solution mother)
+	private Solution[] makeLove(Solution father,Solution mother)
 		{
 		int min= Math.min(father.items.size(), mother.items.size());
-		int index= rand.nextInt(min);
-		List<Triangle> items1=new ArrayList<Triangle>();
-		List<Triangle> items2=new ArrayList<Triangle>();
-		
+		List<Triangle> items1=new ArrayList<Triangle>(father.items.size());
+		List<Triangle> items2=new ArrayList<Triangle>(mother.items.size());
+		//make crossing overs
 		for(int i=0;i< min;++i)
 			{
-			if(i<index)
+			if(rand.nextInt(100)<50)
 				{
 				items1.add(new Triangle(father.items.get(i)));
 				items2.add(new Triangle(mother.items.get(i)));
@@ -370,17 +421,18 @@ public class GAMonaLisa
 		{
 		while(true)
 			{
-			System.out.println("Generation: "+this.generation);
+			long now=System.currentTimeMillis();
+			System.out.print("Generation: "+this.generation);
 			List<Solution> children=new ArrayList<Solution>();
-			while(this.population.size()<30)
+			while(this.population.size()<initialPopulationSize)
 				{
 				this.population.add(new Solution());
 				}
-			for(int x=0;x+1< this.population.size();++x)
+			for(int x=0;x< this.population.size();++x)
 				{
-				for(int y=x+1;y< this.population.size();++y)
+				for(int y=x;y< this.population.size();++y)
 					{
-					Solution sol[]= cross(
+					Solution sol[]= makeLove(
 						this.population.get(x),
 						this.population.get(y)
 						);
@@ -395,7 +447,7 @@ public class GAMonaLisa
 			for(int i=0;i< 10;++i) children.add(new Solution());
 			Collections.sort(children);
 			
-			while(children.size()>15)
+			while(children.size()>numberOfIndividualSurviving)
 				{
 				children.remove(children.size()-1);
 				}
@@ -415,11 +467,15 @@ public class GAMonaLisa
 					{
 					File file=new File(this.outDir,"img"+ prefix+".png");
 					ImageIO.write(this.population.get(0).createImage(), "png", file);
-					file=new File(this.outDir,"img"+ prefix+".svgz");
-					PrintStream out= new PrintStream(new GZIPOutputStream(new FileOutputStream(file)));
-					children.get(0).toSVG(out);
-					out.flush();
-					out.close();
+					PrintStream out=null;
+					if(exportSVG) 
+						{
+						file=new File(this.outDir,"img"+ prefix+".svgz");
+						out= new PrintStream(new GZIPOutputStream(new FileOutputStream(file)));
+						children.get(0).toSVG(out);
+						out.flush();
+						out.close();
+						}
 					file=new File(this.outDir,"img"+ prefix+".txt");
 					out= new PrintStream(new FileOutputStream(file));
 					children.get(0).toText(out);
@@ -434,6 +490,7 @@ public class GAMonaLisa
 				}
 			this.population=children;
 			this.generation++;
+			System.out.println(" "+(System.currentTimeMillis()-now)/1000+" seconds.");
 			if(this.max_generation!=-1 && this.max_generation<=this.generation) break;
 			}
 		}
@@ -489,10 +546,15 @@ public class GAMonaLisa
 					System.err.println(" -i input image (file|url) <required>");
 					System.err.println(" -d output directory");
 					System.err.println(" -r read previous chilren <*.txt>");
+					System.err.println(" -s export SVG");
 					}
 				else if(args[optind].equals("-i"))
 					{
 					app.loadImage(args[++optind]);
+					}
+				else if(args[optind].equals("-s"))
+					{
+					app.exportSVG=true;
 					}
 				else if(args[optind].equals("-d"))
 					{
