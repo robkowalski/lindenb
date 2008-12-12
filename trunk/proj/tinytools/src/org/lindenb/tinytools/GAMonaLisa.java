@@ -54,7 +54,7 @@ public class GAMonaLisa
 	private int initialPopulationSize=40;
 	private long minDiffSaveMillisec=0L;
 	private int maxThreadCount=4;
-	
+	private boolean dynamicSVG=false;
 	
 	
 	private class FitnessThread
@@ -272,11 +272,63 @@ public class GAMonaLisa
 		private void toSVG(PrintStream out)
 			{
 			out.println(SVG.DOCTYPE);
-			out.println("<svg:svg xmlns:svg='"+ SVG.NS+ "' version='1.1' width='"+imageSrc.getWidth()+"' height='"+imageSrc.getHeight()+"' style='stroke:none;'>");
+			out.println("<svg:svg xmlns:svg='"+ SVG.NS+ "' version='1.1' width='"+imageSrc.getWidth()+"' height='"+imageSrc.getHeight()+"' style='stroke:none;' viewBox='0 0 "+imageSrc.getWidth()+" "+imageSrc.getHeight()+"'>");
 			out.print("<svg:title>Generation "+generation+" fitness:"+getFitness()+"</svg:title>");
+			if(dynamicSVG)
+				{
+				final String EOL="\n";
+				out.println("<svg:script type='text/ecmascript'> <![CDATA[\nvar shapes=[");
+				for(int i=0;i< this.items.size();++i)
+					{
+					if(i>0) out.println(",");
+					Triangle t= this.items.get(i);
+					out.print("[\""+t.x[0]+","+t.y[0]+" "+t.x[1]+","+t.y[1]+" "+t.x[2]+","+t.y[2]+"\",");
+					out.print("\""+ColorUtils.toRGB(t.color)+"\",");
+					out.print(t.alpha+"]");
+					}
+				out.println("]\nvar shape_idx=0;\nvar polygon=null;\n"+
+						"function makeVisible()"+EOL+
+						"	{"+EOL+
+						"	if(polygon==null)"+EOL+
+						"		{"+EOL+
+						"		if(shape_idx>= shapes.length)"+EOL+
+						"			{"+EOL+
+						"			clearInterval(intervalID);"+EOL+
+						"			return;"+EOL+
+						"			}"+EOL+
+						"		polygon = document.createElementNS('"+SVG.NS+"',\"svg:polygon\");"+EOL+
+						"		polygon.setAttribute(\"points\", shapes[shape_idx][0]);"+EOL+
+						"		polygon.setAttribute(\"style\", \"fill:\"+shapes[shape_idx][1]+\";opacity:0\" );"+EOL+
+						"		var face= document.getElementById(\"face\");"+EOL+
+						"		face.appendChild(polygon);"+EOL+
+						"		}"+EOL+
+						"	var opacity= Number(polygon.style.opacity);"+EOL+
+						"	opacity+=0.05;"+EOL+
+						"	if(opacity <= (shapes[shape_idx][2])  )"+EOL+
+						"		{"+EOL+
+						"		polygon.style.opacity=opacity;"+EOL+
+						"		}"+EOL+
+						"	else"+EOL+
+						"		{"+EOL+
+						"		polygon=null;"+EOL+
+						"		shape_idx++;"+EOL+
+						"		}"+EOL+
+						"	}"+EOL+
+						"var intervalID = setInterval(makeVisible, 10);"+EOL+
+						" ]]> </svg:script>"
+					);
+				}
+			
 			out.print("<svg:rect x='0' y='0' style='fill:white;' width='"+(imageSrc.getWidth()-1)+"' height='"+(imageSrc.getHeight()-1)+"' />");
-			for(Triangle t:this.items) t.toSVG(out);
-			out.print("<svg:rect x='0' y='0' style='fill:none;stroke:balck;' width='"+(imageSrc.getWidth()-1)+"' height='"+(imageSrc.getHeight()-1)+"' />");
+			if(!dynamicSVG)
+				{
+				for(Triangle t:this.items) t.toSVG(out);
+				}
+			else
+				{
+				out.print("<svg:g id='face'/>");
+				}
+			out.print("<svg:rect x='0' y='0' style='fill:none;stroke:black;' width='"+(imageSrc.getWidth()-1)+"' height='"+(imageSrc.getHeight()-1)+"' />");
 			out.print("</svg:svg>");
 			out.flush();
 			}
@@ -620,6 +672,7 @@ public class GAMonaLisa
 					System.err.println(" -d output directory");
 					System.err.println(" -r read previous chilren <*.txt>");
 					System.err.println(" -s export SVG");
+					System.err.println(" -dynamic SVG will be dynamic");
 					System.err.println(" -n1 numberOfIndividualSurviving="+app.numberOfIndividualSurviving);
 					System.err.println(" -n2 initialPopulationSize="+app.initialPopulationSize);
 					System.err.println(" -n3 max_generation="+app.max_generation);
@@ -664,6 +717,10 @@ public class GAMonaLisa
 				else if(args[optind].equals("-s"))
 					{
 					app.exportSVG=true;
+					}
+				else if(args[optind].equals("-dynamic"))
+					{
+					app.dynamicSVG=true;
 					}
 				else if(args[optind].equals("-d"))
 					{
