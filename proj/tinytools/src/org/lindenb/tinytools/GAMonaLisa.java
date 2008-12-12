@@ -303,7 +303,7 @@ public class GAMonaLisa
 						"		face.appendChild(polygon);"+EOL+
 						"		}"+EOL+
 						"	var opacity= Number(polygon.style.opacity);"+EOL+
-						"	opacity+=0.05;"+EOL+
+						"	opacity+=0.02;"+EOL+
 						"	if(opacity <= (shapes[shape_idx][2])  )"+EOL+
 						"		{"+EOL+
 						"		polygon.style.opacity=opacity;"+EOL+
@@ -314,7 +314,7 @@ public class GAMonaLisa
 						"		shape_idx++;"+EOL+
 						"		}"+EOL+
 						"	}"+EOL+
-						"var intervalID = setInterval(makeVisible, 10);"+EOL+
+						"var intervalID = setInterval(makeVisible, 5);"+EOL+
 						" ]]> </svg:script>"
 					);
 				}
@@ -572,11 +572,24 @@ public class GAMonaLisa
 				children.remove(children.size()-1);
 				}
 			
-			if( this.population.get(0).getFitness() < children.get(0).getFitness())
+			boolean isBetter=false;
+			
+			
+			if( ( this.population.get(0).getFitness() >  children.get(0).getFitness()) ||
+				( this.population.get(0).getFitness()==  children.get(0).getFitness() &&
+				  this.population.get(0).items.size() >  children.get(0).items.size())
+				)
+				{
+				isBetter=true;
+				}
+			
+			
+			
+			if(!isBetter)
 				{
 				children.add(0, this.population.get(0));
 				}
-			else 
+			else
 				{
 				System.out.print("\tFitness:"+children.get(0).getFitness());
 				System.out.flush();
