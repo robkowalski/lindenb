@@ -212,7 +212,7 @@ public class GAMonaLisa
 					double cx=(int)p.getCenterX();
 					double cy=(int)p.getCenterY();
 					AffineTransform tr= AffineTransform.getTranslateInstance(-cx, -cy);
-					tr.rotate(rand.nextDouble()*0.1);
+					tr.rotate(rand.nextDouble()*sign()*0.1);
 					tr.translate(cx, cy);
 					Point2D.Double ptDst= new Point2D.Double();
 					for(int i=0;i< 3;++i)
