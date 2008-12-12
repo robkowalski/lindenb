@@ -36,7 +36,7 @@ import org.lindenb.util.SHA1;
 
 /**
  * Finds protein interactors at two degrees of separation
- * 
+ * output a graphviz dot picture
  * @author lindenb
  *
  */
@@ -244,13 +244,15 @@ extends Base
 	private Interactor interactors[]=new Interactor[]{null,null};
 	/** the experiment associated */
 	private ExperimentDescription experiment;
+	/** confidence */
+	private Double confidence=null;
 	
-	
-	Interaction(Interactor i1,Interactor i2, ExperimentDescription experiment)
+	Interaction(Interactor i1,Interactor i2, ExperimentDescription experiment,Double confidence)
 		{
 		this.interactors[0]=i1;
 		this.interactors[1]=i2;
 		this.experiment=experiment;
+		this.confidence=confidence;
 		}
 	
 	/** constructor */
@@ -287,7 +289,7 @@ extends Base
 				//skip the other informations
 				else if(localName.equals("confidenceList"))
 					{
-					skip(r, localName);
+					this.confidence=parseConfidence(r);
 					}
 				}
 			else if(evt.isEndElement())
@@ -299,11 +301,40 @@ extends Base
 						{
 						throw new XMLStreamException("interactors==null !");
 						}
-					System.err.println("##new interaction in this entry "+this.interactors[0]+" "+this.interactors[1]);
+					//System.err.println("##new interaction in this entry "+this.interactors[0]+" "+this.interactors[1]);
 					return;
 					}
 				}
 			}
+		}
+	
+	
+	private Double parseConfidence(XMLEventReader r) throws XMLStreamException
+		{
+		Double confidence=null;
+		while((r.hasNext()))
+			{
+			XMLEvent evt= r.nextEvent();
+			if(evt.isStartElement())
+				{
+				StartElement e=evt.asStartElement();
+				String localName=e.getName().getLocalPart();
+				if(localName.equals("value"))
+					{
+					if(confidence!=null) throw new XMLStreamException("confidence found twice");
+					confidence= Double.parseDouble(r.getElementText().trim());
+					}
+				}
+			else if(evt.isEndElement())
+				{
+				EndElement e=evt.asEndElement();
+				if(e.getName().getLocalPart().equals("confidenceList"))
+					{
+					return confidence;
+					}
+				}
+			}
+		return confidence;
 		}
 
 	@Override
@@ -493,7 +524,6 @@ private static class EntrySet
 			{
 			if(interactor.equals(i))
 				{
-				debug("merge "+i+" already found");
 				return interactor;
 				}
 			}
@@ -530,7 +560,7 @@ private static class EntrySet
 		for(Interactor i:new HashSet<Interactor>(this.interactors))//work on a copy
 			{
 			//parse a new entry for this interactor
-			debug("second interactor is "+i.getShortLabel()+" "+i.getPrimaryRef());
+			//debug("second interactor is "+i.getShortLabel()+" "+i.getPrimaryRef());
 			entry= parse(i.getPrimaryRef());
 			Set<Interaction> newinteractions= new HashSet<Interaction>(entry.id2interaction.values());
 			
@@ -539,18 +569,12 @@ private static class EntrySet
 			
 			for(Interaction bind: newinteractions)
 				{
-				debug(i.getPrimaryRef()+": found interaction between "+bind.first()+" and "+bind.second());
+				//debug(i.getPrimaryRef()+": found interaction between "+bind.first()+" and "+bind.second());
 				
 				Interactor i1= merge(bind.first());
 				Interactor i2= merge(bind.second());
-				if( this.interactions.add(new Interaction(i1,i2,bind.experiment)))
-					{
-					debug("This is a new interaction");
-					}
-				else
-					{
-					debug("Interaction already found");
-					}
+				this.interactions.add(new Interaction(i1,i2,bind.experiment,bind.confidence));
+				
 				}
 			}
 		}
@@ -591,7 +615,9 @@ private static class EntrySet
 		for(Interaction link:this.interactions)
 			{
 			out.println("p"+prot2id.get(link.first())+" -- p"+ +prot2id.get(link.second()) +
-					"[URL=\"http://www.ncbi.nlm.nih.gov/entrez/query.fcgi?cmd=retrieve&amp;db=pubmed&amp;list_uids="+link.pmidAsComma()+"&amp;dopt=AbstractPlus\", label=\""+link.pmidAsComma()+"\"];");
+					"[URL=\"http://www.ncbi.nlm.nih.gov/entrez/query.fcgi?cmd=retrieve&amp;db=pubmed&amp;list_uids="+link.pmidAsComma()+"&amp;dopt=AbstractPlus\"," +
+						//"weight="+(link.confidence*100.0)+" , "+	
+						"label=\""+link.confidence+" pmid:"+link.pmidAsComma()+"\"];");
 			}
 		
 		out.println("}");
