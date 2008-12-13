@@ -39,6 +39,11 @@ import org.lindenb.util.Cast;
 import org.lindenb.util.Compilation;
 
 
+/**
+ * Genetic Algorithm MonaLisa
+ * @author pierre
+ *
+ */
 public class GAMonaLisa
 	{
 	private BufferedImage imageSrc;
@@ -55,7 +60,7 @@ public class GAMonaLisa
 	private long minDiffSaveMillisec=0L;
 	private int maxThreadCount=4;
 	private boolean dynamicSVG=false;
-	
+	private String prefix="img";
 	
 	private class FitnessThread
 		extends Thread
@@ -472,7 +477,9 @@ public class GAMonaLisa
 		@Override
 		public int compareTo(Solution cp)
 			{
-			return getFitness().compareTo(cp.getFitness());
+			int i= getFitness().compareTo(cp.getFitness());
+			if(i!=0) return i;
+			return this.items.size()-cp.items.size();
 			}
 		}
 	
@@ -597,22 +604,22 @@ public class GAMonaLisa
 					{
 					Formatter formatter = new Formatter();
 					formatter.format("%05d", this.generation);
-					String prefix= formatter.out().toString();
-					System.out.println("\tsaving to "+prefix);
+					String num= formatter.out().toString();
+					System.out.println("\tsaving to "+prefix+ num);
 					try
 						{
-						File file=new File(this.outDir,"img"+ prefix+".png");
+						File file=new File(this.outDir,prefix+ num+".png");
 						ImageIO.write(this.population.get(0).createImage(), "png", file);
 						PrintStream out=null;
 						if(exportSVG) 
 							{
-							file=new File(this.outDir,"img"+ prefix+".svgz");
+							file=new File(this.outDir,prefix+ num+".svgz");
 							out= new PrintStream(new GZIPOutputStream(new FileOutputStream(file)));
 							children.get(0).toSVG(out);
 							out.flush();
 							out.close();
 							}
-						file=new File(this.outDir,"img"+ prefix+".txt");
+						file=new File(this.outDir,prefix+ num+".txt");
 						out= new PrintStream(new FileOutputStream(file));
 						children.get(0).toText(out);
 						out.flush();
@@ -683,6 +690,7 @@ public class GAMonaLisa
 					System.err.println("Inspired by Roger Alsing's blog: http://rogeralsing.com/2008/12/07/genetic-programming-evolution-of-mona-lisa/ ");
 					System.err.println(" -i input image (file|url) <required>");
 					System.err.println(" -d output directory");
+					System.err.println(" -p prefix "+app.prefix);
 					System.err.println(" -r read previous chilren <*.txt>");
 					System.err.println(" -s export SVG");
 					System.err.println(" -dynamic SVG will be dynamic");
@@ -698,6 +706,10 @@ public class GAMonaLisa
 				else if(args[optind].equals("-i"))
 					{
 					app.loadImage(args[++optind]);
+					}
+				else if(args[optind].equals("-p"))
+					{
+					app.prefix=args[++optind];
 					}
 				else if(args[optind].equals("-n1"))
 					{
