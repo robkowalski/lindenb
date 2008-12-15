@@ -121,7 +121,10 @@ if (alpha=='=') /* then '=' found, but the end of string */
 out.flush();
 } // decode
 
-
+public static String encode(String s)
+	{
+	return encode(s.getBytes());
+	}
 
 public static String encode( byte data[])
 	{
