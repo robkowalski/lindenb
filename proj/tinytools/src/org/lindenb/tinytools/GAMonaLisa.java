@@ -232,12 +232,30 @@ public class GAMonaLisa
 				}
 			}	
 		
+		@Override
+		public boolean equals(Object obj) {
+			if(obj==this) return true;
+			if(obj==null || !(obj.getClass()==this.getClass())) return false;
+			Triangle other=Triangle.class.cast(obj);
+			for(int i=0;i< 3;++i)
+				{
+				if(other.x[i]!=this.x[i]) return false;
+				if(other.y[i]!=this.y[i]) return false;
+				}
+			return this.color.equals(other.color) &&
+				   this.alpha==other.alpha;
+			}
+		
 		public Polygon getShape()
 			{
 			return new Polygon(x,y,3);
 			}
 		}
 	
+	/**
+	 * Solution
+	 *
+	 */
 	private class Solution
 		implements Comparable<Solution>
 		{
@@ -475,6 +493,14 @@ public class GAMonaLisa
 			}
 		
 		@Override
+		public boolean equals(Object obj) {
+			if(obj==this) return true;
+			if(obj==null || !(obj.getClass()==this.getClass())) return false;
+			Solution other=Solution.class.cast(obj);
+			return this.items.equals(other.items);
+			}
+		
+		@Override
 		public int compareTo(Solution cp)
 			{
 			int i= getFitness().compareTo(cp.getFitness());
@@ -573,6 +599,25 @@ public class GAMonaLisa
 				}
 			for(int i=0;i< 10;++i) children.add(new Solution());
 			Collections.sort(children);
+			
+			//is there any duplicate ?
+			for(int n=0;n+1< children.size();++n)
+				{
+				int i=n+1;
+				while(i< children.size())
+					{
+					if(children.get(n).equals(children.get(i)))
+						{
+						System.out.print(" found duplicate ");
+						children.remove(i);
+						}
+					else
+						{
+						break;
+						}
+					}
+				}
+			
 			
 			while(children.size()>numberOfIndividualSurviving)
 				{
