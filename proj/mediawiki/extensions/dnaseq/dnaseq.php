@@ -38,7 +38,7 @@ $wgExtensionCredits['parserhook'][] = array(
         'name'          =>      'dnaseq',
         'version'       =>      '0.1',
         'author'        =>      '[http://plindenbaum.blogspot.com Pierre Lindenbaum]',
-        'url'           =>      'http://www.mediawiki.org',
+        'url'           =>      'http://code.google.com/p/lindenb/source/browse/trunk/proj/mediawiki/extensions/dnaseq/dnaseq.php',
         'description'   =>      'Displays a DNA sequence'
 );
 
