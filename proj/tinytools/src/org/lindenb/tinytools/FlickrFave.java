@@ -16,16 +16,21 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.net.URI;
 import java.net.URL;
+import java.net.URLConnection;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.Properties;
 import java.util.Vector;
 
 
@@ -346,7 +351,9 @@ private class RssHandler
 				String imageURL=item.largeImageURL;
 				imageURL= imageURL.replace("_m.", ".");
 				imageURL= imageURL.replace("_s.", ".");
-				BufferedImage img= ImageIO.read(new URL(imageURL));
+				InputStream io= openStream(imageURL);
+				BufferedImage img= ImageIO.read(io);
+				io.close();
 				setTitle(imageURL);
 				next.setEnabled(index+1< this.items.size());
 				prev.setEnabled(index-1>=0);
@@ -373,6 +380,9 @@ private class RssHandler
 	private File file;
 	/** saxParser */
 	private SAXParser parser;
+	/** cookie_session */
+	private String cookie_session=null;
+	
 	
 	/**
 	 * FlickrFave
@@ -487,7 +497,9 @@ private class RssHandler
 			}
 		String title=null;
 		String src=null;
-		String html= IOUtils.getURLContent(Cast.URL.cast(url));
+		InputStream io= openStream(url);
+		String html= IOUtils.getReaderContent(new InputStreamReader(io));
+		io.close();
 		int i=-1;
 		while((i=html.indexOf("<img",i+1))!=-1)
 			{
@@ -532,13 +544,37 @@ private class RssHandler
 				
 				return;
 				}
+			
 			}
+		cout().println("Failure");
 		}
 	catch (IOException e)
 		{
 		System.err.println(e.getMessage());
 		}
 	}
+	
+	private InputStream openStream(String uri)
+		throws IOException
+		{
+		URL url=new URL(uri);
+		URLConnection conn = url.openConnection();
+		
+		if(this.cookie_session!=null)
+			{
+			conn.setRequestProperty("Cookie", "cookie_session="+cookie_session);
+			}
+	
+		return conn.getInputStream();
+		}
+	
+	private void parse(SAXParser parse,String uri,DefaultHandler dh)
+		throws IOException,SAXException
+		{
+		InputStream in=openStream(uri);
+		parse.parse(in, dh);
+		in.close();
+		}
 	
 	private void readFeeds(Date lastDate,Date toDate)
 		throws IOException,SAXException,ParseException
@@ -566,7 +602,7 @@ private class RssHandler
 			try
 				{
 				//System.err.println(subject.getURI());
-				this.parser.parse(subject.getURI(), handler);
+				parse(this.parser,subject.getURI(), handler);
 				}
 			catch(IOException err)
 				{
@@ -590,7 +626,10 @@ private class RssHandler
 		JPanel pane= new JPanel(new GridLayout(0,6,5,5));
 		for(Item item:handler.items)
 			{
-			JToggleButton button = new JToggleButton(new ImageIcon(Toolkit.getDefaultToolkit().getImage(new URL(item.imageURL))));
+			InputStream io= openStream(item.imageURL);
+			BufferedImage icon=ImageIO.read(io);
+			io.close();
+			JToggleButton button = new JToggleButton(new ImageIcon(icon));
 			pane.add(button);
 			button.addMouseListener(new ItemAdapter(item));
 			button.setToolTipText(item.title);
@@ -716,6 +755,26 @@ private class RssHandler
 				model.read(FileUtils.toURL(filename));
 				}
 			FlickrFave app= new FlickrFave(model,file);
+			
+			//try to load the cookie for session in ~/.flickr.xml
+			try
+				{
+				File flickrProps= new File(System.getProperty("user.home","."),".flickr.xml");
+				if(flickrProps.exists())
+					{
+					Properties prop=new Properties();
+					FileInputStream fin= new FileInputStream(flickrProps);
+					prop.loadFromXML(fin);
+					fin.close();
+					app.cookie_session = prop.getProperty("cookie_session", null);
+					System.err.println("cookie_session:"+app.cookie_session);
+					}
+				}
+			catch(Throwable err)
+				{
+				System.err.println(err.getMessage());
+				}
+			
 			
 			if(optind!=args.length)
 				{
