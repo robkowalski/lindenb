@@ -1,0 +1,98 @@
+<?xml version="1.0"?>
+<?xml-stylesheet href="chrome://global/skin/" type="text/css"?>
+<window id="main" title="Translate" width="800" height="600"
+	xmlns:html="http://www.w3.org/1999/xhtml"
+	xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+	>
+	<script>
+
+var GeneticCode=[		
+{
+name: "Standard" ,
+ncbieaa :  "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+Base1 :    "TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG",
+Base2 :    "TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG",
+Base3 :    "TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG"
+}];
+
+function doNewWindow()
+	{
+	try {var win= window.open("chrome://translate/content/translate.xul",
+		"Translate",
+		"chrome"
+		);
+		} catch(err) { alert(err.message);}
+	}
+
+function base2Index(base)
+	{
+	switch(base)
+		{
+		case "T": return 0;
+		case "C": return 1;
+		case "A": return 2;
+		case "G": return 3;
+		}
+	return -1;
+	}
+	
+function translation(ncbieaa,aa)
+	{
+	var i1= base2Index(aa.charAt(0));
+	if(i1==-1) return '?';
+	var i2= base2Index(aa.charAt(1));
+	if(i2==-1) return '?';
+	var i3= base2Index(aa.charAt(2));
+	if(i3==-1) return '?';
+	return ncbieaa[ i1*16 + i2*4 + i3 ];
+	}
+	
+function doTranslate(textbox)
+	{
+	var ncbieaa= GeneticCode[0].ncbieaa ;
+	var dna=textbox.value.toUpperCase();
+	var prot="";
+	var i=0;
+	var aa="";
+	while(i&lt; dna.length)
+		{
+		var c= dna.charAt(i++);
+		if("\n\t \r".indexOf(c)!=-1)
+			{
+			continue;
+			}
+		if(c=="U") c="T";
+		aa+=c;
+		if(aa.length==3)
+			{
+			prot+=translation(ncbieaa,aa);
+			if(prot.length%10==0) prot+"\n";
+			aa="";
+			}
+		}
+	document.getElementById('protseq').value = prot+" len:"+prot.length;
+	}
+	
+	</script>
+	<toolbox flex="1">
+		<menubar id="sample-menubar">
+			<menu label="File">
+				<menupopup id="file-popup">
+					<menuitem label="New" oncommand="doNewWindow();"/>
+					<menuitem label="Open" oncommand="loadlist(window);"/>
+					<menuitem label="Save As..." oncommand="alert('boum');"/>
+					<menuseparator/>
+					<menuitem label="Exit" oncommand="window.close();"/>
+				</menupopup>
+			</menu>
+		</menubar>
+        </toolbox>
+	<vbox flex="13">
+		<label  flex="1" control="dnaseq" value="Your DNA Sequence" label="Your DNA Sequence" />
+		<textbox flex="6" id="dnaseq"  rows="5" multiline="true" onchange="doTranslate(this)" oninput="doTranslate(this)"/>
+	
+		<label  flex="1" control="protseq" value="The Translated Sequence"/>
+		<textbox  flex="6" id="protseq" rows="5"  multiline="true" editable="false" readOnly="true"/>
+		
+	</vbox>
+</window>
