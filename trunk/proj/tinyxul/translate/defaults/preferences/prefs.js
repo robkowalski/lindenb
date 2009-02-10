@@ -1,0 +1,1 @@
+pref("toolkit.defaultChromeURI", "chrome://translate/content/translate.xul");
