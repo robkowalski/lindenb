@@ -3,17 +3,48 @@
 <window id="main" title="Translate" width="800" height="600"
 	xmlns:html="http://www.w3.org/1999/xhtml"
 	xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+	onload="init()"
 	>
 	<script>
+/**
+https://developer.mozilla.org/en/Getting_started_with_XULRunner
+*/
+
+var XUL={NS:"http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"};
+
+
+
+
+
+/*
+via ftp://ftp.ncbi.nih.gov/entrez/misc/data/gc.prt
+
+ Base1 :    "TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG"
+ Base2 :    "TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG"
+ Base3 :    "TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG"
+
+*/
 
 var GeneticCode=[		
 {
 name: "Standard" ,
+ncbieaa :  "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG"
+},
+{
+name: "Vertebrate Mitochondrial" ,
+ncbieaa :  "FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNKKSS**VVVVAAAADDEEGGGG"
+},
+{
+name: "Yeast Mitochondrial" ,
+ncbieaa :  "FFLLSSSSYY**CCWWTTTTPPPPHHQQRRRRIIMMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+},
+{
+name: "Bacterial and Plant Plastid" ,
 ncbieaa :  "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
-Base1 :    "TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG",
-Base2 :    "TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG",
-Base3 :    "TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG"
-}];
+}
+];
+
+var currentGeneticCode=GeneticCode[0];
 
 function doNewWindow()
 	{
@@ -28,10 +59,10 @@ function base2Index(base)
 	{
 	switch(base)
 		{
-		case "T": return 0;
-		case "C": return 1;
-		case "A": return 2;
-		case "G": return 3;
+		case "t":case "T":case "u":case "U": return 0;
+		case "c":case "C": return 1;
+		case "a":case "A": return 2;
+		case "g":case "G": return 3;
 		}
 	return -1;
 	}
@@ -47,13 +78,15 @@ function translation(ncbieaa,aa)
 	return ncbieaa[ i1*16 + i2*4 + i3 ];
 	}
 	
-function doTranslate(textbox)
+function doTranslate()
 	{
-	var ncbieaa= GeneticCode[0].ncbieaa ;
-	var dna=textbox.value.toUpperCase();
+	var ncbieaa= currentGeneticCode.ncbieaa ;
+	var dna=document.getElementById('dnaseq').value;
 	var prot="";
 	var i=0;
 	var aa="";
+	var dnalength=0;
+	var protlength=0;
 	while(i&lt; dna.length)
 		{
 		var c= dna.charAt(i++);
@@ -61,26 +94,75 @@ function doTranslate(textbox)
 			{
 			continue;
 			}
-		if(c=="U") c="T";
+		dnalength++;
 		aa+=c;
 		if(aa.length==3)
 			{
 			prot+=translation(ncbieaa,aa);
-			if(prot.length%10==0) prot+"\n";
+			protlength++;
+			if(protlength % 50==0) { prot+="\n";}
 			aa="";
 			}
 		}
-	document.getElementById('protseq').value = prot+" len:"+prot.length;
+	document.getElementById('protseq').value = prot;
+	document.getElementById('protlength').value = protlength+" AA";
+	document.getElementById('dnalength').value = dnalength+" pb";
 	}
+
+function doSaveAs()
+	{
+	try {
+	const nsIFilePicker = Components.interfaces.nsIFilePicker;
+
+	var fp = Components.classes["@mozilla.org/filepicker;1"]
+	           .createInstance(nsIFilePicker);
+	fp.init(window, "Save As...", nsIFilePicker.modeSave);
 	
+
+	var rv = fp.show();
+	if (!(rv == nsIFilePicker.returnOK || rv == nsIFilePicker.returnReplace) ) return;
+	var file = fp.file;
+
+
+	
+	// file is nsIFile, data is a string
+	var foStream = Components.classes["@mozilla.org/network/file-output-stream;1"].
+		                 createInstance(Components.interfaces.nsIFileOutputStream);
+
+	// use 0x02 | 0x10 to open file for appending.
+	foStream.init(file, 0x02 | 0x08 | 0x20, 0666, 0); 
+	// write, create, truncate
+	// In a c file operation, we have no need to set file mode with or operation,
+	// directly using "r" or "w" usually.
+	
+	var data=document.getElementById('protseq').value;
+	foStream.write(data, data.length);
+	foStream.close();
+
+
+	} catch(err){ alert(err.message);}
+	}
+
+function init()
+	{
+	var menupopup = document.getElementById('gcpopup');
+	for(i in GeneticCode)
+		{
+		var e= document.createElementNS(XUL.NS,"menuitem");
+		e.setAttribute("label",GeneticCode[i].name);
+		e.setAttribute("value",i);
+		menupopup.appendChild(e);
+		}
+	menupopup.parentNode.selectedIndex=0;
+	}
+
 	</script>
 	<toolbox flex="1">
 		<menubar id="sample-menubar">
 			<menu label="File">
 				<menupopup id="file-popup">
 					<menuitem label="New" oncommand="doNewWindow();"/>
-					<menuitem label="Open" oncommand="loadlist(window);"/>
-					<menuitem label="Save As..." oncommand="alert('boum');"/>
+					<menuitem label="Save As..." oncommand="doSaveAs();"/>
 					<menuseparator/>
 					<menuitem label="Exit" oncommand="window.close();"/>
 				</menupopup>
@@ -88,11 +170,18 @@ function doTranslate(textbox)
 		</menubar>
         </toolbox>
 	<vbox flex="13">
-		<label  flex="1" control="dnaseq" value="Your DNA Sequence" label="Your DNA Sequence" />
-		<textbox flex="6" id="dnaseq"  rows="5" multiline="true" onchange="doTranslate(this)" oninput="doTranslate(this)"/>
+		<hbox><label control="dnaseq" value="Your DNA Sequence" label="Your DNA Sequence" /><label id="dnalength"  flex="1" value="0 pb"/></hbox>
+		<textbox flex="6" id="dnaseq"  rows="5" multiline="true" onchange="doTranslate()" oninput="doTranslate()"/>
 	
-		<label  flex="1" control="protseq" value="The Translated Sequence"/>
-		<textbox  flex="6" id="protseq" rows="5"  multiline="true" editable="false" readOnly="true"/>
+		<hbox>
+			<label flex="1" control="protseq" value="The Translated Sequence"/>
+			<label id="protlength" flex="1" value="0 AA"/>
+			<menulist flex="1" oncommand="currentGeneticCode=GeneticCode[selectedIndex];doTranslate();">
+			    <menupopup id="gcpopup">
+			    </menupopup>
+                        </menulist>
+		</hbox>
+		<textbox  flex="6" id="protseq" rows="5"  multiline="true" readOnly="true"/>
 		
 	</vbox>
 </window>
