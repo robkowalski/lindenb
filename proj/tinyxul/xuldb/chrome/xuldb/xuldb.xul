@@ -13,6 +13,15 @@
 	>
   <script src="library.js"/>
   <script src="xuldb.js"/>
+  <!-- ============= popup menu ======================================= -->
+  <popupset>
+	  <popup id="popupmenu1">
+		  <menuitem label="Add sub-class"/>
+		  <menuitem label="Add Property"/>
+		  <menuseparator/>
+		  <menuitem label="Edit"/>
+	  </popup>
+  </popupset>
 
   <!-- ============= menubar ======================================= -->
   <toolbox>
@@ -41,7 +50,7 @@
 </toolbox>
 <!-- =================================================================== -->
 <groupbox flex="1">
-<tree id="tree-class" flex="1" hidecolumnpicker="true" >
+<tree id="tree-class" flex="1" hidecolumnpicker="true"  context="popupmenu1">
 	<treecols>
 		<treecol  flex="1" label="Classes" primary="true" />
 	</treecols>
