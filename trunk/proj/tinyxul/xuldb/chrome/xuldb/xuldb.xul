@@ -4,6 +4,7 @@
 	title="XUL-Database"
 	width="800"
 	height="600"
+	onload="documentLoaded()"
 	xmlns:html="http://www.w3.org/1999/xhtml"
 	xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 	xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
@@ -39,5 +40,13 @@
 	  </toolbar>
 </toolbox>
 <!-- =================================================================== -->
+<groupbox flex="1">
+<tree id="tree-class" flex="1" hidecolumnpicker="true" >
+	<treecols>
+		<treecol  flex="1" label="Classes" primary="true" />
+	</treecols>
+</tree>
+<!-- =================================================================== -->
+</groupbox>
 
 </window>
