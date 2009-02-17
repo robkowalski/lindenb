@@ -50,7 +50,7 @@
 </toolbox>
 <!-- =================================================================== -->
 <groupbox flex="1">
-<tree id="tree-class" flex="1" hidecolumnpicker="true"  context="popupmenu1">
+<tree id="tree-class" flex="1" hidecolumnpicker="true"  context="popupmenu1" onselect="treeWasSelected(this);" >
 	<treecols>
 		<treecol  flex="1" label="Classes" primary="true" />
 	</treecols>

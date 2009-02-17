@@ -60,6 +60,8 @@ function buildTree(root, id)
 	titem.setAttribute("container","true");
 	titem.setAttribute("open","true");
 	tcell.setAttribute("label",stmt.getString(0));
+	tcell.setAttribute("class","rdfClass");
+	tcell.setAttribute("value",id);
 	root.appendChild(tchildren);
 	
 	/** loop over the children of id */
@@ -91,4 +93,9 @@ function documentLoaded()
 		}
 	};
 
-	
+function treeWasSelected(tree)
+	{
+	var index=tree.currentIndex;
+	var titem =tree.view.getItemAtIndex(index);
+	alert(DOM.serialize(titem));
+	}
