@@ -19,6 +19,42 @@ var IsA={
 		}
 	};
 
+/** DOM */
+var DOM={
+	serialize:function(node)
+		{
+		switch(node.nodeType)
+			{
+			case 1:
+				{
+				var s= "<"+ node.nodeName;
+				var atts= node.attributes;
+				for(var i=0;i< atts.length;++i)
+					{
+					s+=" ";
+					s+=atts[i].nodeName+"=\""+atts[i].nodeValue+"\"";
+					}
+				if(!node.hasChildNodes())
+					{
+					s+= "/>";
+					return s;
+					}
+				s+= ">";
+				for(var c=node.firstChild;
+					c!=null;
+					c=c.nextSibling)
+					{
+					s+= DOM.serialize(c);
+					}
+				s+= "</"+ node.nodeName+">";
+				return s;
+				}
+			case 3:	return nodeValue;
+			default: return "DOM:???";
+			}
+		}
+	};
+
 var XUL={NS:"http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"};
 var HTML={NS:"http://www.w3.org/1999/xhtml"};
 var RDF={NS:"http://www.w3.org/1999/02/22-rdf-syntax-ns#"};
@@ -29,7 +65,9 @@ var DC={NS:"http://purl.org/dc/elements/1.1/"};
 
 function $(id)
 	{
-	dump("Searching for "+id);
 	var e = document.getElementById(id);
 	return e;
 	}
+
+
+
