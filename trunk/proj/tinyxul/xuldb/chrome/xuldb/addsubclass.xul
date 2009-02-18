@@ -1,0 +1,85 @@
+<?xml version="1.0"?>
+<?xml-stylesheet href="chrome://global/skin/global.css" type="text/css"?>
+<dialog title="Add SubClass"
+	xmlns:html="http://www.w3.org/1999/xhtml"
+	xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+	xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+	xmlns:svg="http://www.w3.org/2000/svg"
+	xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+	
+	buttons="accept,cancel"
+	buttonlabelcancel="Cancel"
+	buttonlabelaccept="Save"
+	onload="initDialog();"
+	ondialogaccept="return doOK();"
+	ondialogcancel="return doCancel();">
+	<script src="library.js"/>
+	<script>
+		function doOK()
+			{
+			var uri=$("rdf:about").value;
+			if(!IsA.URI(uri))
+				{
+				alert("Not a URI:\""+uri+"\" "+$("rdf:about"));
+				return false;
+				}
+			var label= $("rdfs:label").value.trim();
+			if(label.length==0)
+				{
+				alert("Label is empty");
+				return false;
+				}
+			var desc= $("rdfs:comment").value.trim();
+			if(desc.length==0)
+				{
+				alert("Description is empty");
+				return false;
+				}
+			var shuttle  = window.arguments[0];
+			var env= shuttle.env;
+			
+			try
+			{
+			env.xul.connection.executeSimpleSQL("insert or ignore into RDFClass(label,description,uri,parent) values (\""+label+"\",\""+desc+"\",\""+ uri +"\","+shuttle.value+")");
+			shuttle.owner.reloadTree();
+			} catch(err)
+			{
+			aler(err.message);
+			}
+			
+			return true;
+			}
+		function doCancel() { return true;}
+		function initDialog()
+			{
+			var shuttle  = window.arguments[0];
+			var h=$("dialogheader");
+			h.setAttribute("description","Add a sub-class to "+shuttle.label);
+			h.setAttribute("title","rdfs:subClassOf "+shuttle.label);
+			}
+	</script>
+	<dialogheader id="dialogheader" title="Add SubClass" description="Add a subclass"/>
+	<groupbox>
+		<grid flex="1">
+		     <columns>
+			<column flex="1"/>
+			<column flex="3"/>
+		      </columns>
+		      <rows>
+			<row>
+				<label flex="1" value="Label" style="text-align: right"/>
+				<textbox flex="3"  id="rdfs:label" value=""/>
+		      </row>
+		     
+		      <row>
+			      <label flex="1" value="URI" style="text-align: right"/>
+			      <textbox flex="3"  id="rdf:about" value="X"/>
+		      </row>
+		      <row>
+			      <label flex="1" value="Description" style="text-align: right"/>
+			      <textbox flex="3"  id="rdfs:comment" multiline="true" value=""/>
+		      </row>
+	      		</rows>
+		</grid>
+	</groupbox>
+</dialog>
