@@ -79,6 +79,17 @@ function buildTree(root, id)
 		}
 	};
 
+function reloadTree()
+	{
+	var root=$("tree-class");
+	var n=null;
+	while((n=DOM.firstChildNS(root,XUL.NS,"treechildren"))!=null)
+		{
+		root.removeChild(n);
+		}
+	buildTree(root,1);
+	}
+
 function documentLoaded()
 	{
 	try
@@ -93,9 +104,35 @@ function documentLoaded()
 		}
 	};
 
-function treeWasSelected(tree)
+function getSelectedTreeCell(tree)
 	{
 	var index=tree.currentIndex;
+	if(index==-1) return null;
 	var titem =tree.view.getItemAtIndex(index);
-	alert(DOM.serialize(titem));
+	if(titem==null) return null;
+	var trow = DOM.firstChildNS(titem,XUL.NS,"treerow");
+	if(trow==null) return null;
+	var tcell = DOM.firstChildNS(trow,XUL.NS,"treecell");
+	return tcell;
+	}
+
+function treeWasSelected(tree)
+	{
+	var sel = (getSelectedTreeCell(tree)==null?"true":"false");
+	$("menu-add-subclass").setAttribute("disabled",sel);
+	$("menu-add-property").setAttribute("disabled",sel);
+	//alert(DOM.serialize(tcell));
+	};
+	
+function addSubClass()
+	{
+	var tcell =getSelectedTreeCell($("tree-class"));
+	if(tcell==null) return;
+	var dialog = window.openDialog("addsubclass.xul", "Add subclass to ", "dialog,modal",
+		{
+		env:env,
+		label: tcell.getAttribute("label"),
+		value: tcell.getAttribute("value"),
+		owner:window
+		});
 	}

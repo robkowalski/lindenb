@@ -16,8 +16,8 @@
   <!-- ============= popup menu ======================================= -->
   <popupset>
 	  <popup id="popupmenu1">
-		  <menuitem label="Add sub-class"/>
-		  <menuitem label="Add Property"/>
+		  <menuitem id="popup-add-subclass" disabled="true" label="Add sub-class"/>
+		  <menuitem id="popup-add-property" disabled="true" label="Add Property"/>
 		  <menuseparator/>
 		  <menuitem label="Edit"/>
 	  </popup>
@@ -37,15 +37,18 @@
 			  <menupopup id="edit-popup">
 			  </menupopup>
 		  </menu>
+		  <menu label="Tree">
+			  <menupopup>
+				  <menuitem id="menu-add-subclass" disabled="true" label="Add sub-class" oncommand="addSubClass();"/>
+				  <menuitem id="menu-add-property" disabled="true" label="Add Property"  oncommand="addSubClass();"/>
+			 	 <menuseparator/>
+		  	  </menupopup>
+		  </menu>
 	  </menubar>
 	  <!-- == TOOLBAR == -->
 	  <toolbar>
-		  <toolbarbutton label="Users"/>
-		  <toolbarbutton id="nav-groups" accesskey="p" label="Groups"><svg:svg width="12px" height="12px">
-				  <svg:circle r="5" cx="6" cy="6" style="stroke: red; fill: none;"/>
-				  <svg:line x1="3" y1="9" x2="9" y2="3" style="stroke: red;"/>
-			  </svg:svg></toolbarbutton>
-		  <toolbarbutton id="nav-events" accesskey="E" label="Events" disabled="true"/>
+		  <toolbarbutton label="TODO"/>
+		 
 	  </toolbar>
 </toolbox>
 <!-- =================================================================== -->
