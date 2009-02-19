@@ -4,7 +4,44 @@ String.prototype.trim = function() {
     } catch(e) {
         return this;
     }
-}
+};
+
+String.prototype.escapeC = function()
+	{
+   	var s="";
+   	for(var i=0;i < this.length;++i)
+   		{
+   		switch(this.charAt(i))
+   			{
+   			case '\n': s+="\\n"; break;
+   			case '\t': s+="\\t"; break;
+   			case '\r': s+="\\r"; break;
+   			case '\"': s+="\\\""; break;
+   			case '\'': s+="\\\'"; break;
+   			case '\\': s+="\\\\"; break;
+   			default: s+=this.charAt(i); break;
+   			}
+   		}
+   	return s;
+	};
+
+String.prototype.escapeXML = function()
+	{
+   	var s="";
+   	for(var i=0;i < this.length;++i)
+   		{
+   		switch(this.charAt(i))
+   			{
+   			case '<': s+="&lt;"; break;
+   			case '>': s+="&gt;"; break;
+   			case '&': s+="&amp;"; break;
+   			case '\"': s+="&quot;"; break;
+   			case '\'': s+="&apos;"; break;
+   			default: s+=this.charAt(i); break;
+   			}
+   		}
+   	return s;
+	};
 
 
 var XUL={NS:"http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"};
@@ -48,7 +85,7 @@ var DOM={
 				for(var i=0;i< atts.length;++i)
 					{
 					s+=" ";
-					s+=atts[i].nodeName+"=\""+atts[i].nodeValue+"\"";
+					s+=atts[i].nodeName+"=\""+atts[i].nodeValue.escapeXML()+"\"";
 					}
 				if(!node.hasChildNodes())
 					{
@@ -65,7 +102,7 @@ var DOM={
 				s+= "</"+ node.nodeName+">";
 				return s;
 				}
-			case 3:	return nodeValue;
+			case 3:	return nodeValue.escapeXML();
 			default: return "DOM:???";
 			}
 		},
