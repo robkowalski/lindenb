@@ -17,7 +17,7 @@
   <popupset>
 	  <popup id="popupmenu1">
 		  <menuitem id="popup-add-subclass" disabled="true" label="Add sub-class"/>
-		  <menuitem id="popup-add-property" disabled="true" label="Add Property"/>
+		  <menuitem id="popup-edit-subclass" disabled="true" label="Edit Class"/>
 		  <menuseparator/>
 		  <menuitem label="Edit"/>
 	  </popup>
@@ -29,6 +29,7 @@
 	  <menubar>
 		  <menu label="File">
 			  <menupopup>
+				  <menuitem label="Export..." oncommand="exportOntology(null,null,null);"/>
 				  <menuseparator/>
 				  <menuitem label="Exit" oncommand="window.close();"/>
 			  </menupopup>
@@ -40,7 +41,7 @@
 		  <menu label="Tree">
 			  <menupopup>
 				  <menuitem id="menu-add-subclass" disabled="true" label="Add sub-class" oncommand="addSubClass();"/>
-				  <menuitem id="menu-add-property" disabled="true" label="Add Property"  oncommand="addSubClass();"/>
+				  <menuitem id="menu-edit-subclass" disabled="true" label="Edit Class"  oncommand="editSubClass();"/>
 			 	 <menuseparator/>
 		  	  </menupopup>
 		  </menu>
