@@ -48,21 +48,31 @@ function buildTree(root, id)
 	var stmt=env.xul.connection.createStatement("select label from RDFClass where id=?1");
 	stmt.bindInt32Parameter(0,id);
  	if(!stmt.executeStep()) return;
-	 	
-	var tchildren = document.createElementNS(XUL.NS,"treechildren");
+	
+	var tchildren=null;
 	var titem = document.createElementNS(XUL.NS,"treeitem");
 	var trow = document.createElementNS(XUL.NS,"treerow");
 	var tcell = document.createElementNS(XUL.NS,"treecell");
 	
-	tchildren.appendChild(titem);
+	if(root.localName=="treechildren")
+		{
+		root.appendChild(titem);
+		}
+	else
+		{
+		tchildren = document.createElementNS(XUL.NS,"treechildren");
+		tchildren.appendChild(titem);
+		root.appendChild(tchildren);
+		}
+	
 	titem.appendChild(trow);
-	trow.appendChild(tcell);
 	titem.setAttribute("container","true");
 	titem.setAttribute("open","true");
+	trow.appendChild(tcell);
 	tcell.setAttribute("label",stmt.getString(0));
 	tcell.setAttribute("class","rdfClass");
 	tcell.setAttribute("value",id);
-	root.appendChild(tchildren);
+	
 	
 	/** loop over the children of id */
 	var array= new Array();
@@ -72,11 +82,16 @@ function buildTree(root, id)
 		{
 		array.push(stmt.getInt32(0));
 		}
-	for(var i=0;i < array.length;++i)
+	if(array.length>0)
 		{
-		/** recursive call */
-		buildTree(titem,array[i]);
-		}
+		tchildren = document.createElementNS(XUL.NS,"treechildren");
+		titem.appendChild(tchildren);
+		for(var i=0;i < array.length;++i)
+			{
+			/** recursive call */
+			buildTree(tchildren,array[i]);
+			}
+		}	
 	};
 
 function reloadTree()
