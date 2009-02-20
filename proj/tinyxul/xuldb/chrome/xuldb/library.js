@@ -25,6 +25,21 @@ String.prototype.escapeC = function()
    	return s;
 	};
 
+String.prototype.escapeSqlite = function()
+	{
+   	var s="";
+   	for(var i=0;i < this.length;++i)
+   		{
+   		switch(this.charAt(i))
+   			{
+   			/* http://www.sqlite.org/faq.html#q14 */
+   			case '\'': s+="\'\'"; break;
+   			default: s+=this.charAt(i); break;
+   			}
+   		}
+   	return s;
+	};
+
 String.prototype.escapeXML = function()
 	{
    	var s="";
@@ -51,6 +66,16 @@ var RDFS={NS:"http://www.w3.org/2000/01/rdf-schema#"};
 var XLINK={NS:"http://www.w3.org/1999/xlink"};
 var SVG={NS:"http://www.w3.org/2000/svg"};
 var DC={NS:"http://purl.org/dc/elements/1.1/"};
+
+/** https://developer.mozilla.org/en/Debugging_a_XULRunner_Application */
+function jsdump(str)
+	{
+	Components.classes['@mozilla.org/consoleservice;1']
+            .getService(Components.interfaces.nsIConsoleService)
+            .logStringMessage(str+"\n");
+      	}
+
+
 /**
  * IsA 
  */

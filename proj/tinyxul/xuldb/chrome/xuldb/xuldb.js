@@ -33,10 +33,33 @@ function XULDB()
 			);
 		this.connection.executeSimpleSQL("insert or ignore into RDFClass(id,label,description,uri,parent) values (1,\"rdfs:Class\",\"rdfs:Class\",\""+ RDFS.NS +"Class\",1)");
 		}
+	if(!this.connection.tableExists("RDFProperty"))
+		{
+		this.connection.createTable("RDFProperty",
+			"id INTEGER PRIMARY KEY AUTOINCREMENT,"+
+			"label TEXT NOT NULL,"+
+			"description TEXT NOT NULL,"+
+			"uri TEXT UNIQUE NOT NULL,"+
+			"js TEXT NOT NULL,"+
+			"class_id INTEGER NOT NULL REFERENCES RDFClass(id)"
+			);
+		var insert="insert or ignore into RDFProperty(id,label,description,uri,js,class_id) values ";
+		var js="{type:\"text\",minOcc:1,maxOcc:1,empty:false,defaultValue:\"\"}";
+		
+		this.connection.executeSimpleSQL(
+			insert+ "(1,\'Title\',\'Title for this Resource\',\'"+ DC.NS +"title\',\'"+ js.escapeSqlite()+"\',1)"
+			);
+		
+		this.connection.executeSimpleSQL(
+			insert+ "(2,\'Description\',\'Description for this Resource\',\'"+ DC.NS +"description\',\'"+ js.escapeSqlite()+"\',1)"
+			);
+		
+		
+		}
 	
 	}
 
-XULDB.stmt2class = function(stmt)
+XULDB.prototype.stmt2class = function(stmt)
 	{
 	var clazz=  {
 		label:stmt.getString(0),
@@ -156,7 +179,9 @@ function documentLoaded()
 	catch(e)
 		{
 		alert(e.message);
+		
 		}
+	
 	};
 
 function getSelectedTreeCell(tree)
@@ -251,7 +276,7 @@ function exportOntology(id,parent_uri,os)
 			// In a c file operation, we have no need to set file mode with or operation,
 			// directly using "r" or "w" usually.
 			
-			var os = Components.classes["@mozilla.org/intl/converter-output-stream;1"]
+			 os = Components.classes["@mozilla.org/intl/converter-output-stream;1"]
                    		.createInstance(Components.interfaces.nsIConverterOutputStream);
 			os.init(foStream, "UTF-8", 0, 0x0000);
 
