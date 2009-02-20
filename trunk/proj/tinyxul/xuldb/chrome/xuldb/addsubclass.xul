@@ -44,10 +44,10 @@
 			if(shuttle.id==null)
 				{
 				env.xul.connection.executeSimpleSQL(
-				"insert or ignore into RDFClass(label,description,uri,parent) values (\""+
-				label.escapeC()+"\",\""+
-				desc.escapeC()+"\",\""+
-				uri.escapeC() +"\","+
+				"insert or ignore into RDFClass(label,description,uri,parent) values (\'"+
+				label.escapeSqlite()+"\',\'"+
+				desc.escapeSqlite()+"\',\'"+
+				uri.escapeSqlite() +"\','+
 				shuttle.parent_id+
 				")");
 				}
@@ -55,9 +55,9 @@
 				{
 				env.xul.connection.executeSimpleSQL(
 				"update RDFClass set "+
-				"label=\""+label.escapeC()+"\","+
-				"description=\""+desc.escapeC()+"\","+
-				"uri=\""+uri.escapeC() +"\" where id="+
+				"label=\'"+label.escapeSqlite()+"\',"+
+				"description=\'"+desc.escapeSqlite()+"\',"+
+				"uri=\'"+uri.escapeSqlite() +"\' where id="+
 				shuttle.id
 				);
 				}
