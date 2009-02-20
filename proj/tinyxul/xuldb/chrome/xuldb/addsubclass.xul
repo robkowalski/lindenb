@@ -47,7 +47,7 @@
 				"insert or ignore into RDFClass(label,description,uri,parent) values (\'"+
 				label.escapeSqlite()+"\',\'"+
 				desc.escapeSqlite()+"\',\'"+
-				uri.escapeSqlite() +"\','+
+				uri.escapeSqlite() +"\',"+
 				shuttle.parent_id+
 				")");
 				}
@@ -70,18 +70,21 @@
 			
 			return true;
 			}
-		function doCancel() { return true;}
+		function doCancel() { jsdump("return cancel");return true;}
 		function initDialog()
 			{
+			
 			var shuttle  = window.arguments[0];
 			var h=$("dialogheader");
 			if(shuttle.id==null)
 				{
+				
 				h.setAttribute("description","Add a sub-class to "+shuttle.label);
 				h.setAttribute("title","rdfs:subClassOf "+shuttle.label);
 				}
 			else	
 				{
+				
 				var stmt=shuttle.env.xul.connection.createStatement("select label,description,uri from RDFClass where id=?1");
 				stmt.bindInt32Parameter(0,shuttle.id);
  				if(!stmt.executeStep()) return;
@@ -116,7 +119,7 @@
 		     
 		      <row>
 			      <label flex="1" value="URI" style="text-align: right"/>
-			      <textbox flex="3"  id="rdf:about" value="X"/>
+			      <textbox flex="3"  id="rdf:about" value=""/>
 		      </row>
 		      <row>
 			      <label flex="1" value="Description" style="text-align: right"/>

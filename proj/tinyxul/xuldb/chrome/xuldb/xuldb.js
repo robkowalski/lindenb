@@ -31,7 +31,8 @@ function XULDB()
 			"uri TEXT UNIQUE NOT NULL,"+
 			"parent INTEGER NOT NULL REFERENCES RDFClass(id)"
 			);
-		this.connection.executeSimpleSQL("insert or ignore into RDFClass(id,label,description,uri,parent) values (1,\"rdfs:Class\",\"rdfs:Class\",\""+ RDFS.NS +"Class\",1)");
+		this.connection.executeSimpleSQL(
+			"insert or ignore into RDFClass(id,label,description,uri,parent) values (1,\"rdfs:Class\",\"rdfs:Class\",\""+ RDFS.NS +"Class\",1)");
 		}
 	if(!this.connection.tableExists("RDFProperty"))
 		{
@@ -59,23 +60,50 @@ function XULDB()
 	
 	}
 
+XULDB.prototype.stmt2property = function(stmt)
+	{
+	var ppty=  {
+		label: stmt.getString(0),
+		description: stmt.getString(1),
+		uri: stmt.getString(2),
+		js: stmt.getString(3),
+		class_id: stmt.getInt32(4),
+		id: stmt.getInt32(5)
+ 		};
+ 	return ppty;
+	};
+
 XULDB.prototype.stmt2class = function(stmt)
 	{
 	var clazz=  {
-		label:stmt.getString(0),
-		description:stmt.getString(1),
-		uri:stmt.getString(2),
-		parent_id: stmt.getInt32(3)
+		label: stmt.getString(0),
+		description: stmt.getString(1),
+		uri: stmt.getString(2),
+		parent_id: stmt.getInt32(3),
+		id: stmt.getInt32(4)
  		};
  	return clazz;
 	};
 
+
+
 XULDB.prototype.getClassById = function(id)
 	{
-	var stmt=this.connection.createStatement("select label,description,uri,parent from RDFClass where id=?1");
+	var stmt=this.connection.createStatement("select label,description,uri,parent,id from RDFClass where id=?1");
 	stmt.bindInt32Parameter(0,id);
  	if(!stmt.executeStep()) return null;
- 	return XULDB.stmt2class(stmt);
+ 	
+ 	return this.stmt2class(stmt);
+	};
+
+XULDB.prototype.getPropertyById = function(id)
+	{
+	var stmt=this.connection.createStatement("select label,description,uri,js,class_id,id from RDFProperty where id=?1");
+	stmt.bindInt32Parameter(0,id);
+ 	if(!stmt.executeStep()) return null;
+ 	try {
+ 	
+ 	return this.stmt2property(stmt); } catch(err) { jsdump(err.message); return null;}
 	};
 
 XULDB.prototype.getSubClassesIds = function(id)
@@ -90,22 +118,53 @@ XULDB.prototype.getSubClassesIds = function(id)
 	return array;
 	};
 
+XULDB.prototype.getPropertyIdsOfClass = function(id)
+	{
+	var stmt=this.connection.createStatement("select id from RDFProperty where class_id=?1 order by label");
+	stmt.bindInt32Parameter(0,id);
+	var array= new Array();
+	while(stmt.executeStep())
+		{
+		array.push(stmt.getInt32(0));
+		}
+	return array;
+	};
+
+
 XULDB.prototype.getSubClasses = function(id)
 	{
 	var ids= XULDB.getSubClassesIds(id);
 	var array= new Array();
 	for(var i=0;i < ids.length;++i)
 		{
-		array.push(XULDB.getClassById(ids[i]));
+		array.push(this.getClassById(ids[i]));
 		}
 	return array;
-	}
+	};
 
 var env={
 	xul:null,
 	window:null
 	};
 
+function appendProperty(root, id)
+	{
+	var ppt = env.xul.getPropertyById(id);
+	if(ppt==null) return;
+	var titem = document.createElementNS(XUL.NS,"treeitem");
+	var trow = document.createElementNS(XUL.NS,"treerow");
+	var tcell = document.createElementNS(XUL.NS,"treecell");
+	root.appendChild(titem);
+	
+	titem.appendChild(trow);
+	titem.setAttribute("container","true");
+	titem.setAttribute("open","true");
+	trow.appendChild(tcell);
+	tcell.setAttribute("label",ppt.label);
+	tcell.setAttribute("class","rdfProperty");
+	tcell.setAttribute("value",id);
+	}
+	
 function buildTree(root, id)
 	{
 	var stmt=env.xul.connection.createStatement("select label from RDFClass where id=?1");
@@ -136,25 +195,23 @@ function buildTree(root, id)
 	tcell.setAttribute("class","rdfClass");
 	tcell.setAttribute("value",id);
 	
+	tchildren = document.createElementNS(XUL.NS,"treechildren");
+	titem.appendChild(tchildren);
+	/** loop over the properties of id */
+	var array= env.xul.getPropertyIdsOfClass(id);
+	for(var i=0;i < array.length;++i)
+		{
+		appendProperty(tchildren,array[i]);
+		}
 	
 	/** loop over the children of id */
-	var array= new Array();
-	stmt=env.xul.connection.createStatement("select id from RDFClass where parent=?1 and id!=1 order by label");
-	stmt.bindInt32Parameter(0,id);
-	while(stmt.executeStep())
+	array= env.xul.getSubClassesIds(id);
+	for(var i=0;i < array.length;++i)
 		{
-		array.push(stmt.getInt32(0));
+		/** recursive call */
+		buildTree(tchildren,array[i]);
 		}
-	if(array.length>0)
-		{
-		tchildren = document.createElementNS(XUL.NS,"treechildren");
-		titem.appendChild(tchildren);
-		for(var i=0;i < array.length;++i)
-			{
-			/** recursive call */
-			buildTree(tchildren,array[i]);
-			}
-		}	
+		
 	};
 
 function reloadTree()
@@ -166,7 +223,7 @@ function reloadTree()
 		root.removeChild(n);
 		}
 	buildTree(root,1);
-	}
+	};
 
 function documentLoaded()
 	{
@@ -200,12 +257,23 @@ function treeWasSelected(tree)
 	{
 	var tcell=getSelectedTreeCell(tree);
 	var sel = (tcell==null?"true":"false");
+	var isClazz= (tcell!=null && tcell.getAttribute("class")=="rdfClass");
+	var isPpty=  (tcell!=null && tcell.getAttribute("class")=="rdfProperty");
+	
 	var menu=$("menu-add-subclass");
-	menu.setAttribute("disabled",sel);
+	menu.setAttribute("disabled",!isClazz);
 	menu.setAttribute("label","Add Sub-Class to "+tcell.getAttribute("label"));
 	
+	menu=$("menu-add-property");
+	menu.setAttribute("disabled",!isClazz);
+	menu.setAttribute("label","Add Property to "+tcell.getAttribute("label"));
+	
 	menu=$("menu-edit-subclass");
-	menu.setAttribute("disabled",sel);
+	menu.setAttribute("disabled",!isClazz);
+	menu.setAttribute("label","Edit "+tcell.getAttribute("label"));
+	
+	menu=$("menu-edit-property");
+	menu.setAttribute("disabled",!isPpty);
 	menu.setAttribute("label","Edit "+tcell.getAttribute("label"));
 	//menu.setAttribute("label","A");
 	//$("menu-add-property").setAttribute("disabled",sel);
