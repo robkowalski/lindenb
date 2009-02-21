@@ -79,7 +79,7 @@ public class SmartComparator implements Comparator<CharSequence>
 	                }
                 catch(NumberFormatException err)
                 	{
-                	//nothing
+                	throw err;
                 	}
                 
                 }

@@ -1061,17 +1061,18 @@ public class Giraf
 		while((cursor.getNext(indiKey, indiValue, null))==OperationStatus.SUCCESS)
 			{
 			Individual indi= Individual.BINDING.entryToObject(indiValue);
+			Stat stat= stats[indi.getColumn()];
 			out.print(indi.getFamily());
 			out.print("\t");
 			out.print(indi.getName());
 			out.print("\t");
-			out.print(stats[indi.getColumn()].total);
+			out.print(stat.total);
 			out.print("\t");
-			out.print(stats[indi.getColumn()].genotyped);
+			out.print(stat.genotyped);
 			out.print("\t");
-			out.print(stats[indi.getColumn()].success());
+			out.print(stat.success());
 			out.print("\t");
-			out.print(stats[indi.getColumn()].errors);
+			out.print(stat.errors);
 			out.println();
 			}
 		cursor.close();

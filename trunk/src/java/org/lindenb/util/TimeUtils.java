@@ -24,10 +24,30 @@ public static String toYYYYMMDD(GregorianCalendar cal,Character delimiter)
 			;
 	}
 
+
+public static String toYYYYMMDDHHMMSS(GregorianCalendar cal,Character delimiter)
+	{
+	String delim=delimiter==null?"":delimiter.toString();
+	return 	toYYYYMMDD(cal,delimiter)+delim+
+		(cal.get(GregorianCalendar.HOUR)<10?"0":"")+(cal.get(GregorianCalendar.HOUR))+delim+
+		(cal.get(GregorianCalendar.MINUTE)<10?"0":"")+(cal.get(GregorianCalendar.MINUTE))+delim+
+		(cal.get(GregorianCalendar.SECOND)<10?"0":"")+(cal.get(GregorianCalendar.SECOND))
+		;
+	}
+
 public static String toYYYYMMDD(Character delimiter)
 	{
 	return toYYYYMMDD(new GregorianCalendar(),delimiter);
 	}
 
+public static String toYYYYMMDDHHMMSS(Character delimiter)
+	{
+	return toYYYYMMDDHHMMSS(new GregorianCalendar(),delimiter);
+	}
+
+public static String toYYYYMMDDHHMMSS()
+	{
+	return toYYYYMMDDHHMMSS(null);
+	}
 
 }
