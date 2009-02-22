@@ -279,7 +279,23 @@ function treeWasSelected(tree)
 	//$("menu-add-property").setAttribute("disabled",sel);
 	//alert(DOM.serialize(tcell));
 	};
-	
+
+
+function addProperty()
+	{
+	var tcell =getSelectedTreeCell($("tree-class"));
+	if(tcell==null) return;
+	var label= tcell.getAttribute("label");
+	var dialog = window.openDialog("addproperty.xul", "Add Property to "+label, "dialog,modal",
+		{
+		env:env,
+		label: label,
+		parent_id: tcell.getAttribute("value"),
+		owner:window,
+		id:null
+		});
+	}
+
 function addSubClass()
 	{
 	var tcell =getSelectedTreeCell($("tree-class"));
