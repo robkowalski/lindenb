@@ -23,14 +23,12 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import java.util.zip.ZipOutputStream;
 
-import org.apache.derby.iapi.sql.dictionary.KeyConstraintDescriptor;
 import org.lindenb.io.IOUtils;
 import org.lindenb.io.TmpWriter;
 import org.lindenb.util.Cast;
 import org.lindenb.util.Compilation;
 import org.lindenb.util.SmartComparator;
 import org.lindenb.util.TimeUtils;
-import org.omg.DynamicAny._DynEnumStub;
 
 import com.sleepycat.bind.tuple.IntegerBinding;
 import com.sleepycat.bind.tuple.StringBinding;
@@ -100,6 +98,26 @@ class Position
 	public String toString()
 		{
 		return getChromosome()+":"+getPosition();
+		}
+	}
+
+class Range extends Position
+	{
+	private int end;
+	Range(String chrom,int start,int end)
+		{
+		super(chrom,start);
+		this.end=end;
+		}
+	public boolean contains(Position p)
+		{
+		return this.getChromosome().equalsIgnoreCase(p.getChromosome()) &&
+			this.getPosition()<= p.getPosition() &&
+			p.getPosition()<=this.end;
+		}
+	@Override
+	public String toString() {
+		return super.toString()+"-"+this.end;
 		}
 	}
 
@@ -456,7 +474,15 @@ class Individual
 		return new Name(getFamily(),getFirstName());
 		}
 	
-
+	public boolean hasParent(int i)
+		{
+		return  getParent(i).getFirstName()!=0;
+		}
+	
+	public Name getParent(int i)
+		{
+		return i==0?getFather():getMother();
+		}
 	
 	public Name getFather() {
 		return new Name(getFamily(),father);
@@ -643,6 +669,67 @@ class Stat
 		}
 	}
 
+
+/** utility to find mandelian incompatibilites */
+class FamilyIncompat
+	{
+    /**
+     * return wether a individual can really be child of parents
+     * @param parent1 a parental allele
+     * @param parent2 a parental allele
+     * @param c1    allele 1 of a child
+     * @param c2    allele 2 of a child
+     * @return
+     */
+    static private boolean isOK(
+            String parent1,
+            String parent2,
+            String c1,
+            String c2)
+    	{
+
+        return
+            (parent1.equals(c1) && parent2.equals(c2)) ||
+            (parent1.equals(c2) && parent2.equals(c1))
+            ;
+    	}
+    
+    /*** return true if child has no allele from its parent */
+    static public boolean childIsNotCompatibleWithOneParent(
+            String parentA1,
+            String parentA2,
+            String childA1,
+            String childA2
+            )
+    {
+    return(!(
+            childA1.equals(parentA1) ||
+            childA1.equals(parentA2) ||
+            childA2.equals(parentA1) ||
+            childA2.equals(parentA2)));
+    }
+    
+    /*** return true if child cannot be child of two parents */
+    static public boolean parentCannotHaveThisChild
+            (
+    		String fatherA1,
+    		String fatherA2,
+    		String motherA1,
+    		String motherA2,
+    		String childA1,
+    		String childA2
+            )
+    {
+    if( isOK(fatherA1,motherA1,childA1,childA2)) return false;
+    if( isOK(fatherA1,motherA2,childA1,childA2)) return false;
+    if( isOK(fatherA2,motherA1,childA1,childA2)) return false;
+    if( isOK(fatherA2,motherA2,childA1,childA2)) return false;
+    return true;
+    }
+    
+
+}
+
 class ConfigShuttle
 	{
 	Properties properties= new Properties();
@@ -684,6 +771,10 @@ public class Giraf
 	/** files of individuals to be excluded */
 	private Set<String> eXcludedIndividualFiles= new HashSet<String>();
 	
+	
+	/** limit by position */
+	private List<Range> limitByPosition= new ArrayList<Range>();
+	
 	private Set<String> allPhenotypes= new TreeSet<String>();
 	private Set<String> allMarkerFeatures= new TreeSet<String>();
 	
@@ -697,7 +788,7 @@ public class Giraf
 	private TmpWriter errorLog=null;
 	private TmpWriter logLog=null;
 	private File envHome;
-	
+	private boolean test_the_incompats=false;
 	
 	private final String zipPrefix= "GIRAF"+TimeUtils.toYYYYMMDDHHMMSS()+"/";
 	private Giraf()
@@ -953,6 +1044,20 @@ public class Giraf
 				}
 			if(!Cast.Integer.isA(token[2])) throw new IOException("In "+markerSrcURI+" bad position in "+line);
 			Marker marker = new Marker(token[0].trim(),token[1],Cast.Integer.cast(token[2]));
+			
+			if(!this.limitByPosition.isEmpty())
+				{
+				boolean ok=false;
+				for(Range range: this.limitByPosition)
+					{
+					if(range.contains(marker.getPosition()))
+						{
+						ok=true;
+						break;
+						}
+					}
+				if(!ok) continue;
+				}
 			
 			for(int i=3;i<token.length && i< header.length;++i)
 				{
@@ -1226,6 +1331,7 @@ public class Giraf
 		DatabaseEntry genotypesEntry=new DatabaseEntry();
 		DatabaseEntry index4indiKey=new DatabaseEntry();
 		DatabaseEntry indiValue=new DatabaseEntry();
+		DatabaseEntry indiKey=new DatabaseEntry();
 		
 		Cursor cursor=null;
 		try {
@@ -1245,7 +1351,7 @@ public class Giraf
 				_LOG.info(chromosome);
 				TmpWriter linkage = new TmpWriter(this.envHome);
 				TmpWriter markers= new TmpWriter(this.envHome);
-				
+				TmpWriter incompats= (this.test_the_incompats? new TmpWriter(this.envHome):null);
 				TmpWriter multiple= null;
 				Stat statistics= new Stat();
 				statistics.total= this.individualCount;
@@ -1373,6 +1479,74 @@ public class Giraf
 					markers.println();
 					linkage.println();
 					
+					
+					if(this.test_the_incompats)
+						{
+						/* for this marker, loop over all the individuals */
+						for(int i=0;i< genotypes.size();++i)
+							{
+							Genotype array[]= genotypes.get(i);
+							if(array==null || array.length!=1) continue;
+							
+							IntegerBinding.intToEntry(i,index4indiKey);
+							if(this.index2individual.get(null, index4indiKey, indiValue, null)!=OperationStatus.SUCCESS)
+								{
+								errorLog.println("Cannot retrieve "+i+"th individual");
+								continue;
+								}
+							
+							Individual child= Individual.BINDING.entryToObject(indiValue);
+							Genotype gChild=array[0];
+							Individual parents[]=new Individual[]{null,null};
+							Genotype gParents[]=new Genotype[]{null,null};
+							
+							for(int side=0;side< 2;++side)
+								{
+								if(!child.hasParent(side)) continue;
+								child.getParent(side).copyToEntry(indiKey);
+								if(this.individualDB.get(null, indiKey, indiValue, null)!=OperationStatus.SUCCESS)
+									{
+									errorLog.println("Cannot retrieve "+child.getParent(side)+" individual");
+									continue;
+									}
+								parents[side] = Individual.BINDING.entryToObject(indiValue);
+								array= genotypes.get(parents[side].getColumn());
+								if(array==null || array.length!=1) continue;
+								gParents[side]=array[0];
+								if(FamilyIncompat.childIsNotCompatibleWithOneParent(
+										gParents[side].A1(),
+										gParents[side].A2(),
+										gChild.A1(),
+										gChild.A2()))
+									{
+									incompats.println("For marker "+marker.getName()+
+											" Incompat between "+child.getName()+"("+ gChild+") and his "+
+											(i==0?"Father":"Mother")+
+											" "+parents[side].getName()+
+											" ("+ gParents[side]+")"
+											);
+									break;
+									}
+								}
+							
+							if(gParents[0]==null || gParents[1]==null) continue;
+							if(FamilyIncompat.parentCannotHaveThisChild(
+									gParents[0].A1(),
+									gParents[0].A2(),
+									gParents[0].A1(),
+									gParents[1].A2(),
+									gChild.A1(),
+									gChild.A2()))
+								{
+								incompats.println("For marker "+marker.getName()+
+										" Incompat between "+child.getName()+"("+ gChild+") and his parent "+
+										parents[0].getName()+": ("+ gParents[0]+") /"+
+										parents[1].getName()+": ("+ gParents[1]+")"
+										);
+								break;
+								}
+							}
+						}
 					}
 				cursor.close();
 				
@@ -1380,10 +1554,15 @@ public class Giraf
 				markers.copyToZip(zout, this.zipPrefix+chromosome+"/markers.txt");
 				linkage.delete();
 				markers.delete();
-				if(multiple!=null)
+				if(multiple!=null && !multiple.isEmpty())
 					{
 					multiple.copyToZip(zout, this.zipPrefix+chromosome+"/multiple.dat");
 					multiple.delete();
+					}
+				if(incompats!=null && !incompats.isEmpty())
+					{
+					incompats.copyToZip(zout, this.zipPrefix+chromosome+"/incompats.dat");
+					incompats.delete();
 					}
 				}			
 			
@@ -1597,7 +1776,7 @@ public class Giraf
 				}
 			zout.flush();
 			zout.close();
-			//TODO remove this
+
 			_LOG.info("returning "+fileout);
 			}
 		catch (DatabaseException e)
@@ -1729,11 +1908,38 @@ public class Giraf
 					System.err.println(" -D property=value");
 					System.err.println(" -debug <value=[OFF,SEVERE,FINE,FINER,FINEST,INFO]>");
 					System.err.println(" -o <file-out.zip> [REQUIRED]");
+					System.err.println(" -inc test the incompats ");
+					System.err.println(" -L limit by position chr1:0-10;chr3:10-20 ");
 					return;
 					}
 				else if(args[optind].equals("-o"))
 					{
 					fileout= new File(args[++optind]);
+					}
+				else if(args[optind].equals("-L"))
+					{
+					for(String s: args[++optind].split("[;]"))
+						{
+						s=s.trim();
+						if(s.length()==0) continue;
+						int loc1= s.indexOf(':');
+						int loc2= s.indexOf('-',loc1+1);
+						if(loc1==-1 || loc2==-1) 
+							{
+							System.err.println("Bad range "+s);
+							return;
+							}
+						Range r= new Range(
+							s.substring(0,loc1).trim(),
+							Integer.parseInt(s.substring(0,loc2).substring(loc1+1).trim()),
+							Integer.parseInt(s.substring(loc2+1).trim())
+							);
+						app.limitByPosition.add(r);
+						}
+					}
+				else if(args[optind].equals("-inc"))
+					{
+					app.test_the_incompats=true;
 					}
 				else if(args[optind].equals("-w"))
 					{
