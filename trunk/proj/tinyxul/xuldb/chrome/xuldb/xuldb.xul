@@ -43,8 +43,8 @@
 				  <menuitem id="menu-add-subclass" disabled="true" label="Add sub-class" oncommand="addSubClass();"/>
 				  <menuitem id="menu-edit-subclass" disabled="true" label="Edit Class"  oncommand="editSubClass();"/>
 			 	 <menuseparator/>
-				 <menuitem id="menu-add-property" disabled="true" label="Add sub-class" oncommand="addSubClass();"/>
-				 <menuitem id="menu-edit-property" disabled="true" label="Edit Class"  oncommand="editSubClass();"/>
+				 <menuitem id="menu-add-property" disabled="true" label="Add sub-property" oncommand="addProperty();"/>
+				 <menuitem id="menu-edit-property" disabled="true" label="Edit Property"  oncommand="editSubClass();"/>
 				 
 		  	  </menupopup>
 		  </menu>
