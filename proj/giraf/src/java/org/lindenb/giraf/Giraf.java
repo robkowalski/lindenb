@@ -1,5 +1,8 @@
 /**
- * http://www.oracle.com/technology/documentation/berkeley-db/je/GettingStartedGuide/index.html
+ * GIRAF
+ * Pierre Lindenbaum PhD 2009
+ * 
+ * pour ref: http://www.oracle.com/technology/documentation/berkeley-db/je/GettingStartedGuide/index.html
  */
 package org.lindenb.giraf;
 
@@ -101,6 +104,9 @@ class Position
 		}
 	}
 
+/**
+ * Range
+ */
 class Range extends Position
 	{
 	private int end;
@@ -121,6 +127,9 @@ class Range extends Position
 		}
 	}
 
+/**
+ * PositionBinding
+ */
 class PositionBinding
 	extends TupleBinding<Position>
 	{
@@ -306,8 +315,7 @@ class HardyWeinberg
 	public String toString() {
 		return "11:"+AA+"|12:"+AB+"|22:"+BB+"|chi2:"+chi2();
 		}
-	
-}
+	}
 
 
 /**
@@ -375,6 +383,11 @@ class PositionKeyCreator
 			}
 		} 
  
+/**
+ * The name of an individual
+ * @author pierre
+ *
+ */
 class Name
 	implements Comparable<Name>
 	{
@@ -432,6 +445,7 @@ class Name
 		}
 	}
 
+/** tuple binding for name */
 class NameBinding
 extends TupleBinding<Name>
 	{
@@ -445,6 +459,11 @@ extends TupleBinding<Name>
 		}
 	}
 
+/**
+ * An individual
+ * @author pierre
+ *
+ */
 class Individual
 	extends Name
 	{
@@ -453,6 +472,7 @@ class Individual
 	private int mother;
 	private int gender;
 	private SortedMap<String, String> phenotypes=new TreeMap<String, String>();
+	/** column in the linkage file */
 	private int column=-1;
 	
 	public Individual(
@@ -520,6 +540,7 @@ class Individual
 
 	}
 
+/** tuple binding for individual */
 class IndividualBinding
 extends TupleBinding<Individual>
 	{
@@ -561,6 +582,9 @@ extends TupleBinding<Individual>
 		}
 	}
 
+/**
+ * Genotype
+ */
 class Genotype
 	{
 	private String a1,a2;
@@ -1241,6 +1265,7 @@ public class Giraf
 			else
 				{
 				prevMarker=token[0];
+				assert(genotypes!=null);
 				}
 			
 			Genotype genotype=new Genotype(token[3],token[4]);
@@ -1274,8 +1299,6 @@ public class Giraf
 				}
 			}
 		r.close();
-		
-		
 		
 		
 		if(header==null)
