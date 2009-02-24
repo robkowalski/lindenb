@@ -12,8 +12,10 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.SortedMap;
@@ -590,9 +592,9 @@ class Genotype
 	private String a1,a2;
 	Genotype(String a1,String a2)
 		{
-		a1=a1.toLowerCase();
-		a2=a2.toLowerCase();
-		if(a1.compareTo(a2)<=0)
+		a1=a1.toUpperCase().trim();
+		a2=a2.toUpperCase().trim();
+		if(SmartComparator.getInstance().compare(a1,a2)<=0)
 			{
 			this.a1=a1;
 			this.a2=a2;
@@ -622,12 +624,19 @@ class Genotype
 	
 	public String A1() { return a1;}
 	public String A2() { return a2;}
+	public String A(int i) { return i==0?A1():A2();}
+	
 	@Override
 	public String toString() {
 		return A1()+"/"+A2();
 		}
 	}
 
+/**
+ * 
+ * GenotypesBinding
+ *
+ */
 class GenotypesBinding
 	extends TupleBinding<List<Genotype[]>>
 	{
@@ -681,6 +690,11 @@ class GenotypesBinding
 		}
 	}
 
+/**
+ * 
+ * Stat
+ *
+ */
 class Stat
 	{
 	int total =0;
@@ -812,7 +826,6 @@ public class Giraf
 	private TmpWriter errorLog=null;
 	private TmpWriter logLog=null;
 	private File envHome;
-	private boolean test_the_incompats=false;
 	
 	private final String zipPrefix= "GIRAF"+TimeUtils.toYYYYMMDDHHMMSS()+"/";
 	private Giraf()
@@ -1356,8 +1369,29 @@ public class Giraf
 		DatabaseEntry indiValue=new DatabaseEntry();
 		DatabaseEntry indiKey=new DatabaseEntry();
 		
+		Individual individualArray[]=new Individual[this.individualCount];
+		Map<Name,Integer> name2column = new HashMap<Name, Integer>(this.individualCount);
+		
+		//load the individuals
 		Cursor cursor=null;
+		cursor= this.individualDB.openCursor(null, null);
+		while((cursor.getNext(indiKey, indiValue, null))==OperationStatus.SUCCESS)
+			{
+			Individual child= Individual.BINDING.entryToObject(indiValue);
+			assert(child.getColumn()>=0);
+			assert(child.getColumn()<individualArray.length);
+			assert(individualArray[child.getColumn()]==null);
+			individualArray[child.getColumn()]= child;
+			name2column.put(child.getName(), child.getColumn());
+			}
+		cursor.close();
+		cursor=null;
+		
+		
+		
 		try {
+			positionKey = new DatabaseEntry();
+			markerValue = new DatabaseEntry();
 			//get all the chromosomes
 			Set<String> all_chrom=new TreeSet<String>();
 			cursor= this.pos2markerDB.openCursor(null, null);
@@ -1374,7 +1408,7 @@ public class Giraf
 				_LOG.info(chromosome);
 				TmpWriter linkage = new TmpWriter(this.envHome);
 				TmpWriter markers= new TmpWriter(this.envHome);
-				TmpWriter incompats= (this.test_the_incompats? new TmpWriter(this.envHome):null);
+				TmpWriter incompats= new TmpWriter(this.envHome);
 				TmpWriter multiple= null;
 				Stat statistics= new Stat();
 				statistics.total= this.individualCount;
@@ -1503,7 +1537,7 @@ public class Giraf
 					linkage.println();
 					
 					
-					if(this.test_the_incompats)
+					/* test the inconpats */
 						{
 						/* for this marker, loop over all the individuals */
 						for(int i=0;i< genotypes.size();++i)
@@ -1511,14 +1545,9 @@ public class Giraf
 							Genotype array[]= genotypes.get(i);
 							if(array==null || array.length!=1) continue;
 							
-							IntegerBinding.intToEntry(i,index4indiKey);
-							if(this.index2individual.get(null, index4indiKey, indiValue, null)!=OperationStatus.SUCCESS)
-								{
-								errorLog.println("Cannot retrieve "+i+"th individual");
-								continue;
-								}
+							if(individualArray[i]==null) throw new DatabaseException("individual missing");
 							
-							Individual child= Individual.BINDING.entryToObject(indiValue);
+							Individual child= individualArray[i];
 							Genotype gChild=array[0];
 							Individual parents[]=new Individual[]{null,null};
 							Genotype gParents[]=new Genotype[]{null,null};
@@ -1526,13 +1555,11 @@ public class Giraf
 							for(int side=0;side< 2;++side)
 								{
 								if(!child.hasParent(side)) continue;
-								child.getParent(side).copyToEntry(indiKey);
-								if(this.individualDB.get(null, indiKey, indiValue, null)!=OperationStatus.SUCCESS)
-									{
-									errorLog.println("Cannot retrieve "+child.getParent(side)+" individual");
-									continue;
-									}
-								parents[side] = Individual.BINDING.entryToObject(indiValue);
+								
+								Integer x = name2column.get(child.getParent(side));
+								if(x==null) continue;
+								
+								parents[side] = individualArray[x];
 								array= genotypes.get(parents[side].getColumn());
 								if(array==null || array.length!=1) continue;
 								gParents[side]=array[0];
@@ -1931,13 +1958,33 @@ public class Giraf
 					System.err.println(" -D property=value");
 					System.err.println(" -debug <value=[OFF,SEVERE,FINE,FINER,FINEST,INFO]>");
 					System.err.println(" -o <file-out.zip> [REQUIRED]");
-					System.err.println(" -inc test the incompats ");
 					System.err.println(" -L limit by position chr1:0-10;chr3:10-20 ");
+					System.err.println(" -m <uri> add a marker url/file (may be gzipped) ");
+					System.err.println(" -xm <uri> add a marker url/file to be excluded (may be gzipped) ");
+					System.err.println(" -p <uri> add a pedigree url/file (may be gzipped) ");
+					System.err.println(" -g <uri> add a genotype url/file (may be gzipped) ");
+					
 					return;
 					}
 				else if(args[optind].equals("-o"))
 					{
 					fileout= new File(args[++optind]);
+					}
+				else if(args[optind].equals("-m"))
+					{
+					app.markerFiles.add(args[++optind]);
+					}
+				else if(args[optind].equals("-xm"))
+					{
+					app.eXcludedMarkerFiles.add(args[++optind]);
+					}
+				else if(args[optind].equals("-p"))
+					{
+					app.individualsFiles.add(args[++optind]);
+					}
+				else if(args[optind].equals("-g"))
+					{
+					app.genotypesFiles.add(args[++optind]);
 					}
 				else if(args[optind].equals("-L"))
 					{
@@ -1959,10 +2006,6 @@ public class Giraf
 							);
 						app.limitByPosition.add(r);
 						}
-					}
-				else if(args[optind].equals("-inc"))
-					{
-					app.test_the_incompats=true;
 					}
 				else if(args[optind].equals("-w"))
 					{
