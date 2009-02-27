@@ -94,6 +94,12 @@ var IsA={
 			{
 			return false;
 			}
+		},
+	Integer:function(s)
+		{
+		s=s.trim();
+		if(!s.match(/^[0-9]+$/ig) || parseInt(s)==NaN) return false;
+		return true;
 		}
 	};
 

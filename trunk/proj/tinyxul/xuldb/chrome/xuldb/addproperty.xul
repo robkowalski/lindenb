@@ -14,9 +14,81 @@
 	ondialogaccept="return doOK();"
 	ondialogcancel="return doCancel();">
 	<script src="library.js"/>
-	<script>
+	<script><![CDATA[
+
 		function doOK()
 			{
+			var uri=$("rdf:about").value;
+			if(!IsA.URI(uri))
+				{
+				alert("Not a URI:\""+uri+"\" "+$("rdf:about"));
+				return false;
+				}
+			var label= $("rdfs:label").value.trim();
+			if(label.length==0)
+				{
+				alert("Label is empty");
+				return false;
+				}
+			var desc= $("rdfs:comment").value.trim();
+			if(desc.length==0)
+				{
+				alert("Description is empty");
+				return false;
+				}
+			var minCardinality= $("owl:minCardinality").value.trim();
+			if(minCardinality.length==0 || !IsA.Integer(minCardinality))
+				{
+				alert("owl:minCardinality "+ minCardinality +" is not a number");
+				return false;
+				}
+			
+			var maxCardinality= $("owl:maxCardinality").value.trim();
+			if(maxCardinality.length < 0 && !IsA.Integer(maxCardinality))
+				{
+				alert("owl:maxCardinality is not a number");
+				return false;
+				}
+			
+				
+			var tabIndex=$("property-range-tabbox").selectedIndex;	
+			alert(	tabIndex);
+			
+			var shuttle  = window.arguments[0];
+			var env= shuttle.env;
+			
+			
+			if(1==1) return false;
+			
+			try
+			{
+			if(shuttle.id==null)
+				{
+				env.xul.connection.executeSimpleSQL(
+				"insert or ignore into RDFClass(label,description,uri,parent) values (\'"+
+				label.escapeSqlite()+"\',\'"+
+				desc.escapeSqlite()+"\',\'"+
+				uri.escapeSqlite() +"\',"+
+				shuttle.parent_id+
+				")");
+				}
+			else
+				{
+				env.xul.connection.executeSimpleSQL(
+				"update RDFClass set "+
+				"label=\'"+label.escapeSqlite()+"\',"+
+				"description=\'"+desc.escapeSqlite()+"\',"+
+				"uri=\'"+uri.escapeSqlite() +"\' where id="+
+				shuttle.id
+				);
+				}
+			shuttle.owner.reloadTree();
+			}
+			catch(err)
+				{
+				aler(err.message);
+				return false;
+				}
 			
 			return true;
 			}
@@ -25,7 +97,7 @@
 			{
 			
 			}
-	</script>
+	]]></script>
 	<dialogheader id="dialogheader" title="Add Property" description="Add a Property"/>
 	<groupbox>
 		<vbox flex="1">
@@ -48,22 +120,37 @@
 			      <label flex="1" value="Description" style="text-align: right"/>
 			      <textbox flex="3"  id="rdfs:comment" multiline="true" value=""/>
 		      </row>
+		      <row>
+			      <label flex="1" value="Min-Cardinality" style="text-align: right"/>
+			      <textbox flex="3"  id="owl:minCardinality" multiline="false" value="0"/>
+		      </row>
+		      <row>
+			      <label flex="1" value="Max-Cardinality" style="text-align: right"/>
+			      <textbox flex="3"  id="owl:maxCardinality" multiline="false" value=""/>
+		      </row>
 	      		</rows>
 		</grid>
-		<tabbox>
+		<tabbox id="property-range-tabbox">
 			<tabs>
 				<tab label="Literal"/>
-				<tab label="Enumeration"/>
-				<tab label="Object"/>
+				<tab label="Object"  disabled="true"/>
 			</tabs>
 			<tabpanels>
-				<tabpanel id="mailtab">
-					<checkbox label="Literal"/>
+				<tabpanel id="property-literal-tab">
+					<grid flex="1">
+						<columns>
+							<column flex="1"/>
+							<column flex="3"/>
+		     				 </columns>
+						 <rows>
+							<row>
+								<label flex="1" value="Regex" style="text-align: right"/>
+			      					<textbox flex="3"  id="literal-regex" multiline="false" value=".*"/>
+							</row> 
+						</rows>
+					 </grid>
 				</tabpanel>
-				<tabpanel id="newstab">
-					<button label="Enumeration"/>
-				</tabpanel>
-				<tabpanel id="newstab">
+				<tabpanel id="newstab" disabled="true">
 					<button label="Object"/>
 				</tabpanel>
 			</tabpanels>
