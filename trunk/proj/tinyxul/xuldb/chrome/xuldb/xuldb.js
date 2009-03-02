@@ -295,7 +295,22 @@ function addProperty()
 		id:null
 		});
 	}
-
+function editProperty()
+	{
+	var tcell =getSelectedTreeCell($("tree-class"));
+	if(tcell==null) return;
+	var label= tcell.getAttribute("label");
+	var node_id =tcell.getAttribute("value");
+	var dialog = window.openDialog("addproperty.xul", "Add Property to "+label, "dialog,modal",
+		{
+		env:env,
+		label: label,
+		parent_id:null,
+		owner:window,
+		id:node_id
+		});
+	}
+	
 function addSubClass()
 	{
 	var tcell =getSelectedTreeCell($("tree-class"));
@@ -311,6 +326,7 @@ function addSubClass()
 		});
 	}
 
+	
 function editSubClass()
 	{
 	var tcell =getSelectedTreeCell($("tree-class"));
@@ -331,6 +347,9 @@ function editSubClass()
 		id: node_id
 		});
 	}
+
+
+
 
 function exportOntology(id,parent_uri,os)
 	{
