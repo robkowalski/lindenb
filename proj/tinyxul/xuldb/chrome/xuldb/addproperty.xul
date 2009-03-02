@@ -18,6 +18,7 @@
 
 		function doOK()
 			{
+			var js="{";
 			var uri=$("rdf:about").value;
 			if(!IsA.URI(uri))
 				{
@@ -42,6 +43,7 @@
 				alert("owl:minCardinality "+ minCardinality +" is not a number");
 				return false;
 				}
+			js+="minOcc:"+minCardinality;
 			
 			var maxCardinality= $("owl:maxCardinality").value.trim();
 			if(maxCardinality.length < 0 && !IsA.Integer(maxCardinality))
@@ -49,37 +51,49 @@
 				alert("owl:maxCardinality is not a number");
 				return false;
 				}
-			
+			if(maxCardinality.length==0)
+				{
+				js+=",maxOcc:"+maxCardinality;
+				}
+			else
+				{
+				js+=",maxOcc:null";
+				}
 				
 			var tabIndex=$("property-range-tabbox").selectedIndex;	
-			alert(	tabIndex);
+			switch(tabIndex)
+				{
+				case 0:
+					js+=",type:\"text\"";
+					js+=",regex:\""+ $("literal-regex").value.escapeC() +"\"";
+				 	break;
+				}
+			js+= "}";
 			
 			var shuttle  = window.arguments[0];
 			var env= shuttle.env;
-			
-			
-			if(1==1) return false;
 			
 			try
 			{
 			if(shuttle.id==null)
 				{
-				env.xul.connection.executeSimpleSQL(
-				"insert or ignore into RDFClass(label,description,uri,parent) values (\'"+
+				var insert="insert or ignore into RDFProperty(label,description,uri,js,class_id) values (\'"+
 				label.escapeSqlite()+"\',\'"+
 				desc.escapeSqlite()+"\',\'"+
-				uri.escapeSqlite() +"\',"+
-				shuttle.parent_id+
-				")");
+				uri.escapeSqlite() +"\',\'"+
+				js.escapeSqlite() +"\',"+
+				shuttle.parent_id+")";
+				env.xul.connection.executeSimpleSQL(insert);
 				}
 			else
 				{
 				env.xul.connection.executeSimpleSQL(
-				"update RDFClass set "+
+				"update RDFProperty set "+
 				"label=\'"+label.escapeSqlite()+"\',"+
 				"description=\'"+desc.escapeSqlite()+"\',"+
-				"uri=\'"+uri.escapeSqlite() +"\' where id="+
-				shuttle.id
+				"uri=\'"+uri.escapeSqlite() +"\', "+
+				"js=\'"+js.escapeSqlite() +"\' "+
+				"where id="+ shuttle.id
 				);
 				}
 			shuttle.owner.reloadTree();
@@ -95,7 +109,43 @@
 		function doCancel() {return true;}
 		function initDialog()
 			{
-			
+			var shuttle  = window.arguments[0];
+			var h=$("dialogheader");
+			if(shuttle.id==null)
+				{
+				h.setAttribute("description","Add Property to "+shuttle.label);
+				h.setAttribute("title","Property To "+shuttle.label);
+				}
+			else	
+				{
+				var stmt=shuttle.env.xul.connection.createStatement("select label,description,uri,js,class_id from RDFProperty where id=?1");
+				stmt.bindInt32Parameter(0,shuttle.id);
+				if(!stmt.executeStep()) return;
+				
+					try
+					{
+					h.setAttribute("description","Edit "+stmt.getString(0));
+					h.setAttribute("title",stmt.getString(0));
+					$("rdf:about").value=stmt.getString(2);
+					$("rdfs:label").value=stmt.getString(0);
+					$("rdfs:comment").value=stmt.getString(1);
+					
+					var js= eval("("+stmt.getString(3)+")");
+					
+					$("owl:minCardinality").value = ""+js.minOcc;
+					$("owl:maxCardinality").value = (js.maxOcc==null?"":""+js.maxOcc);
+					
+					if(js.type=="text")
+						{
+						$("property-range-tabbox").selectedIndex=0;
+						$("literal-regex").value= js.regex;
+						}
+					}
+				catch(err)
+					{
+					alert(err.message);
+					}
+				}
 			}
 	]]></script>
 	<dialogheader id="dialogheader" title="Add Property" description="Add a Property"/>

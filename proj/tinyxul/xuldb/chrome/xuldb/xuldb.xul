@@ -44,7 +44,7 @@
 				  <menuitem id="menu-edit-subclass" disabled="true" label="Edit Class"  oncommand="editSubClass();"/>
 			 	 <menuseparator/>
 				 <menuitem id="menu-add-property" disabled="true" label="Add sub-property" oncommand="addProperty();"/>
-				 <menuitem id="menu-edit-property" disabled="true" label="Edit Property"  oncommand="editSubClass();"/>
+				 <menuitem id="menu-edit-property" disabled="true" label="Edit Property"  oncommand="editProperty();"/>
 				 
 		  	  </menupopup>
 		  </menu>
