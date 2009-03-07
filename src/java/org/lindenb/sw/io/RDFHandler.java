@@ -32,6 +32,8 @@ import static org.lindenb.util.Debug.debug;
 
 /**
  * RDFHandler
+ * RDF reader calling the method 'found' each time it finds a
+ * new RDFStatement
  * @author Pierre Lindenbaum PhD plindenbaum@yahoo.fr
  *
  */
@@ -147,24 +149,38 @@ public class RDFHandler
 	
 	/**
 	 * called when this handler finds a new RDF triple
-	 * This method should be overiden
+	 
 	 * @param event
 	 */
 	protected void found(
 			RDFEvent event
-			)
+			) throws XMLStreamException
 		{
+		try{
 		found(event.subject,event.predicate,event.value,event.valueType,event.lang,event.listIndex);
+		} catch(IOException err)
+		{
+		throw new XMLStreamException(err);	
+		}
 		}
 	
-	
+	/**
+	 * This method should be overridden by the user
+	 * @param subject
+	 * @param predicate
+	 * @param value
+	 * @param dataType
+	 * @param lang
+	 * @param index
+	 * @throws IOException
+	 */
 	public void found(
 			URI subject,
 			URI predicate,
 			Object value,
 			URI dataType,
 			String lang,
-			int index)
+			int index) throws IOException
 		{
 		
 		}
