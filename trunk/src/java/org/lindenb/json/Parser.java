@@ -7,8 +7,8 @@ import java.io.Reader;
 import java.io.StreamTokenizer;
 import java.io.StringReader;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 
@@ -95,10 +95,10 @@ public class Parser
 	
 	
 	//parse an array
-	private Collection<Object> parseJSONArray() throws IOException
+	private List<Object> parseJSONArray() throws IOException
 			{
 	
-			Collection<Object> json= createArray();
+			List<Object> json= createArray();
 			int tt;
 			while(true)
 				{
@@ -171,7 +171,7 @@ public class Parser
 			}
 	
 	/** create a Collection. May be overloaded with extended builder */
-	protected Collection<Object> createArray()
+	protected List<Object> createArray()
 		{
 		return new ArrayList<Object>();
 		}
