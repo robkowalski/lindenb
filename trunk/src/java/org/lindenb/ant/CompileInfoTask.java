@@ -9,6 +9,7 @@ import java.io.PrintWriter;
 import java.util.GregorianCalendar;
 
 import org.apache.tools.ant.BuildException;
+import org.lindenb.util.C;
 
 
 /**
@@ -104,8 +105,8 @@ public void execute() throws BuildException {
 			" {\n"+
 			" private Compilation() {}\n"+
 			" public static String getName() { return "+(name==null?"\"Untitled Application\"":"\""+name+"\"")+";}\n"+
-			" public static String getPath() { return \""+ System.getProperty("user.dir")+"\";}\n"+
-			" public static String getUser() { return \""+ System.getProperty("user.name")+"\";}\n"+
+			" public static String getPath() { return \""+ C.escape(System.getProperty("user.dir"))+"\";}\n"+
+			" public static String getUser() { return \""+ C.escape(System.getProperty("user.name"))+"\";}\n"+
 			" public static GregorianCalendar getCalendar() { return new GregorianCalendar("+
 					now.get(GregorianCalendar.YEAR)+","+
 					now.get(GregorianCalendar.MONTH)+","+

@@ -1,0 +1,3 @@
+content	imgdb	chrome/content/
+overlay	chrome://browser/content/browser.xul	chrome://imgdb/content/imgdb.xul
+skin	imgdb	classic/1.0	chrome/skin/

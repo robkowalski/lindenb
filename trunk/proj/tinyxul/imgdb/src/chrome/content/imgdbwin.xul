@@ -1,0 +1,59 @@
+<?xml version="1.0"?>
+<?xml-stylesheet href="chrome://global/skin/" type="text/css"?>
+<window id="main" title="ImgDB" width="800" height="600"
+	xmlns:html="http://www.w3.org/1999/xhtml"
+	xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+	onload="init();"
+	>
+<script src="shared.js"/>
+<script><![CDATA[
+function init()
+	{
+	var HTML="http://www.w3.org/1999/xhtml";
+	
+	var root=document.getElementById("db-content");
+	try
+	{
+	var connection=openConnection();
+	var stmt=connection.createStatement("select id,url,alt,docurl,width,height from img order by id desc");
+	dumpjs("A");
+	while(stmt.executeStep())
+		{
+		
+		var w= stmt.getInt32(4);
+		var h= stmt.getInt32(5);
+		dumpjs("B"+w+"/"+h);
+		if(w<h)
+			{
+			var ratio=w/(h*1.0);
+			h=64;
+			w=parseInt(64*ratio);
+			}
+		else
+			{
+			var ratio=h/(w*1.0);
+			w=64;
+			h=parseInt(64*ratio);
+			}
+		
+		var a=document.createElementNS(HTML,"html:a");
+		a.setAttribute("href",stmt.getString(3));
+		root.appendChild(a);
+		var i=document.createElementNS(HTML,"html:img");
+		a.appendChild(i);
+		i.setAttribute("src",stmt.getString(1));
+		i.setAttribute("width",parseInt(w));
+		i.setAttribute("height",parseInt(h));
+		}
+	}
+	catch(e)
+	{
+	dumpjs(e.message);
+	}
+}
+]]></script>
+<dialogheader title="ImgDB" description="An Image Database not in the clouds."/>
+
+
+<vbox><html:div id="db-content"></html:div></vbox>
+</window>
