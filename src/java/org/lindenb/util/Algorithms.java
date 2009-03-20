@@ -128,7 +128,7 @@ public  int lower_bound(
 
 /** C+ upper_bound */
 public int upper_bound(
-		Vector<T> dataVector,
+		List<T> dataVector,
         K select
         )
 	{

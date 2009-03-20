@@ -1,7 +1,7 @@
 package org.lindenb.net.httpserver;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URLDecoder;
@@ -11,16 +11,26 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.lindenb.io.IOUtils;
+import org.lindenb.util.Cast;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
+
+/**
+ * AbstractHttpHandler
+ * @author pierre
+ *
+ */
 public abstract class AbstractHttpHandler
 	implements HttpHandler
 	{
+	private static final Logger LOG= Logger.getLogger(HttpHandler.class.getName());
 	/** HttpServer */
 	private HttpServer server;
 	
@@ -56,6 +66,27 @@ public abstract class AbstractHttpHandler
 			String value= getParameter(name);
 			return value==null || value.trim().length()==0;
 			}
+		public Double getDouble(String name)
+			{
+			return Cast.Double.cast(getParameter(name));
+			}
+		public Float getFloat(String name)
+			{
+			return Cast.Float.cast(getParameter(name));
+			}
+		public Integer getInt(String name)
+			{
+			return Cast.Integer.cast(getParameter(name));
+			}
+		
+		public Long getLong(String name)
+			{
+			return Cast.Long.cast(getParameter(name));
+			}
+		public Short getShort(String name)
+			{
+			return Cast.Short.cast(getParameter(name));
+			}
 		}
 	
 	protected static class ParametersImpl extends Parameters
@@ -90,6 +121,20 @@ public abstract class AbstractHttpHandler
 			}
 		}
 	
+	
+	private class MaxInputStream
+		extends FilterInputStream
+		{
+		private long curr_size=0L;
+		
+		MaxInputStream(InputStream in)
+			{
+			super(in);
+			}
+		
+		}
+	
+	
 	public AbstractHttpHandler()
 		{
 		this(null);
@@ -105,9 +150,35 @@ public abstract class AbstractHttpHandler
 		return server;
 		}
 	
-
+	public abstract void service(HttpExchange exchange) throws IOException;
 	
-	public abstract void handle(HttpExchange exchange) throws IOException;
+	public void init() throws IOException
+		{
+		}
+	
+	public void release()
+		{
+		
+		}
+	
+	public void handle(HttpExchange exchange) throws IOException
+		{
+		try {
+			init();
+			service(exchange);
+			} 
+		catch (IOException e)
+			{
+			throw e;
+			}
+		catch (Throwable e) {
+			throw new IOException(e);
+			}
+		finally
+			{
+			release();
+			}
+		}
 	
 	public Parameters getParameters(HttpExchange http) throws IOException
 		{
@@ -119,7 +190,7 @@ public abstract class AbstractHttpHandler
 			}
 		else if(http.getRequestMethod().equalsIgnoreCase("POST"))
 			{
-			InputStream in= http.getRequestBody();
+			InputStream in= new MaxInputStream(http.getRequestBody());
 			if(in!=null)
 				{
 				ByteArrayOutputStream bytes =new ByteArrayOutputStream();
@@ -148,4 +219,36 @@ public abstract class AbstractHttpHandler
 		return params;
 		}
 	
+	
+	protected long getMaxLengthInput()
+		{
+		return Integer.MAX_VALUE;
+		}
+	
+	
+	
+	
+	protected void log(Object o)
+		{
+		if(LOG.getLevel()==Level.OFF) return;
+		try {
+			throw new Exception();
+			}
+		catch (Exception e)
+			{
+			LOG.log(LOG.getLevel(),getClass().getName()+":"+String.valueOf(o));
+			}
+		}
+	
+	protected void log()
+		{
+		if(LOG.getLevel()==Level.OFF) return;
+		try {
+			throw new Exception();
+			}
+		catch (Exception e)
+			{
+			LOG.log(LOG.getLevel(),getClass().getName());
+			}
+		}
 	}

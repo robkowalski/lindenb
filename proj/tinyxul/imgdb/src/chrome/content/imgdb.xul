@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<overlay id="imgdb" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+<script src="shared.js"/>
+<script src="imgdb.js"/>
+<popup id="contentAreaContextMenu">
+<menuseparator/>
+<menu label="ImgDB" id="popup-imgdb">
+<menupopup>
+	<menuitem label="Add" id="imgdb-quickadd" oncommand="insertImage(1);"/>
+	<menuitem label="test" oncommand="openimgdb(1);"/>
+</menupopup>
+</menu>
+</popup>
+</overlay>
