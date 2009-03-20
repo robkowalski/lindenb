@@ -3,17 +3,13 @@
 
 <target name="aksum">
 	 
-	 <javac srcdir="src"
-		destdir="src"
+	 <javac srcdir="src/aksum"
+		destdir="."
 		debug="true"
 		source="1.6"
 		target="1.6">
-		 <include name="src/aksum/Aksum.java"/>
+		 <include name="Aksum.java"/>
 	 </javac>
-	 
-	 <jar destfile="aksum.jar"
-	      basedir="src">
-	 </jar>
  </target>
 
 	

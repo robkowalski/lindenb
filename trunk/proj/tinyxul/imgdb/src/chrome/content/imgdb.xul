@@ -7,7 +7,7 @@
 <menu label="ImgDB" id="popup-imgdb">
 <menupopup>
 	<menuitem label="Add" id="imgdb-quickadd" oncommand="insertImage(1);"/>
-	<menuitem label="test" oncommand="openimgdb(1);"/>
+	<menuitem label="Show" oncommand="openimgdb(1);"/>
 </menupopup>
 </menu>
 </popup>
