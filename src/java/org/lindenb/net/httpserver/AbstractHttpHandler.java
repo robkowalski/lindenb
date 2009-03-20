@@ -1,9 +1,17 @@
 package org.lindenb.net.httpserver;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileReader;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintStream;
+import java.io.PrintWriter;
+import java.io.Reader;
+import java.io.Writer;
 import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -11,12 +19,16 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Map.Entry;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.zip.GZIPOutputStream;
 
 import org.lindenb.io.IOUtils;
+import org.lindenb.lang.ResourceUtils;
 import org.lindenb.util.Cast;
 
+import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
@@ -30,6 +42,11 @@ import com.sun.net.httpserver.HttpServer;
 public abstract class AbstractHttpHandler
 	implements HttpHandler
 	{
+	/** ok http code */
+	public static final int SC_OK=200;
+	public static final int SC_NOT_FOUND=404;
+	public static final int SC_TEMPORARILY_UNAVAILABLE=504;
+	
 	private static final Logger LOG= Logger.getLogger(HttpHandler.class.getName());
 	/** HttpServer */
 	private HttpServer server;
@@ -86,6 +103,37 @@ public abstract class AbstractHttpHandler
 		public Short getShort(String name)
 			{
 			return Cast.Short.cast(getParameter(name));
+			}
+		
+		
+		
+		@Override
+		public String toString()
+			{
+			StringBuilder b= new StringBuilder();
+			for(String n:getParameterNames())
+				{
+				b.append(n).append(":");
+				for(String v: getParameters(n))
+					{
+					b.append(" "+v);
+					}
+				b.append("\n");
+				}
+			return b.toString();
+			}
+		}
+	
+	
+	public static class Cookie
+		{		
+		private String key;
+		private String value;
+		public String getKey() {
+			return key;
+			}
+		public String getValue() {
+			return value;
 			}
 		}
 	
@@ -180,6 +228,13 @@ public abstract class AbstractHttpHandler
 			}
 		}
 	
+	public void setContentType(HttpExchange exchange, String mime)
+		{
+		exchange.getResponseHeaders().set("Content-Type", mime);
+		}
+
+	
+	
 	public Parameters getParameters(HttpExchange http) throws IOException
 		{
 		ParametersImpl params= new ParametersImpl();
@@ -202,7 +257,7 @@ public abstract class AbstractHttpHandler
 		
 		if(query!=null)
 			{
-			for(String s:query.substring(1).split("[&]"))
+			for(String s:query.split("[&]"))
 	            {
 	            s=s.replace('+', ' ');
 	            int eq= s.indexOf('=');
@@ -250,5 +305,80 @@ public abstract class AbstractHttpHandler
 			{
 			LOG.log(LOG.getLevel(),getClass().getName());
 			}
+		}
+	/** 
+	 * e.g.: "Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.0.7) Gecko/2009021906 Firefox/3.0.7" */
+	public boolean isFirefoxClient(HttpExchange exch,int majorVers,int minorVers,int microVers)
+		{
+		String s= exch.getRequestHeaders().getFirst("User-agent");
+		if(s==null) return false;
+		int i= s.indexOf("Firefox/");
+		if(i==-1) return false;
+		//TODO check version
+		return true;
+		}
+	
+	protected void dumpHeader(Headers headers)
+		{
+		for(Entry<String, List<String>> o: headers.entrySet())
+			{
+			System.err.println("+\""+o.getKey()+"\"");
+			for(String v: o.getValue())
+				{
+				System.err.println("\t\""+v+"\"");
+				}
+			}
+		}
+	
+	public PrintWriter createWriter(HttpExchange exch) throws IOException
+		{
+		dumpHeader(exch.getRequestHeaders());
+		return new PrintWriter(new OutputStreamWriter(createOutputStream(exch)));
+		}
+	
+	public void compressResponse(HttpExchange exch)
+		{
+		exch.getResponseHeaders().add("Set-Cookie", "session1=1;");
+		exch.getResponseHeaders().add("Set-Cookie", "session2=2;");
+		exch.getResponseHeaders().set("Pragma","no-cache");
+		
+		String accept= exch.getRequestHeaders().getFirst("Accept-encoding");
+		if(accept!=null)
+			{
+			for(String s:accept.split("[,]"))
+				{
+				if(s.trim().equals("gzip"))
+					{
+					exch.getResponseHeaders().set("Content-Encoding","gzip");
+					break;
+					}
+				}
+			}
+		}
+	
+	
+	public OutputStream createOutputStream(HttpExchange exch) throws IOException
+		{
+		OutputStream out= exch.getResponseBody();
+		String encode= exch.getResponseHeaders().getFirst("Content-Encoding");
+		if(encode!=null && encode.equals("gzip"))
+			{
+			out= new GZIPOutputStream(out);
+			}
+		return out;
+		}
+	
+	protected void echo(File file,Writer out) throws IOException
+		{
+		FileReader r= new FileReader(file);
+		IOUtils.copyTo(r, out);
+		r.close();
+		}
+	
+	protected void echo(Class<?> clazz,String name,Writer out) throws IOException
+		{
+		Reader r=ResourceUtils.openReader(clazz, name);
+		IOUtils.copyTo(r, out);
+		r.close();
 		}
 	}

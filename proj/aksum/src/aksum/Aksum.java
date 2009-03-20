@@ -1,5 +1,5 @@
 
-package aksum;
+//package aksum;
 
 import java.awt.*;
 import java.awt.event.*;
@@ -311,7 +311,7 @@ static private class Face
 			bufferGraphics.fillRect(0,0,size.width,(int)((double)size.height*((49.0-(double)i)/49.0)));
 			}
 		bufferGraphics.setColor(Color.yellow);
-		bufferGraphics.drawString("Pierre Lindenbaum 2000 lindenb@wanadoo.fr",24,24);
+		bufferGraphics.drawString("Pierre Lindenbaum PhD.2000 http://plindenbaum.blogspot.com",24,24);
 		
 
 		for(i=0;i<6;i++)
