@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.Writer;
@@ -332,7 +331,7 @@ public abstract class AbstractHttpHandler
 	
 	public PrintWriter createWriter(HttpExchange exch) throws IOException
 		{
-		dumpHeader(exch.getRequestHeaders());
+		//dumpHeader(exch.getRequestHeaders());
 		return new PrintWriter(new OutputStreamWriter(createOutputStream(exch)));
 		}
 	
