@@ -74,6 +74,32 @@ private static class CastBoolean extends Cast<Boolean>
 		}
 	}
 
+private static class CastULong extends Cast<Long>
+	{
+	public CastULong() {
+		super(Long.class);
+		}
+	@Override
+	public Long cast(java.lang.String s)
+		{
+		Long L= super.cast(s);
+		return (L==null || L< 0L ? null:L);
+		}
+	}
+
+private static class CastUInt extends Cast<Integer>
+	{
+	public CastUInt() {
+		super(Integer.class);
+		}
+	@Override
+	public Integer cast(java.lang.String s)
+		{
+		Integer i= super.cast(s);
+		return (i==null || i< 0 ? null:i);
+		}
+	}
+
 	
 private static class CasterOpaqueURI extends Cast<java.net.URI>
 	{
@@ -165,9 +191,11 @@ public final static Cast<BigDecimal> BigDecimal= new Cast<BigDecimal>(BigDecimal
 public final static Cast<java.lang.String> String= new Cast<java.lang.String>(java.lang.String.class);
 public final static Cast<Character> Character= new CharPattern();
 public final static Cast<java.lang.Long> Long= new Cast<java.lang.Long>(Long.class);
+public final static Cast<java.lang.Long> ULong= new CastULong();
 public final static Cast<java.lang.Double> Double= new Cast<java.lang.Double>(java.lang.Double.class);
 public final static Cast<java.lang.Float> Float= new Cast<java.lang.Float>(java.lang.Float.class);
 public final static Cast<java.lang.Integer> Integer= new Cast<java.lang.Integer>(java.lang.Integer.class);
+public final static Cast<java.lang.Integer> UInteger= new CastUInt();
 public final static Cast<java.lang.Short> Short= new Cast<java.lang.Short>(java.lang.Short.class);
 public final static Cast<java.lang.Boolean> Boolean = new CastBoolean();
 public final static Cast<String> XMLNS = new CasterXML(true);
