@@ -25,6 +25,7 @@ import javax.xml.parsers.SAXParserFactory;
 
 import org.lindenb.bio.Chromosome;
 import org.lindenb.bio.GeneticCode;
+import org.lindenb.bio.NucleotideUtils;
 import org.lindenb.bio.Strand;
 import org.lindenb.io.IOUtils;
 import org.lindenb.lang.IllegalInputException;
@@ -125,14 +126,20 @@ public class Consequences
      */
     static class BaseChange
         {
+    	private String name;
         private int position;
         private char base;
         private String rs=null;
-        public BaseChange(int position,char base)
+        public BaseChange(String name,int position,char base)
             {
+        	this.name=name;
             this.position=position;
             this.base=Character.toUpperCase(base);
             }
+        
+        public String getName() {
+			return name;
+			}
         
         public int getPosition()
             {
@@ -174,10 +181,6 @@ public class Consequences
     	
     	void print(PrintStream out)
     		{
-    		//TODO
-    		if(!gene.isForward()) return;
-    		
-    		
     		if(in_utr5)
     			{
     			out.println("<in-utr-5/>");
@@ -208,10 +211,7 @@ public class Consequences
     			}
     		
     		
-    		for(int i=0;i< gene.getExonCount();++i)
-				{
-				out.println(gene.getExon(i));
-				}
+    		
     		
     		out.print("<in-exon");
     		out.print(" codon-wild=\""+codon_wild+"\" ");
@@ -219,7 +219,9 @@ public class Consequences
     		out.print(" aa-wild=\""+aaWild+"\" ");
     		out.print(" aa-mut=\""+aaMut+"\" ");
     		out.print(" base-wild=\""+this.cDNA.charAt(index_in_cdna)+"\" ");
-    		out.print(" base-mut=\""+baseChange.getBase()+"\" ");
+    		out.print(" base-mut=\""+
+    				(gene.isForward()?baseChange.getBase():NucleotideUtils.complement(baseChange.getBase()))
+    				+"\" ");
     		out.print(" index-cdna=\""+index_in_cdna+"\" ");
     		out.print(" index-protein=\""+index_in_protein+"\" ");
     		
@@ -227,33 +229,32 @@ public class Consequences
     		
     		out.println(">");
     		
-    		for(int i=0;i< gene.getExonCount();++i)
-    			{
-    			out.print(gene.getExon(i));
-    			}
     		
-    		
-    		out.println("<wild-cDNA>"+this.cDNA+"<wild-cDNA>");
-    		String s= this.cDNA.toString();
-    		out.println("<mut-cDNA >"+s.substring(0,index_in_cdna)+
-    			baseChange.getBase()+s.substring(index_in_cdna+1)+		
-    			"<mut-cDNA>");
-    		
-    		if(aaWild!=aaMut)
+    		if(!codon_wild.equals(codon_mut))
 	    		{
-	    		out.println("<wild-protein>"+this.protein+"<wild-protein>");
+    			String s= this.cDNA.toString();
+	    		out.println("<wild-cDNA>"+s.substring(0,index_in_cdna)+" "+
+		    			s.charAt(index_in_cdna)+" "+s.substring(index_in_cdna+1)
+		    			+"<wild-cDNA>");
+	    		
+	    		out.println("<mut-cDNA >"+s.substring(0,index_in_cdna)+" "+
+	    			baseChange.getBase()+" "+s.substring(index_in_cdna+1)+	
+	    			"<mut-cDNA>");
+	    		
+	    		
+	    		if(aaWild!=aaMut)
+		    		{
+		    		s= this.protein.toString();
+		    		
+		    		out.println("<wild-protein>"+s.substring(0,index_in_protein)+" "+
+		        			aaWild+" "+s.substring(index_in_protein+1)+		
+		        			"<wild-protein>");
+		    		
+		    		out.println("<mut-protein >"+s.substring(0,index_in_protein)+" "+
+		        			aaMut+" "+s.substring(index_in_protein+1)+		
+		        			"<mut-protein>");
+		    		}
 	    		}
-    		
-    		
-    		
-    		if(aaWild!=aaMut)
-	    		{
-	    		s= this.protein.toString();
-	    		out.println("<mut-protein >"+s.substring(0,index_in_protein)+
-	        			aaMut+s.substring(index_in_protein+1)+		
-	        			"<mut-protein>");
-	    		}
-    		
     		out.print("</in-exon");
     		out.println(">");
     		}
@@ -321,7 +322,7 @@ public class Consequences
     	public void challenge(Shuttle shuttle)
     		{
     		
-    		if(getKnownGene().getStrand()==Strand.PLUS)
+    		if(getKnownGene().isForward())
     			{
     			for(int i=getStart(); i< getEnd();++i)
     				{
@@ -333,7 +334,6 @@ public class Consequences
     				
     				if(i== shuttle.baseChange.getPosition())
     					{
-    					
     					shuttle.codonMut.append( shuttle.baseChange.getBase() );
     					shuttle.index_in_cdna = shuttle.cDNA.length();
     					shuttle.index_in_protein = shuttle.protein.length();
@@ -372,9 +372,55 @@ public class Consequences
     				}
     			
     			}
-    		else
+    		else //this exon is reverse
     			{
-    			
+    			for(int i=getEnd()-1; i>= getStart();--i)
+					{
+					//System.err.println(""+getKnownGene().getCdsStart()+" "+i+" "+ getKnownGene().getCdsEnd());
+					if(i< getKnownGene().getCdsStart()) continue;
+					if(getKnownGene().getCdsEnd()<=i) continue;
+					char base_compl = NucleotideUtils.complement(getKnownGene().getGenomicSequence().charAt(i));
+					shuttle.codonWild.append(base_compl);
+					
+					if(i== shuttle.baseChange.getPosition())
+						{
+						shuttle.codonMut.append( NucleotideUtils.complement( shuttle.baseChange.getBase() ));
+						shuttle.index_in_cdna = shuttle.cDNA.length();
+						shuttle.index_in_protein = shuttle.protein.length();
+						}
+					else
+						{
+						shuttle.codonMut.append(base_compl);
+						}
+					
+					shuttle.cDNA.append(base_compl);
+					
+					if(shuttle.codonWild.length()==3)
+						{
+						char aa= GeneticCode.getStandard().translate(
+								shuttle.codonWild.charAt(0),
+								shuttle.codonWild.charAt(1),
+								shuttle.codonWild.charAt(2)
+								);
+						
+						if(shuttle.index_in_protein== shuttle.protein.length())
+							{
+							shuttle.codon_mut = shuttle.codonMut.toString();
+							shuttle.codon_wild = shuttle.codonWild.toString();
+							shuttle.aaWild=aa;
+							shuttle.aaMut=GeneticCode.getStandard().translate(
+	    							shuttle.codonMut.charAt(0),
+	    							shuttle.codonMut.charAt(1),
+	    							shuttle.codonMut.charAt(2)
+	    							);
+							}
+						shuttle.protein.append(aa);
+						shuttle.codonWild.setLength(0);
+						shuttle.codonMut.setLength(0);
+						}
+					
+					}
+			
     			}
     		
     		}
@@ -516,7 +562,7 @@ public class Consequences
         	Shuttle shuttle= new Shuttle();
         	shuttle.baseChange = bc;
         	shuttle.gene=this;
-        	if(getStrand()==Strand.PLUS)
+        	if(isForward())
         		{
         		if(bc.getPosition() < getCdsStart())
         			{
@@ -546,9 +592,35 @@ public class Consequences
         			ex.challenge(shuttle);
         			}
         		}
-        	else
+        	else // reverse orientation
         		{
-        		
+        		if(bc.getPosition() < getCdsStart())
+	    			{
+	    			shuttle.in_utr3=true;
+	    			}
+	    		if( getCdsEnd()<=bc.getPosition() )
+	    			{
+	    			shuttle.in_utr5=true;
+	    			}
+	    		for(int i=getExonCount()-1;i>=0;--i)
+	    			{
+	    			Exon ex= getExon(i);
+	    			
+	    			if(i>0)
+	    				{
+	    				Exon nextExon = getExon(i-1);
+	    				
+	    				if(nextExon.getEnd()<= bc.getPosition() &&
+	    					bc.getPosition()< ex.getStart())
+	    					{
+	    					shuttle.left_exon_for_in_intron= nextExon;
+	    					shuttle.right_exon_for_in_intron= ex;
+	    					}
+	    				
+	    				}
+	    			
+	    			ex.challenge(shuttle);
+	    			}
         		}
         	return shuttle;
         	}
@@ -564,7 +636,9 @@ public class Consequences
         out.println("<consequences chrom='"+this.chromosome+"\'>");
         for(BaseChange bc: this.mutations)
             {
-        	out.print("<observed-mutation position='"+bc.getPosition()+"\' base='"+bc.getBase()+"'");
+        	out.print("<observed-mutation position='"+bc.getPosition()+"\' " +
+        			" name='" +XMLUtilities.escape(bc.getName())+"' "+
+        			" base='"+bc.getBase()+"'");
         	if(find_rs_number && bc.rs!=null)
         		{
         		out.print(" rs=\""+bc.rs+"\"");
@@ -586,7 +660,7 @@ public class Consequences
 						" >");
             	
             	Shuttle shuttle=kg.challenge(bc);
-            	out.println(shuttle);
+            	//out.println(shuttle);
             	shuttle.print(out);
             	out.println("</gene>");
                 }
@@ -637,25 +711,32 @@ public class Consequences
                 }
             if(find_rs_number)
 	            {
-	            pstmt= con.prepareStatement(
-	                    "select distinct name "+
-	                    " from snp129 "+
-	                    " where chrom=? and chromStart=? limit 1"
-	                    );
-	            pstmt.setString(1, this.chromosome.toString());
-	            for(BaseChange bc:this.mutations)
+            	try
 	            	{
-	            	pstmt.setInt(2, bc.getPosition());
-	            	
-	            	row= pstmt.executeQuery();
-	                while(row.next())
-	                    {
-	                	bc.rs= row.getString(1);
-	                    }
-	            	row.close();
+		            pstmt= con.prepareStatement(
+		                    "select distinct name "+
+		                    " from snp129 "+
+		                    " where chrom=? and chromStart=? limit 1"
+		                    );
+		            pstmt.setString(1, this.chromosome.toString());
+		            for(BaseChange bc:this.mutations)
+		            	{
+		            	pstmt.setInt(2, bc.getPosition());
+		            	
+		            	row= pstmt.executeQuery();
+		                while(row.next())
+		                    {
+		                	bc.rs= row.getString(1);
+		                    }
+		            	row.close();
+		            	}
+		            
+		            pstmt.close();
 	            	}
-	            
-	            pstmt.close();
+            	catch(SQLException sqlerr)
+            		{
+            		System.err.println("Couldn't get the name of the snp :"+sqlerr.getMessage());
+            		}
 	            }
         } catch (Exception e) {
             e.printStackTrace();
@@ -674,10 +755,11 @@ public class Consequences
             {
             if(line.trim().length()==0 || line.startsWith("#")) continue;
             String tokens[]=TAB.split(line);
-            if(tokens.length<3) throw new org.lindenb.lang.IllegalTokenCount(3,tokens);
-            if(!Cast.UInteger.isA(tokens[1])) throw new IllegalInputException("not a base position in "+line+" : "+tokens[1]);
-            if(!tokens[2].matches("[ATGCatgc]")) throw new IllegalInputException("not a base in "+line);
-            Chromosome k= Chromosome.newInstance(tokens[0]);
+            if(tokens.length<4) throw new org.lindenb.lang.IllegalTokenCount(4,tokens);
+            if(tokens[0].trim().length()==0)  throw new IllegalInputException("empty name "+line+" : "+tokens[0]);
+            if(!Cast.UInteger.isA(tokens[2])) throw new IllegalInputException("not a base position in "+line+" : "+tokens[2]);
+            if(!tokens[3].matches("[ATGCatgc]")) throw new IllegalInputException("not a base in "+line);
+            Chromosome k= Chromosome.newInstance(tokens[1]);
             if(chromosome==null)
                 {
                 this.chromosome=k;
@@ -686,7 +768,7 @@ public class Consequences
                 {
                 throw new IllegalInputException("Expected only one chromosome but found "+this.chromosome+" and "+k);
                 }
-            BaseChange bc= new BaseChange(Cast.UInteger.cast(tokens[1]),tokens[2].charAt(0));
+            BaseChange bc= new BaseChange(tokens[0],Cast.UInteger.cast(tokens[2]),tokens[3].charAt(0));
             this.mutations.add(bc);
             this.minGenomicPos= Math.min(this.minGenomicPos, bc.getPosition());
             this.maxGenomicPos= Math.max(this.maxGenomicPos, bc.getPosition()+1);
@@ -792,7 +874,6 @@ public class Consequences
             app.fetchGenes();
             app.fetchFasta();
             app.challenge(System.out);
-            System.err.println(app.genomicSequence.length());
             }
         catch (Exception e) {
             e.printStackTrace();
