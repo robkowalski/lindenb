@@ -43,14 +43,15 @@ import org.xml.sax.helpers.DefaultHandler;
  */
 public class Consequences
     {
+	private static final String DEFAULT_HG="hg18";
     private List<KnownGene> knownGenes= new ArrayList<KnownGene>();
     private List<BaseChange> mutations= new ArrayList<BaseChange>();
     private Chromosome chromosome=null;
     private int minGenomicPos= Integer.MAX_VALUE;
     private int maxGenomicPos= 0;
     private GenomicSequence genomicSequence=null;
-    
-    
+    private boolean find_rs_number=false;
+    private String genomeVersion= DEFAULT_HG;
     /**
      * GenomicSequence
      */
@@ -126,6 +127,7 @@ public class Consequences
         {
         private int position;
         private char base;
+        private String rs=null;
         public BaseChange(int position,char base)
             {
             this.position=position;
@@ -150,8 +152,14 @@ public class Consequences
     
     static private class Shuttle
     	{
+    	KnownGene gene;
+    	
     	boolean in_utr5=false;
     	boolean in_utr3=false;
+    	
+    	Exon left_exon_for_in_intron=null;
+    	Exon right_exon_for_in_intron=null;
+    	
     	BaseChange baseChange;
     	StringBuilder cDNA = new StringBuilder();
     	StringBuilder protein = new StringBuilder();
@@ -166,6 +174,10 @@ public class Consequences
     	
     	void print(PrintStream out)
     		{
+    		//TODO
+    		if(!gene.isForward()) return;
+    		
+    		
     		if(in_utr5)
     			{
     			out.println("<in-utr-5/>");
@@ -176,6 +188,74 @@ public class Consequences
 				out.println("<in-utr-3/>");
 				return;
 				}
+    		if(left_exon_for_in_intron!=null)
+    			{
+    			out.print("<in-intron ");
+    			
+    			if(gene.isForward())
+    				{
+    				out.print(" name=\"Intron "+(1+left_exon_for_in_intron.arrayIndex)+"\"");
+    				}
+    			else
+    				{
+    				out.print(" name=\"Intron "+(gene.getExonCount()-right_exon_for_in_intron.arrayIndex)+"\"");
+    				}
+    			
+    			out.print(" intron-start=\""+left_exon_for_in_intron.getEnd()+"\"");
+    			out.print(" intron-end=\""+right_exon_for_in_intron.getStart()+"\"");
+    			out.println("/>");
+    			return;
+    			}
+    		
+    		
+    		for(int i=0;i< gene.getExonCount();++i)
+				{
+				out.println(gene.getExon(i));
+				}
+    		
+    		out.print("<in-exon");
+    		out.print(" codon-wild=\""+codon_wild+"\" ");
+    		out.print(" codon-mut=\""+codon_mut+"\" ");
+    		out.print(" aa-wild=\""+aaWild+"\" ");
+    		out.print(" aa-mut=\""+aaMut+"\" ");
+    		out.print(" base-wild=\""+this.cDNA.charAt(index_in_cdna)+"\" ");
+    		out.print(" base-mut=\""+baseChange.getBase()+"\" ");
+    		out.print(" index-cdna=\""+index_in_cdna+"\" ");
+    		out.print(" index-protein=\""+index_in_protein+"\" ");
+    		
+    		
+    		
+    		out.println(">");
+    		
+    		for(int i=0;i< gene.getExonCount();++i)
+    			{
+    			out.print(gene.getExon(i));
+    			}
+    		
+    		
+    		out.println("<wild-cDNA>"+this.cDNA+"<wild-cDNA>");
+    		String s= this.cDNA.toString();
+    		out.println("<mut-cDNA >"+s.substring(0,index_in_cdna)+
+    			baseChange.getBase()+s.substring(index_in_cdna+1)+		
+    			"<mut-cDNA>");
+    		
+    		if(aaWild!=aaMut)
+	    		{
+	    		out.println("<wild-protein>"+this.protein+"<wild-protein>");
+	    		}
+    		
+    		
+    		
+    		if(aaWild!=aaMut)
+	    		{
+	    		s= this.protein.toString();
+	    		out.println("<mut-protein >"+s.substring(0,index_in_protein)+
+	        			aaMut+s.substring(index_in_protein+1)+		
+	        			"<mut-protein>");
+	    		}
+    		
+    		out.print("</in-exon");
+    		out.println(">");
     		}
     	
     	@Override
@@ -240,6 +320,7 @@ public class Consequences
     	
     	public void challenge(Shuttle shuttle)
     		{
+    		
     		if(getKnownGene().getStrand()==Strand.PLUS)
     			{
     			for(int i=getStart(); i< getEnd();++i)
@@ -289,12 +370,20 @@ public class Consequences
     					}
     				
     				}
+    			
     			}
     		else
     			{
     			
     			}
+    		
     		}
+    	
+    	@Override
+    	public String toString() {
+    		return getName()+" "+getStart()+" "+getEnd();
+    		}
+    	
     	}
     
     
@@ -416,10 +505,17 @@ public class Consequences
         			}
         		};
         	}
+        
+        boolean isForward()
+        	{
+        	return getStrand()==Strand.PLUS;
+        	}
+        
         public Shuttle challenge(BaseChange bc)
         	{
         	Shuttle shuttle= new Shuttle();
         	shuttle.baseChange = bc;
+        	shuttle.gene=this;
         	if(getStrand()==Strand.PLUS)
         		{
         		if(bc.getPosition() < getCdsStart())
@@ -436,7 +532,15 @@ public class Consequences
         			
         			if(i+1 < getExonCount())
         				{
-        				Exon nextExon = getExon(i);
+        				Exon nextExon = getExon(i+1);
+        				
+        				if(ex.getEnd()<= bc.getPosition() &&
+        					bc.getPosition()< nextExon.getStart())
+        					{
+        					shuttle.left_exon_for_in_intron= ex;
+        					shuttle.right_exon_for_in_intron= nextExon;
+        					}
+        				
         				}
         			
         			ex.challenge(shuttle);
@@ -460,12 +564,34 @@ public class Consequences
         out.println("<consequences chrom='"+this.chromosome+"\'>");
         for(BaseChange bc: this.mutations)
             {
+        	out.print("<observed-mutation position='"+bc.getPosition()+"\' base='"+bc.getBase()+"'");
+        	if(find_rs_number && bc.rs!=null)
+        		{
+        		out.print(" rs=\""+bc.rs+"\"");
+        		}
+        	out.println(">");
+        	
             for(KnownGene kg:this.knownGenes)
                 {
             	if(bc.getPosition() < kg.getTxStart()) continue;
             	if(kg.getTxEnd() <= bc.getPosition()) continue;
-            	out.println(kg.challenge(bc));
+            	
+            	out.println("<gene name='"+XMLUtilities.escape(kg.getName())+"'" +
+            			" exon-count='"+ kg.getExonCount()+"' "+
+						" strand='"+ kg.getStrand()+"' "+
+						" txStart='"+kg.getTxStart()+"' " +
+						" txEnd='"+kg.getTxEnd()+"'" +
+						" cdsStart='"+kg.getCdsStart()+"' " +
+						" cdsEnd='"+kg.getCdsEnd()+"'" +
+						" >");
+            	
+            	Shuttle shuttle=kg.challenge(bc);
+            	out.println(shuttle);
+            	shuttle.print(out);
+            	out.println("</gene>");
                 }
+            
+            out.println("</observed-mutation>");
             }
         out.println("</consequences>");
         }
@@ -481,7 +607,7 @@ public class Consequences
         {
         Connection con= null;
         try {
-            con=DriverManager.getConnection("jdbc:mysql://genome-mysql.cse.ucsc.edu/hg18?user=genome&password=");
+            con=DriverManager.getConnection("jdbc:mysql://genome-mysql.cse.ucsc.edu/"+genomeVersion+"?user=genome&password=");
             PreparedStatement pstmt= con.prepareStatement(
                 "select distinct name,strand,txStart,txEnd,cdsStart,cdsEnd,exonCount,exonStarts,exonEnds "+
                 " from knownGene "+
@@ -509,6 +635,28 @@ public class Consequences
                 this.minGenomicPos= Math.min(this.minGenomicPos, kg.getTxStart());
                 this.maxGenomicPos= Math.max(this.maxGenomicPos, kg.getTxEnd()+1);
                 }
+            if(find_rs_number)
+	            {
+	            pstmt= con.prepareStatement(
+	                    "select distinct name "+
+	                    " from snp129 "+
+	                    " where chrom=? and chromStart=? limit 1"
+	                    );
+	            pstmt.setString(1, this.chromosome.toString());
+	            for(BaseChange bc:this.mutations)
+	            	{
+	            	pstmt.setInt(2, bc.getPosition());
+	            	
+	            	row= pstmt.executeQuery();
+	                while(row.next())
+	                    {
+	                	bc.rs= row.getString(1);
+	                    }
+	            	row.close();
+	            	}
+	            
+	            pstmt.close();
+	            }
         } catch (Exception e) {
             e.printStackTrace();
             }
@@ -546,7 +694,7 @@ public class Consequences
         }
     
     
-    private static GenomicSequence fetch(Chromosome k,int start,int end)
+    private  GenomicSequence fetch(Chromosome k,int start,int end)
     throws IOException
 	    {
 	    try {
@@ -556,7 +704,7 @@ public class Consequences
 	        f.setNamespaceAware(false);
 	        f.setValidating(false);
 	        SAXParser parser= f.newSAXParser();
-	        URL url= new URL("http://genome.ucsc.edu/cgi-bin/das/hg18/dna?segment="+
+	        URL url= new URL("http://genome.ucsc.edu/cgi-bin/das/"+genomeVersion+"/dna?segment="+
 	                URLEncoder.encode(chr, "UTF-8")+
 	                ":"+(start+1)+","+(end)
 	                );
@@ -592,8 +740,18 @@ public class Consequences
                         {
                         System.err.println("Pierre Lindenbaum PhD.");
                         System.err.println("-h this screen");
+                        System.err.println("-rs find the rs### of you snp (if any)");
+                        System.err.println("-hg <string> set the genome version : default is "+DEFAULT_HG);
                         return;
                         }
+                    else if(args[optind].equals("-rs"))
+	                    {
+	                    app.find_rs_number=true;
+	                    }
+                    else if(args[optind].equals("-hg"))
+	                    {
+	                    app.genomeVersion=args[++optind];
+	                    }
                      else if (args[optind].equals("--"))
                          {
                          ++optind;
