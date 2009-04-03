@@ -80,6 +80,10 @@ private static class CastULong extends Cast<Long>
 		super(Long.class);
 		}
 	@Override
+	public java.lang.String getName() {
+		return "unsigned long";
+		}
+	@Override
 	public Long cast(java.lang.String s)
 		{
 		Long L= super.cast(s);
@@ -91,6 +95,10 @@ private static class CastUInt extends Cast<Integer>
 	{
 	public CastUInt() {
 		super(Integer.class);
+		}
+	@Override
+	public java.lang.String getName() {
+		return "unsigned int";
 		}
 	@Override
 	public Integer cast(java.lang.String s)
