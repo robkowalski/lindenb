@@ -29,7 +29,9 @@ import org.lindenb.bio.NucleotideUtils;
 import org.lindenb.bio.Strand;
 import org.lindenb.io.IOUtils;
 import org.lindenb.lang.IllegalInputException;
+import org.lindenb.me.Me;
 import org.lindenb.util.Cast;
+import org.lindenb.util.Compilation;
 import org.lindenb.xml.XMLUtilities;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
@@ -166,7 +168,7 @@ public class Consequences
     	
     	Exon left_exon_for_in_intron=null;
     	Exon right_exon_for_in_intron=null;
-    	
+    	Exon exon=null;
     	BaseChange baseChange;
     	StringBuilder cDNA = new StringBuilder();
     	StringBuilder protein = new StringBuilder();
@@ -214,6 +216,14 @@ public class Consequences
     		
     		
     		out.print("<in-exon");
+    		if(gene.isForward())
+				{
+				out.print(" name=\"Exon "+(1+exon.arrayIndex)+"\"");
+				}
+			else
+				{
+				out.print(" name=\"Exon "+(gene.getExonCount()-exon.arrayIndex)+"\"");
+				}
     		out.print(" codon-wild=\""+codon_wild+"\" ");
     		out.print(" codon-mut=\""+codon_mut+"\" ");
     		out.print(" aa-wild=\""+aaWild+"\" ");
@@ -238,7 +248,10 @@ public class Consequences
 		    			+"</wild-cDNA>");
 	    		
 	    		out.println("<mut-cDNA >"+s.substring(0,index_in_cdna)+" "+
-	    				(gene.isForward()?baseChange.getBase():NucleotideUtils.complement(baseChange.getBase()))+" "+s.substring(index_in_cdna+1)+	
+	    				(gene.isForward()?
+	    							baseChange.getBase():
+	    							NucleotideUtils.complement(baseChange.getBase()))
+	    				+" "+s.substring(index_in_cdna+1)+	
 	    			"</mut-cDNA>");
 	    		
 	    		
@@ -334,6 +347,7 @@ public class Consequences
     				
     				if(i== shuttle.baseChange.getPosition())
     					{
+    					shuttle.exon=this;
     					shuttle.codonMut.append( shuttle.baseChange.getBase() );
     					shuttle.index_in_cdna = shuttle.cDNA.length();
     					shuttle.index_in_protein = shuttle.protein.length();
@@ -384,6 +398,7 @@ public class Consequences
 					
 					if(i== shuttle.baseChange.getPosition())
 						{
+						shuttle.exon=this;
 						shuttle.codonMut.append( NucleotideUtils.complement( shuttle.baseChange.getBase() ));
 						shuttle.index_in_cdna = shuttle.cDNA.length();
 						shuttle.index_in_protein = shuttle.protein.length();
@@ -817,10 +832,20 @@ public class Consequences
                     {
                     if(args[optind].equals("-h"))
                         {
-                        System.err.println("Pierre Lindenbaum PhD.");
+                        System.err.println(Compilation.getLabel());
+                        System.err.println("Pierre Lindenbaum PhD "+Me.MAIL+" "+Me.WWW);
+                        System.err.println("Find the consequences (mutation of proteins) of a mutation on the genome: download the genomic sequence of the " +
+                        		" genome using the UCSC DAS Server, and download the structure of the genes from the UCSC mysql server ");
                         System.err.println("-h this screen");
-                        System.err.println("-rs find the rs### of you snp (if any)");
+                        System.err.println("-rs find the rs### of your snp in snp129 (if any)");
                         System.err.println("-hg <string> set the genome version : default is "+DEFAULT_HG);
+                        System.err.println("<stdin>| files");
+                        System.err.println("\n\nInput is a tab delimited file containing the following fields:" +
+                        		"\n 1) snp name." +
+                        		"\n 2) chrom e.g. \'chr2\' Note: at this time only one chromosome per input is supported." +
+                        		"\n 3) position in the genome. First base is 0." +
+                        		"\n 4) base observed *ON THE PLUS STRAND OF THE GENOME* ");
+                        
                         return;
                         }
                     else if(args[optind].equals("-rs"))
