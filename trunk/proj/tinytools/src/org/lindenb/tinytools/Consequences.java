@@ -40,7 +40,7 @@ import org.xml.sax.helpers.DefaultHandler;
 /**
  * 
  * Consequences
- *
+ * java -cp mysql-connector-java-5.1.6-bin.jar:consequences.jar org.lindenb.tinytools.Consequences
  */
 public class Consequences
     {
@@ -235,11 +235,11 @@ public class Consequences
     			String s= this.cDNA.toString();
 	    		out.println("<wild-cDNA>"+s.substring(0,index_in_cdna)+" "+
 		    			s.charAt(index_in_cdna)+" "+s.substring(index_in_cdna+1)
-		    			+"<wild-cDNA>");
+		    			+"</wild-cDNA>");
 	    		
 	    		out.println("<mut-cDNA >"+s.substring(0,index_in_cdna)+" "+
-	    			baseChange.getBase()+" "+s.substring(index_in_cdna+1)+	
-	    			"<mut-cDNA>");
+	    				(gene.isForward()?baseChange.getBase():NucleotideUtils.complement(baseChange.getBase()))+" "+s.substring(index_in_cdna+1)+	
+	    			"</mut-cDNA>");
 	    		
 	    		
 	    		if(aaWild!=aaMut)
@@ -248,11 +248,11 @@ public class Consequences
 		    		
 		    		out.println("<wild-protein>"+s.substring(0,index_in_protein)+" "+
 		        			aaWild+" "+s.substring(index_in_protein+1)+		
-		        			"<wild-protein>");
+		        			"</wild-protein>");
 		    		
 		    		out.println("<mut-protein >"+s.substring(0,index_in_protein)+" "+
 		        			aaMut+" "+s.substring(index_in_protein+1)+		
-		        			"<mut-protein>");
+		        			"</mut-protein>");
 		    		}
 	    		}
     		out.print("</in-exon");
@@ -465,10 +465,7 @@ public class Consequences
             this.exonsStarts = new int[exonCount];
             this.exonsEnds = new int[exonCount];
             
-            if(this.cdsStart==this.cdsEnd)
-            	{
-            	throw new SQLException(this.name);
-            	}
+            
             
             for(int side=0;side<2;++side)
                 {
@@ -685,7 +682,7 @@ public class Consequences
             PreparedStatement pstmt= con.prepareStatement(
                 "select distinct name,strand,txStart,txEnd,cdsStart,cdsEnd,exonCount,exonStarts,exonEnds "+
                 " from knownGene "+
-                " where chrom=? and not(txEnd<? or ?<txStart) and cdsStart<cdsEnd"
+                " where chrom=? and not(txEnd<? or ?<txStart)"
                 );
             pstmt.setString(1, this.chromosome.toString());
             pstmt.setLong(2, minGenomicPos);
