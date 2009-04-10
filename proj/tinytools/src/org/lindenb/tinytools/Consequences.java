@@ -845,6 +845,7 @@ public class Consequences
                         		"\n 2) chrom e.g. \'chr2\' Note: at this time only one chromosome per input is supported." +
                         		"\n 3) position in the genome. First base is 0." +
                         		"\n 4) base observed *ON THE PLUS STRAND OF THE GENOME* ");
+                        System.err.println();
                         
                         return;
                         }

@@ -5,7 +5,9 @@ import java.io.Writer;
 import java.util.Collection;
 import java.util.Vector;
 
+import org.lindenb.util.StringUtils;
 import org.w3c.dom.Attr;
+import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
@@ -300,5 +302,49 @@ public static int getLevel(Node n)
 		}
 	return L;
 	}
+
+public static void validateAsDataOrientedDocument(Node node)
+	throws IllegalArgumentException
+	{
+	if(node==null) throw new NullPointerException("node is null");
+	if(node.getNodeType()==Node.DOCUMENT_NODE)
+		{
+		Element root= Document.class.cast(node).getDocumentElement();
+		if(root==null) return;
+		validateAsDataOrientedDocument(root);
+		}
+	else if(node.getNodeType()==Node.ELEMENT_NODE)
+		{
+		boolean containsTag=false;
+		boolean blank=true;
+		for(Node n1=node.getFirstChild();n1!=null;n1=n1.getNextSibling())
+			{
+			switch(n1.getNodeType())
+				{
+				case Node.ELEMENT_NODE:
+					{
+					containsTag=true;
+					validateAsDataOrientedDocument(Element.class.cast(n1));
+					break;
+					}
+				case Node.TEXT_NODE:
+				case Node.CDATA_SECTION_NODE:
+					{
+					if(blank)
+						{
+						blank=StringUtils.isBlank(n1.getTextContent());
+						}
+					break;
+					}
+				}
+			}
+		if(!blank && containsTag)
+			{
+			throw new IllegalArgumentException("not a Data Oriented Document: see "+node2path(node));
+			}
+		}
+	
+	}
+
 
 }
