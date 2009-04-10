@@ -26,21 +26,20 @@ Motivation:
 
 <xsl:template match="text()">
 <xsl:if test=".."><xsl:if test="$datadoc='false' or ($datadoc='true' and count(../child::*) = 0)">
-e<xsl:value-of select="generate-id(..)"/>.appendChild(document.createTextNode("<xsl:call-template name="escape"><xsl:with-param name="s"><xsl:value-of select="."/></xsl:with-param></xsl:call-template>"));
-
-
-
+<xsl:value-of select="translate(local-name(..),'-','_')"/>_<xsl:value-of select="generate-id(..)"/>.appendChild(document.createTextNode("<xsl:call-template name="escape"><xsl:with-param name="s"><xsl:value-of select="."/></xsl:with-param></xsl:call-template>"));<xsl:text>
+</xsl:text>
 </xsl:if></xsl:if>
 </xsl:template>
 
 <xsl:template match="node()">
-<xsl:variable name="owner">e<xsl:value-of select="generate-id(.)"/></xsl:variable>
+<xsl:variable name="owner"><xsl:value-of select="translate(local-name(.),'-','_')"/>_<xsl:value-of select="generate-id(.)"/></xsl:variable>
 <xsl:value-of select="$NodeType"/><xsl:text> </xsl:text><xsl:value-of select="$owner"/>= <xsl:choose>
 <xsl:when test="namespace-uri(.)=''">document.createElement("<xsl:value-of select="name(.)"/>");</xsl:when>
 <xsl:otherwise>document.createElementNS(<xsl:call-template name="namespace"><xsl:with-param name="uri"><xsl:value-of select="namespace-uri(.)"/></xsl:with-param></xsl:call-template>,"<xsl:value-of select="name(.)"/>");</xsl:otherwise>
-</xsl:choose>
+</xsl:choose><xsl:text>
+</xsl:text>
 <xsl:if test="..">
-e<xsl:value-of select="generate-id(..)"/>.appendChild(<xsl:value-of select="$owner"/>);
+<xsl:value-of select="translate(local-name(..),'-','_')"/>_<xsl:value-of select="generate-id(..)"/>.appendChild(<xsl:value-of select="$owner"/>);
 </xsl:if>
 
 

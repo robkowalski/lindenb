@@ -1,6 +1,7 @@
 package org.lindenb.util;
 
-public class C {
+public class C extends StringUtils
+	{
 	protected C() {}
 	 /**
      * escape a C string
