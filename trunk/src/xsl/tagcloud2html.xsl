@@ -1,4 +1,4 @@
-<?xml version='1.0' ?>
+<?xml version='1.0' encoding="ISO-8859-1" ?>
 <xsl:stylesheet
 	xmlns:xsl='http://www.w3.org/1999/XSL/Transform'
 	xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
@@ -16,11 +16,11 @@ This stylesheet creates a TagCloud in XML
      	omit-xml-declaration="yes"
 	/>
 <!-- min font percent size -->
-<xsl:param name="minSize">100</xsl:param>
+<xsl:param name="minSize">80</xsl:param>
 <!-- max font percent size -->
 <xsl:param name="maxSize">500</xsl:param>
 <!-- delimiter between the tags -->
-<xsl:param name="delimiter"> </xsl:param>
+<xsl:param name="delimiter"> | </xsl:param>
 <!-- language (xml:lang) used -->
 <xsl:param name="lang">en</xsl:param>
 <!-- default value for RDFa 'about' -->
@@ -40,7 +40,7 @@ This stylesheet creates a TagCloud in XML
 <xsl:attribute name="typeof">foaf:Person</xsl:attribute>
 <xsl:attribute name="about"><xsl:value-of select="$me" /></xsl:attribute>
 <xsl:attribute name="xml:lang"><xsl:value-of select="$lang" /></xsl:attribute>
-<xsl:attribute name="style">font-family: verdana, sans-serif; text-align: justify;font-weight: bold;word-spacing: 5px; vertical-align: middle; padding:15px; text-align:justify; margin:0 10px; background:#fff;</xsl:attribute>
+<xsl:attribute name="style">width:100%; font-family: verdana, sans-serif; text-align: justify;font-weight: bold;word-spacing: 5px; vertical-align: middle; padding:15px; text-align:justify; margin:0 10px; background:#fff;</xsl:attribute>
 
 <xsl:comment>Tag Cloud generated with tagcloud2html.xsl Pierre Lindenbaum PhD. http://plindenbaum.blogspot.com</xsl:comment>
 
@@ -66,7 +66,7 @@ This stylesheet creates a TagCloud in XML
 
 <!-- loop over each tag -->
 <xsl:for-each select="bio:Tag">
-    <xsl:sort select="bio:label" order="ascending" />
+    <xsl:sort select="bio:label" data-type="text" order="ascending" />
     <xsl:choose>
 	<xsl:when test="@rdf:about">
 		<xsl:element name="a">
