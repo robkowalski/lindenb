@@ -8,6 +8,10 @@
 	xmlns:xsl='http://www.w3.org/1999/XSL/Transform'
 	version='1.0'
 	>
+<!--
+Author Pierre Lindenbaum PhD
+http://plindenbaum.blogspot.com
+-->
 <xsl:import href="rdf2.part.xsl"/>
 
 <xsl:output method='xml' indent="yes"/>
