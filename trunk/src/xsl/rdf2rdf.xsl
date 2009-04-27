@@ -33,9 +33,9 @@
 
 	<xsl:choose>
 		<xsl:when test="$value-is-uri='true'">
-			<xsl:element name="rdf:value"><xsl:attribute name="rdf:resource"><xsl:value-of select="$value"/></xsl:attribute></xsl:element>
+			<xsl:element name="rdf:object"><xsl:attribute name="rdf:resource"><xsl:value-of select="$value"/></xsl:attribute></xsl:element>
 		</xsl:when>
-		<xsl:otherwise><xsl:element name="rdf:value"><xsl:choose><xsl:when test="string-length($value)=0"><xsl:text>&empty;</xsl:text></xsl:when><xsl:otherwise><xsl:value-of select="$value"/></xsl:otherwise></xsl:choose></xsl:element></xsl:otherwise>
+		<xsl:otherwise><xsl:element name="rdf:object"><xsl:choose><xsl:when test="string-length($value)=0"><xsl:text>&empty;</xsl:text></xsl:when><xsl:otherwise><xsl:value-of select="$value"/></xsl:otherwise></xsl:choose></xsl:element></xsl:otherwise>
 	</xsl:choose>
 
 
