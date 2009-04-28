@@ -201,7 +201,8 @@ int    nn_max_len)
 	return (len > nn_max_len)
 	  ? long_seq_tm(seq, 0, len, salt_conc) : oligotm(seq, dna_conc, salt_conc);
 	}*/
-
+public static final double DEFAULT_DNA_CONC=50;
+public static final double DEFAULT_K_CONC=50;
 /*
 public static void main(String[] args) {
 	System.out.println(oligotm("cttccatgcctggcccattg", 50,50 ));

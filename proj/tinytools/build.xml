@@ -7,7 +7,7 @@
  <property name="compiledir" value="${builddir}/compile"/>
 
 
- <target name="all" depends="consequences,ffsurvey,sortpubmed,meshfreq,pictools,aboutrslist,java2dot,verticalize,findjar,gamonalisa">
+ <target name="all" depends="xsltstream,consequences,ffsurvey,sortpubmed,meshfreq,pictools,aboutrslist,java2dot,verticalize,findjar,gamonalisa">
 </target>
 
  <target name="build-ant-tasks">
@@ -594,5 +594,7 @@
 		 <delete dir="${compiledir}"/> 
 	 </target>
 	
-	
+	<target name="xsltstream" depends="declare-ant-tasks">
+		<compile appclass="StreamingXSLT" appjar="xsltstream" appname="Streaming XSLT"/>
+	</target>
 </project>
