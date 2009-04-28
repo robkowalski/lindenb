@@ -52,7 +52,7 @@ http://plindenbaum.blogspot.com
 </xsl:choose>
 
 <xsl:for-each select="$node/@*">
-		<xsl:if test="not(rdf:about or rdf:ID or rdf:nodeID)">
+		<xsl:if test="not(namespace-uri(.)='&rdf;' and (local-name(.)='about' or local-name(.)='ID' or local-name(.)='nodeID'))">
 		<xsl:call-template name="emit">
 			<xsl:with-param name="subject"><xsl:value-of select="$subject"/></xsl:with-param>
 			<xsl:with-param name="predicate"><xsl:value-of select="namespace-uri(.)"/><xsl:value-of select="local-name(.)"/></xsl:with-param>
@@ -77,12 +77,13 @@ http://plindenbaum.blogspot.com
  <xsl:param name="node"/>
 
 <xsl:for-each select="$node/*">
+<xsl:variable name="predicate"><xsl:value-of select="namespace-uri(.)"/><xsl:value-of select="local-name(.)"/></xsl:variable>
 <xsl:choose>
 	<xsl:when test="@rdf:parseType='Resource'">
-			<xsl:variable name="ANode">anode_:<xsl:value-of select="generate-id($node)"/></xsl:variable>
+			<xsl:variable name="ANode">_:anode<xsl:value-of select="generate-id($node)"/></xsl:variable>
 			<xsl:call-template name="emit">
 				<xsl:with-param name="subject"><xsl:value-of select="$subject"/></xsl:with-param>
-				<xsl:with-param name="predicate"><xsl:value-of select="namespace-uri(.)"/><xsl:value-of select="local-name(.)"/></xsl:with-param>
+				<xsl:with-param name="predicate"><xsl:value-of select="$predicate"/></xsl:with-param>
 				<xsl:with-param name="value-is-uri">true</xsl:with-param>
 				<xsl:with-param name="value"><xsl:value-of select="$ANode"/></xsl:with-param>
 			</xsl:call-template>
@@ -94,19 +95,59 @@ http://plindenbaum.blogspot.com
 			</xsl:for-each>
 	</xsl:when>
 	<xsl:when test="@rdf:parseType='Literal'">
-		<xsl:message terminate="yes">
-			ABORT @rdf:parseType='Literal' not implemented
+		<xsl:message terminate="no">
+			WARNING @rdf:parseType='Literal' not fully implemented
 		</xsl:message>
+		<xsl:call-template name="emit">
+			<xsl:with-param name="subject"><xsl:value-of select="$subject"/></xsl:with-param>
+			<xsl:with-param name="predicate"><xsl:value-of select="$predicate"/></xsl:with-param>
+			<xsl:with-param name="value-is-uri">false</xsl:with-param>
+			<xsl:with-param name="value"><xsl:call-template name="deepcopy"><xsl:with-param name="node" select="."/></xsl:call-template></xsl:with-param>
+		</xsl:call-template>
 	</xsl:when>
 	<xsl:when test="@rdf:parseType='Collection'">
-		<xsl:message terminate="yes">
-			ABORT @rdf:parseType='Collection' not implemented
+		<xsl:message terminate="no">
+			WARNING @rdf:parseType='Collection' not fully implemented
 		</xsl:message>
+		<xsl:variable name="ANode">_:coll<xsl:value-of select="generate-id($node)"/></xsl:variable>
+		
+		<xsl:call-template name="emit">
+			<xsl:with-param name="subject"><xsl:value-of select="$subject"/></xsl:with-param>
+			<xsl:with-param name="predicate"><xsl:value-of select="$predicate"/></xsl:with-param>
+			<xsl:with-param name="value-is-uri">true</xsl:with-param>
+			<xsl:with-param name="value"><xsl:value-of select="concat($ANode,'_1')"/></xsl:with-param>
+		</xsl:call-template>
+		<xsl:for-each select="*">
+			<xsl:call-template name="emit">
+				<xsl:with-param name="subject"><xsl:value-of select="concat($ANode,'_',position())"/></xsl:with-param>
+				<xsl:with-param name="predicate"><xsl:value-of select="$predicate"/></xsl:with-param>
+				<xsl:with-param name="value-is-uri">true</xsl:with-param>
+				<xsl:with-param name="value"><xsl:value-of select="@rdf:about"/></xsl:with-param>
+			</xsl:call-template>
+			<xsl:choose>
+				<xsl:when test="position()=last()">
+					<xsl:call-template name="emit">
+						<xsl:with-param name="subject"><xsl:value-of select="concat($ANode,'_',position())"/></xsl:with-param>
+						<xsl:with-param name="predicate">&rdf;rest</xsl:with-param>
+						<xsl:with-param name="value-is-uri">true</xsl:with-param>
+						<xsl:with-param name="value">&rdf;nil</xsl:with-param>
+					</xsl:call-template>
+				</xsl:when>
+				<xsl:otherwise>
+					<xsl:call-template name="emit">
+						<xsl:with-param name="subject"><xsl:value-of select="concat($ANode,'_',position())"/></xsl:with-param>
+						<xsl:with-param name="predicate">&rdf;rest</xsl:with-param>
+						<xsl:with-param name="value-is-uri">true</xsl:with-param>
+						<xsl:with-param name="value"><xsl:value-of select="concat($ANode,'_',(1+position()))"/></xsl:with-param>
+					</xsl:call-template>
+				</xsl:otherwise>
+			</xsl:choose>
+		</xsl:for-each>
 	</xsl:when>
 	<xsl:when test="@rdf:resource">
 		<xsl:call-template name="emit">
 			<xsl:with-param name="subject"><xsl:value-of select="$subject"/></xsl:with-param>
-			<xsl:with-param name="predicate"><xsl:value-of select="namespace-uri(.)"/><xsl:value-of select="local-name(.)"/></xsl:with-param>
+			<xsl:with-param name="predicate"><xsl:value-of select="$predicate"/></xsl:with-param>
 			<xsl:with-param name="value-is-uri">true</xsl:with-param>
 			<xsl:with-param name="value"><xsl:value-of select="@rdf:resource"/></xsl:with-param>
 		</xsl:call-template>
@@ -114,7 +155,7 @@ http://plindenbaum.blogspot.com
 	<xsl:when test="count(*)=0">
 		<xsl:call-template name="emit">
 			<xsl:with-param name="subject"><xsl:value-of select="$subject"/></xsl:with-param>
-			<xsl:with-param name="predicate"><xsl:value-of select="namespace-uri(.)"/><xsl:value-of select="local-name(.)"/></xsl:with-param>
+			<xsl:with-param name="predicate"><xsl:value-of select="$predicate"/></xsl:with-param>
 			<xsl:with-param name="value-is-uri">false</xsl:with-param>
 			<xsl:with-param name="value"><xsl:value-of select="."/></xsl:with-param>
 		</xsl:call-template>
@@ -172,5 +213,39 @@ http://plindenbaum.blogspot.com
 	</xsl:otherwise>
 	</xsl:choose>
 </xsl:template>
+
+<!-- deep copy -->
+<xsl:template name="deepcopy">
+<xsl:param name="node"/>
+<xsl:apply-templates select="$node/*|$node/text()" mode="literal"/>
+</xsl:template>
+
+<xsl:template match="*" mode="literal">
+<xsl:text>&lt;</xsl:text><xsl:value-of select="name(.)"/>
+
+<xsl:for-each select="@*">
+<xsl:text> </xsl:text><xsl:value-of select="name(.)"/><xsl:text>="</xsl:text><xsl:value-of select="." disable-output-escaping="no"/><xsl:text>"</xsl:text>
+</xsl:for-each>
+
+<xsl:choose>
+<xsl:when test="count(child::node())= 0">
+	<xsl:text>/&gt;</xsl:text>
+</xsl:when>
+<xsl:otherwise>
+	<xsl:text>&gt;</xsl:text>
+	<xsl:apply-templates select="*|text()" mode="literal"/>
+	<xsl:text>&lt;/</xsl:text><xsl:value-of select="name(.)"/><xsl:text>&gt;</xsl:text>
+</xsl:otherwise>
+</xsl:choose>
+
+
+</xsl:template>
+
+<xsl:template match="text()" mode="literal">
+<xsl:value-of select="." disable-output-escaping="yes"/>
+</xsl:template>
+
+
+
 
 </xsl:stylesheet>
