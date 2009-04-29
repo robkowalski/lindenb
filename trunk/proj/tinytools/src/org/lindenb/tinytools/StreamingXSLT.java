@@ -8,7 +8,7 @@ import java.io.Reader;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.xml.XMLConstants;
+
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
@@ -26,16 +26,13 @@ import javax.xml.transform.stream.StreamSource;
 
 import org.lindenb.io.IOUtils;
 import org.lindenb.util.Compilation;
-import org.lindenb.util.StringUtils;
+
+import org.lindenb.xml.Sax2Dom;
 import org.lindenb.xml.XMLUtilities;
 import org.w3c.dom.Document;
-import org.w3c.dom.Node;
 import org.w3c.dom.Element;
-import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
-import org.xml.sax.helpers.DefaultHandler;
-
 
 
 public class StreamingXSLT
@@ -49,104 +46,29 @@ private StreamingXSLT() throws Exception
 	}
 
 private class Sax2dom
-	extends DefaultHandler
+	extends Sax2Dom
 	{
-	private Document dom;
-	private Node currentNode=null;
-	private List<String> nsMapping=new ArrayList<String>();
 	private int indexInStream=0;
 	
-	Sax2dom() throws Exception
+	Sax2dom(DocumentBuilder builder) throws Exception
 		{
-		DocumentBuilderFactory domFactory= DocumentBuilderFactory.newInstance();
-		DocumentBuilder builder= domFactory.newDocumentBuilder();
-		this.dom= builder.newDocument();
+		super(builder);
+		
+		
 		}
 	@Override
 	public void startDocument() throws SAXException {
-		this.currentNode=this.dom;
+		super.startDocument();
 		this.indexInStream=0;
 		}
 	
-	@Override
-	public void endDocument() throws SAXException {
-		this.currentNode=null;
-		}
-	
-	@Override
-	public void processingInstruction(String target, String data)
-			throws SAXException {
-		this.currentNode.appendChild(this.dom.createProcessingInstruction(target, data));
-		}
-	
-	@Override
-	public void characters(char[] ch, int start, int length)
-			throws SAXException {
-		final String text = new String(ch, start, length);
-		this.currentNode.appendChild(this.dom.createTextNode(text));
-		}
-	
-	@Override
-	public void startPrefixMapping(String prefix, String uri)
-			throws SAXException {
-		this.nsMapping.add(prefix);
-		this.nsMapping.add(uri);
-		}
-	
-	@Override
-	public void startElement(String uri, String localName, String name,
-			Attributes attributes) throws SAXException
-		{
-		
-		org.w3c.dom.Element e= null;
-		
-		if(uri!=null)
-			{
-			e=this.dom.createElementNS(uri, name);
-			}
-		else
-			{
-			e=this.dom.createElement(name);
-			}
-		currentNode.appendChild(e);
-		currentNode=e;
-		
-		for(int i=0; i+1< nsMapping.size();i+=2)
-			{
-			String prefix= nsMapping.get(i);
-			String ns = nsMapping.get(i+1);
-			 if (StringUtils.isEmpty(prefix))
-			 	{
-				e.setAttributeNS(XMLConstants.XML_NS_URI, "xmlns",ns);
-				}
-			else
-				{
-				e.setAttributeNS(XMLConstants.XML_NS_URI, "xmlns:"+prefix,ns);
-				}
-			}
-		
-		final int nAtt= attributes.getLength();
-		for(int i=0; i< nAtt;++i)
-			{
-			 if (attributes.getLocalName(i) == null)
-			 	{
-				e.setAttribute(attributes.getQName(i), attributes.getValue(i));
-				}
-			else
-				{
-				e.setAttributeNS(attributes.getURI(i), attributes.getQName(i), attributes.getValue(i));
-				}
-			}
-		
-		nsMapping.clear();
-		}
 	
 	@Override
 	public void endElement(String uri, String localName, String name)
 			throws SAXException
 		{
 		boolean b=process(this.dom,Element.class.cast(this.currentNode),this.indexInStream);
-		this.currentNode=this.currentNode.getParentNode();
+		super.endElement(uri, localName, name);
 		if(b)
 			{
 			++this.indexInStream;
@@ -183,9 +105,11 @@ private boolean process(
 
 private void parse(Reader in) throws Exception
 	{
+	DocumentBuilderFactory domFactory= DocumentBuilderFactory.newInstance();
+	DocumentBuilder builder= domFactory.newDocumentBuilder();
 	SAXParserFactory saxFactory= SAXParserFactory.newInstance();
 	SAXParser parser= saxFactory.newSAXParser();
-	parser.parse(new InputSource(in), new Sax2dom());
+	parser.parse(new InputSource(in), new Sax2dom(builder));
 	}
 
 public static void main(String[] args) {

@@ -32,4 +32,15 @@ public class StringUtils
 			}
 		return true;
 		}
+	/** remove simple or double quote from a String */
+	public static String unquote(String s)
+		{
+		if(s==null) return null;
+		if(s.length()>1 && ((s.startsWith("\"") && s.endsWith("\"")) || (s.startsWith("\"") && s.endsWith("\""))))
+			{
+			return s.substring(1, s.length()-1);
+			}
+		return s;
+		}
+	
 	}
