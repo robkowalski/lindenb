@@ -2,8 +2,9 @@ package org.lindenb.xml;
 
 import java.io.IOException;
 import java.io.Writer;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Vector;
+import java.util.List;
 
 import org.lindenb.util.StringUtils;
 import org.w3c.dom.Attr;
@@ -198,14 +199,14 @@ public static Element firstChild(Node root)
 
 
 /** return Collection over child elements */
-public static Collection<Element> elements(Node parent)
+public static List<Element> elements(Node parent)
 	{
-	Vector<Element> v= new Vector<Element>();
+	List<Element> v= new ArrayList<Element>();
 	for(Node c=parent.getFirstChild();c!=null;c=c.getNextSibling())
 		{
 		if(c.getNodeType()==Node.ELEMENT_NODE)
 			{
-			v.addElement( Element.class.cast(c));
+			v.add( Element.class.cast(c));
 			}
 		}
 	return v;
@@ -220,12 +221,12 @@ public static Collection<Element> elements(Node parent)
  */
 public static Collection<Element> elements(Node parent,String namespace,String localName)
 	{
-	Vector<Element> v= new Vector<Element>();
+	List<Element> v= new ArrayList<Element>();
 	for(Node c=parent.getFirstChild();c!=null;c=c.getNextSibling())
 		{
 		if(isA(c,namespace,localName))
 			{
-			v.addElement( Element.class.cast(c));
+			v.add( Element.class.cast(c));
 			}
 		}
 	return v;
@@ -237,15 +238,15 @@ public static Collection<Element> elements(Node parent,String namespace,String l
  * @param tagName the element tagName
  * @return element Found or null
  */
-public static Collection<Element> elements(Node parent,String tagName)
+public static List<Element> elements(Node parent,String tagName)
 	{
-	Vector<Element> v= new Vector<Element>();
+	List<Element> v= new ArrayList<Element>();
 	for(Node c=parent.getFirstChild();c!=null;c=c.getNextSibling())
 		{
 		if(c.getNodeType()==Node.ELEMENT_NODE &&
 			tagName.equals(c.getNodeName()))
 			{
-			v.addElement( Element.class.cast(c));
+			v.add( Element.class.cast(c));
 			}
 		}
 	return v;
@@ -303,6 +304,10 @@ public static int getLevel(Node n)
 	return L;
 	}
 
+
+
+/** returns wether is document is Data Oriented
+ * @throws IllegalArgumentException if this document is not DataOriented*/
 public static void validateAsDataOrientedDocument(Node node)
 	throws IllegalArgumentException
 	{
