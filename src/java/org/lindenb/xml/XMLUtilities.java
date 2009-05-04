@@ -150,6 +150,37 @@ public static int count(Node root,String ns,String localName)
 	}
 
 /**
+ * count number of element under root
+ * @param root
+ * @return number of element Found
+ */
+public static int count(Node root)
+	{
+	int n=0;
+	for(Node c=root.getFirstChild();c!=null;c=c.getNextSibling())
+		{
+		if(c.getNodeType()==Element.ELEMENT_NODE) continue;
+		++n;
+		}
+	return n;
+	}
+
+/**
+ * count any kind of node under root
+ * @param root
+ * @return number of element Found
+ */
+public static int countAllNodes(Node root)
+	{
+	int n=0;
+	for(Node c=root.getFirstChild();c!=null;c=c.getNextSibling())
+		{
+		++n;
+		}
+	return n;
+	}
+
+/**
  * return the first Element under root matching ns and localName
  * @param root
  * @param ns namespace use null as a wildcard for all namespaceuri
