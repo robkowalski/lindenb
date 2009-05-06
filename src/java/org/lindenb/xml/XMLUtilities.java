@@ -156,10 +156,11 @@ public static int count(Node root,String ns,String localName)
  */
 public static int count(Node root)
 	{
+	if(root==null) throw new NullPointerException("count(null)");
 	int n=0;
 	for(Node c=root.getFirstChild();c!=null;c=c.getNextSibling())
 		{
-		if(c.getNodeType()==Element.ELEMENT_NODE) continue;
+		if(c.getNodeType()!=Element.ELEMENT_NODE) continue;
 		++n;
 		}
 	return n;
