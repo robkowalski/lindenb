@@ -6,10 +6,12 @@ import java.io.Reader;
 import java.io.StringWriter;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.logging.Logger;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
@@ -38,25 +40,31 @@ import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 /**
- * DOM4RDF
+ * DOM4RDF: A generic RDF parser for the DOM document.
  * @author pierre
  *
  */
 public class DOM4RDF
 	{
 	static private long ID_GENERATOR=System.currentTimeMillis();
+	static private Logger _log= Logger.getLogger(DOM4RDF.class.getName());
 	private Random rand= new Random(ID_GENERATOR);
 	private Transformer transformer;
 	
-	public static class URI
+	/**
+	 * A Resource (URI) in the document
+	 * @author lindenb
+	 *
+	 */
+	public static class Resource
 		{
 		private String uri;
 		private boolean anonymous;
-		private URI(String s) throws URISyntaxException
+		private Resource(String s) throws URISyntaxException
 			{
 			this(s,false);
 			}
-		private URI(String s,boolean anonymous) throws URISyntaxException
+		private Resource(String s,boolean anonymous) throws URISyntaxException
 			{
 			this.uri=s;
 			if(s.startsWith("_:")) anonymous=true;
@@ -68,6 +76,7 @@ public class DOM4RDF
 			{
 			return uri.hashCode();
 			}
+		/** is it an anonymous resource */
 		public boolean isAnonymous()
 			{
 			return anonymous;
@@ -78,7 +87,7 @@ public class DOM4RDF
 			if (this == obj) return true;
 			if (obj == null || getClass() != obj.getClass())
 				return false;
-			URI other = (URI) obj;
+			Resource other = (Resource) obj;
 			return uri.equals(other.uri);
 			}
 		
@@ -90,20 +99,20 @@ public class DOM4RDF
 	
 	/**
 	 * 
-	 * Statement
+	 * A Statement (subject/predicate/value)
 	 *
 	 */
 	public static class Statement
 		{
-		private URI subject;
-		private URI predicate;
+		private Resource subject;
+		private Resource predicate;
 		private Object value;
 		private String dataType;
 		private String lang;
 		
 		
 		
-		private Statement(URI subject, URI predicate, Object value,
+		private Statement(Resource subject, Resource predicate, Object value,
 				String dataType, String lang)
 			{
 			this.subject = subject;
@@ -113,10 +122,10 @@ public class DOM4RDF
 			this.lang = lang;
 			}
 		
-		public URI getSubject() {
+		public Resource getSubject() {
 			return subject;
 			}
-		public URI getPredicate() {
+		public Resource getPredicate() {
 			return predicate;
 			}
 		public Object getValue() {
@@ -168,6 +177,11 @@ public class DOM4RDF
 			return true;
 			}
 		
+		public boolean isLiteral()
+			{
+			return !(value instanceof Resource);
+			}
+		
 		public String asN3()
 			{
 			StringBuilder b=new StringBuilder();
@@ -189,9 +203,9 @@ public class DOM4RDF
 				b.append("<").append(this.predicate).append("> ");
 				}
 			
-			if(value instanceof URI)
+			if(!isLiteral())
 				{
-				if(URI.class.cast(this.value).isAnonymous())
+				if(Resource.class.cast(this.value).isAnonymous())
 					{
 					b.append(this.value).append(" ");
 					}
@@ -217,6 +231,20 @@ public class DOM4RDF
 			return b.toString();
 			}
 		
+		/**
+		 * return wether this statement match a given rule
+		 * @param subject used as a filter. if null, select wathever 
+		 * @param predicate used as a filter. if null, select wathever 
+		 * @param value used as a filter. Can be a String or a Resource. If null, select wathever
+		 * @returna true if this Stmt match the rules
+		 */
+		public boolean match( Resource subject, Resource predicate, Object value)
+			{
+			if(subject!=null && !this.subject.equals(subject)) return false;
+			if(predicate!=null && !this.predicate.equals(predicate)) return false;
+			if(value!=null && !this.value.equals(value)) return false;
+			return true;
+			}
 		
 		@Override
 		public String toString() {
@@ -224,16 +252,42 @@ public class DOM4RDF
 			}
 		}
 	
+	
+	
+	
+	
 	private static class PileUpStmt
 		extends DOM4RDF
 		{
 		private Set<Statement> stmts= new HashSet<Statement>();
-		@Override
-		public void foundStatement(
-				URI subject, URI predicate, Object value,
+		private Resource subject;
+		private Resource predicate;
+		private Object value;
+		
+		
+		public PileUpStmt()
+			{
+			this(null,null,null,null,null);
+			}
+		
+		public PileUpStmt(
+				Resource subject, Resource predicate, Object value,
 				String dataType, String lang)
 			{
-			this.stmts.add(new Statement(subject,predicate,value,dataType,lang));
+			this.subject=subject;
+			this.predicate=predicate;
+			this.value=value;
+			
+			}
+		
+		@Override
+		public void foundStatement(
+				Resource subject, Resource predicate, Object value,
+				String dataType, String lang)
+			{
+			Statement stmt=new Statement(subject,predicate,value,dataType,lang);
+			if(!stmt.match(this.subject, this.predicate, this.value)) return;
+			this.stmts.add(stmt);
 			}
 		
 		public Set<Statement> getStatements()
@@ -241,6 +295,7 @@ public class DOM4RDF
 			return this.stmts;
 			}
 		}
+	
 	
 	
 	/**
@@ -323,12 +378,12 @@ public class DOM4RDF
 	
 
 	
-	
-	protected URI createAnonId() throws InvalidXMLException
+	/** creates an anonymous ID */
+	protected Resource createAnonId() throws InvalidXMLException
 		{
 		try
 			{
-			return new URI("_:"+TimeUtils.toYYYYMMDDHHMMSS()+"-"+(++ID_GENERATOR)+"-"+Math.abs(rand.nextInt() ) ,true);
+			return new Resource("_:"+TimeUtils.toYYYYMMDDHHMMSS()+"-"+(++ID_GENERATOR)+"-"+Math.abs(rand.nextInt() ) ,true);
 			}
 		catch(URISyntaxException err)
 			{
@@ -369,20 +424,58 @@ public class DOM4RDF
 			}
 		}
 	
-	protected URI createURI(String s)  throws InvalidXMLException
+	/** create a new Resource */
+	public static Resource createResource(String uri)  throws InvalidXMLException
 		{
 		try {
-			return new URI(s);
+			return new Resource(uri);
 		} catch (URISyntaxException e)
 			{
 			throw new InvalidXMLException(e);
 			}
 		}
 	
-	/** returns a URI for an Resource element */
-	public URI getResourceURI(Element root) throws InvalidXMLException
+	/**
+	 * return a Set of filtered RDF Statements
+	 * @param an original collection of rdf:RDF or a Statement
+	 * @param subject used as a filter. if null, select all the subjects
+	 * @param predicate used as a filter. if null, select all the predicates
+	 * @param value used as a filter. Can be a String or a Resource. If null, select all the values
+	 * @returna Set of filtered RDF Statements
+	 */
+	public static Set<Statement> filter(
+			final Collection<Statement> stmts,
+			final Resource subject,
+			final Resource predicate,
+			final Object value)
 		{
-		URI subject=null;
+		Set<Statement> set= new HashSet<Statement>();
+		for(Statement stmt: stmts)
+			{
+			if(stmt.match(subject, predicate, value))
+				{
+				set.add(stmt);
+				}
+			}
+		return set;
+		}
+	
+	/** return wether this node a a rdf:(abou|ID|nodeId) */
+	public static boolean isAnonymousResource(Element rsrc)
+		{
+		Attr att= rsrc.getAttributeNodeNS(RDF.NS, "about");
+		if(att!=null) return false;
+		att= rsrc.getAttributeNodeNS(RDF.NS, "ID");
+		if(att!=null) return false;
+		att= rsrc.getAttributeNodeNS(RDF.NS, "nodeID");
+		if(att!=null) return false;
+		return true;
+		}
+	
+	/** returns a URI for an Resource element */
+	public Resource getResourceURI(Element root) throws InvalidXMLException
+		{
+		Resource subject=null;
 		if(root.hasAttributes())
 			{
 			NamedNodeMap atts=root.getAttributes();
@@ -393,17 +486,17 @@ public class DOM4RDF
 				if(att.getLocalName().equals("about"))
 					{
 					if(subject!=null) throw new InvalidXMLException(root,"subject id defined twice");
-					subject= createURI(att.getValue());
+					subject= createResource(att.getValue());
 					}
 				else if(att.getLocalName().equals("ID"))
 					{
 					if(subject!=null) throw new InvalidXMLException(root,"subject id defined twice");
-					subject= createURI(getBase(root)+att.getValue());
+					subject= createResource(getBase(root)+att.getValue());
 					}
 				else if(att.getLocalName().equals("nodeID"))
 					{
 					if(subject!=null) throw new InvalidXMLException(root,"subject id defined twice");
-					subject= createURI("_:"+att.getValue());
+					subject= createResource("_:"+att.getValue());
 					//uri= URI.create(getBase(root)+att.getValue());
 					}
 				}
@@ -412,12 +505,13 @@ public class DOM4RDF
 		return subject;
 		}
 	
+	
 	/** parse everything under rdf:RDF
 	 * @return the URI of the resource
 	 */
-	public URI parseResource(Element root) throws InvalidXMLException
+	public Resource parseResource(Element root) throws InvalidXMLException
 		{
-		URI subject=getResourceURI(root);
+		Resource subject=getResourceURI(root);
 		
 		if(root.hasAttributes())
 			{
@@ -450,7 +544,7 @@ public class DOM4RDF
 				else
 					{
 					foundStatement(subject,
-						createURI(att.getNamespaceURI()+att.getLocalName()),
+						createResource(att.getNamespaceURI()+att.getLocalName()),
 						att.getValue(),
 						null,null
 						);
@@ -462,6 +556,7 @@ public class DOM4RDF
 		}
 	
 	
+	/** check a node contains only a blank stuff */
 	protected boolean checkNodeIsEmpty(Node n1) throws InvalidXMLException
 		{
 		if(!StringUtils.isBlank(n1.getNodeValue()))
@@ -476,7 +571,7 @@ public class DOM4RDF
 	/** parse everything under a resource element */
 	protected void parseResourceChildren(
 		Element root,
-		URI subjectURI
+		Resource subjectURI
 		) throws InvalidXMLException
 		{
 		for(Node n1= root.getFirstChild();
@@ -506,6 +601,7 @@ public class DOM4RDF
 			}
 		}
 	
+	/**  return the xml:lang of the node or null */
 	private String getLang(Node root)
 		{
 		if(root==null) return null;
@@ -518,7 +614,7 @@ public class DOM4RDF
 		}
 	
 	/** parse everything under rdf:RDF */
-	protected void parseProperty(Element property,URI subject)
+	protected void parseProperty(Element property,Resource subject)
 		throws 	InvalidXMLException
 		{
 		Attr parseTypeNode= property.getAttributeNodeNS(RDF.NS, "parseType");
@@ -526,7 +622,7 @@ public class DOM4RDF
 		String dataType= (dataTypeNode==null?null:dataTypeNode.getValue());
 		String parseType=parseTypeNode!=null?parseTypeNode.getValue():null;
 		
-		URI predicate= createURI(property.getNamespaceURI()+property.getLocalName());
+		Resource predicate= createResource(property.getNamespaceURI()+property.getLocalName());
 		
 		if(predicate==null)
 			{
@@ -539,16 +635,17 @@ public class DOM4RDF
 			if(!property.hasChildNodes())
 				{
 				if(rsrc==null) throw new InvalidXMLException(property,"missing rdf:resource");
-				foundStatement(subject, predicate, createURI(rsrc.getValue()), null, null);
+				foundStatement(subject, predicate, createResource(rsrc.getValue()), null, null);
 				}
 			else
 				{
 				if(rsrc!=null) throw new InvalidXMLException(property,"rdf:resource is present and element has children");
+				if(predicate.toString().equals(RDF.NS+"type")) throw new InvalidXMLException(property,"rdf:type expected in an empty element"); 
 				int count = XMLUtilities.count(property);
 				switch(count)
 					{
 					case 0: foundStatement(subject, predicate, property.getTextContent(), dataType, getLang(property)); break;
-					case 1: URI value= parseResource(XMLUtilities.firstChild(property));
+					case 1: Resource value= parseResource(XMLUtilities.firstChild(property));
 							foundStatement(subject, predicate, value, null, null);
 							break;
 					default: throw new InvalidXMLException(property,"illegal number of element under.");
@@ -597,7 +694,7 @@ public class DOM4RDF
 			}
 		else if(parseType.equals("Resource"))
 			{
-			URI rsrc= createAnonId();
+			Resource rsrc= createAnonId();
 			if(subject!=null && predicate!=null)
 				{
 				foundStatement(subject,predicate,rsrc,null,null);
@@ -625,7 +722,7 @@ public class DOM4RDF
 			}
 		else if(parseType.equals("Collection"))
 			{
-			List<URI> list= new ArrayList<URI>();
+			List<Resource> list= new ArrayList<Resource>();
 			for(Node n1=property.getFirstChild();n1!=null;n1=n1.getNextSibling())
 				{
 				switch(n1.getNodeType())
@@ -638,7 +735,7 @@ public class DOM4RDF
 						}
 					case Node.ELEMENT_NODE:
 						{
-						URI r=	 parseResource(Element.class.cast(n1));
+						Resource r=	 parseResource(Element.class.cast(n1));
 						list.add(r);
 						break;
 						}
@@ -653,7 +750,7 @@ public class DOM4RDF
 				}
 			else
 				{
-				URI prevURI=createAnonId();
+				Resource prevURI=createAnonId();
 				
 				if(subject!=null && predicate!=null)
 					{
@@ -664,14 +761,14 @@ public class DOM4RDF
 					{
 					if(i+1==list.size())
 						{
-						foundStatement(prevURI,createURI(RDF.NS+"first"), list.get(i), null, null);
-						foundStatement(prevURI,createURI(RDF.NS+"rest"), createURI(RDF.NS+"nil"), null, null);
+						foundStatement(prevURI,createResource(RDF.NS+"first"), list.get(i), null, null);
+						foundStatement(prevURI,createResource(RDF.NS+"rest"), createResource(RDF.NS+"nil"), null, null);
 						}
 					else
 						{
-						URI newURI= createAnonId();
-						foundStatement(prevURI,createURI(RDF.NS+"first"), list.get(i), null,null);
-						foundStatement(prevURI,createURI(RDF.NS+"rest"), newURI, null, null);
+						Resource newURI= createAnonId();
+						foundStatement(prevURI,createResource(RDF.NS+"first"), list.get(i), null,null);
+						foundStatement(prevURI,createResource(RDF.NS+"rest"), newURI, null, null);
 						prevURI=newURI;
 						}
 					}
@@ -685,27 +782,37 @@ public class DOM4RDF
 		}
 	
 	
-	
-	
-	
-	protected URI getBase(Node n) throws InvalidXMLException
+	/** get the BASE url of the document */
+	protected Resource getBase(Node n) throws InvalidXMLException
 		{
 		String s=n.getOwnerDocument().getBaseURI();
 		if(s==null) throw new InvalidXMLException(n.getOwnerDocument(),"document has not xml:base");
-		return createURI(s);
+		return createResource(s);
 		}
 	
-	
+	/**
+	 * echo a warning
+	 * @param node
+	 * @param message
+	 */
 	protected void warning(Node node,String message)
 		{
-		System.err.println("[WARNING]"+message);
+		_log.warning(message);
 		}
 	
 	
-	
+	/**
+	 * Called when a Statement was found. User can override this method.
+	 * Default: does nothing
+	 * @param subject
+	 * @param property
+	 * @param value
+	 * @param dataType
+	 * @param lang
+	 */
 	public void foundStatement(
-		URI subject,
-		URI property,
+		Resource subject,
+		Resource property,
 		Object value,
 		String dataType,
 		String lang
@@ -714,11 +821,23 @@ public class DOM4RDF
 		
 		}
 	
-	
-	public static Set<Statement> getStatements(Node node) throws InvalidXMLException
+	/**
+	 * return a Set of filtered RDF Statements
+	 * @param node the root node, can be a Document, a rdf:RDF or a Statement
+	 * @param subject used as a filter. if null, select all the subjects
+	 * @param predicate used as a filter. if null, select all the predicates
+	 * @param value used as a filter. Can be a String or a Resource. If null, select all the values
+	 * @returna Set of filtered RDF Statements
+	 * @throws InvalidXMLException
+	 */
+	public static Set<Statement> getStatements(Node node,
+			Resource subject,
+			Resource predicate,
+			Object value
+			) throws InvalidXMLException
 		{
 		if(node==null) throw new NullPointerException("node==null");
-		PileUpStmt app= new PileUpStmt();
+		PileUpStmt app= new PileUpStmt(subject,predicate,value,null,null);
 		switch(node.getNodeType())
 			{
 			case Node.DOCUMENT_NODE: app.parse(Document.class.cast(node));break;
@@ -737,6 +856,17 @@ public class DOM4RDF
 			default: throw new IllegalArgumentException("bad Node, should be Document or Element.");
 			}
 		return app.getStatements();
+		}
+	
+	/**
+	 * get all the Statements in the model
+	 * @param node the root node, can be a Document, a rdf:RDF or a Statement
+	 * @return a set of Statements
+	 * @throws InvalidXMLException
+	 */
+	public static Set<Statement> getStatements(Node node) throws InvalidXMLException
+		{
+		return getStatements(node, null, null, null);
 		}
 	
 	
@@ -769,11 +899,11 @@ public class DOM4RDF
 				{
 				@Override
 				public void foundStatement(
-						URI subject, URI predicate, Object value,
+						Resource subject, Resource predicate, Object value,
 						String dataType, String lang)
 					{
 					Statement stmt=new Statement(subject,predicate,value,dataType,lang);
-					System.out.println(stmt);
+					System.out.println(stmt.asN3());
 					}
 				};
 			if(optind==args.length)

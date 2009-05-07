@@ -101,7 +101,7 @@ public String shortForm(java.lang.String uri)
 /** list all prefixes */
 public Set<String> getPrefixes()
 	{
-	HashSet<String> set= new HashSet<String>(this.uri2prefix.size());
+	Set<String> set= new HashSet<String>(this.uri2prefix.size());
 	set.addAll(this.uri2prefix.values());
 	return set;
 	}

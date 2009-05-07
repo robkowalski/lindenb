@@ -251,7 +251,7 @@ public static List<Element> elements(Node parent)
  * @param localName use null as a wildcard for all localNames
  * @return element Found or null
  */
-public static Collection<Element> elements(Node parent,String namespace,String localName)
+public static List<Element> elements(Node parent,String namespace,String localName)
 	{
 	List<Element> v= new ArrayList<Element>();
 	for(Node c=parent.getFirstChild();c!=null;c=c.getNextSibling())
