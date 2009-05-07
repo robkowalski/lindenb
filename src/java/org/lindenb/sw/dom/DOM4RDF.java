@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.io.StringWriter;
-import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -27,6 +27,7 @@ import org.lindenb.sw.vocabulary.RDF;
 import org.lindenb.util.C;
 import org.lindenb.util.Compilation;
 import org.lindenb.util.StringUtils;
+import org.lindenb.util.TimeUtils;
 import org.lindenb.xml.XMLUtilities;
 import org.w3c.dom.Attr;
 import org.w3c.dom.Document;
@@ -46,6 +47,46 @@ public class DOM4RDF
 	static private long ID_GENERATOR=System.currentTimeMillis();
 	private Random rand= new Random(ID_GENERATOR);
 	private Transformer transformer;
+	
+	public static class URI
+		{
+		private String uri;
+		private boolean anonymous;
+		private URI(String s) throws URISyntaxException
+			{
+			this(s,false);
+			}
+		private URI(String s,boolean anonymous) throws URISyntaxException
+			{
+			this.uri=s;
+			if(s.startsWith("_:")) anonymous=true;
+			this.anonymous=anonymous;
+			if(!anonymous) new java.net.URI(s);
+			}
+		@Override
+		public int hashCode()
+			{
+			return uri.hashCode();
+			}
+		public boolean isAnonymous()
+			{
+			return anonymous;
+			}
+		
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (obj == null || getClass() != obj.getClass())
+				return false;
+			URI other = (URI) obj;
+			return uri.equals(other.uri);
+			}
+		
+		@Override
+		public String toString() {
+			return uri;
+			}
+		}
 	
 	/**
 	 * 
@@ -126,21 +167,60 @@ public class DOM4RDF
 			
 			return true;
 			}
-		@Override
-		public String toString() {
+		
+		public String asN3()
+			{
 			StringBuilder b=new StringBuilder();
-			b.append("<").append(this.subject).append("> ");
-			b.append("<").append(this.predicate).append("> ");
+			if(this.subject.isAnonymous())
+				{
+				b.append(this.subject).append(" ");;
+				}
+			else
+				{
+				b.append("<").append(this.subject).append("> ");
+				}
+			
+			if(this.predicate.isAnonymous())
+				{
+				b.append(this.predicate).append(" ");;
+				}
+			else
+				{
+				b.append("<").append(this.predicate).append("> ");
+				}
+			
 			if(value instanceof URI)
 				{
-				b.append("<").append(this.value).append("> ");
+				if(URI.class.cast(this.value).isAnonymous())
+					{
+					b.append(this.value).append(" ");
+					}
+				else
+					{
+					b.append("<").append(this.value).append("> ");
+					}
 				}
 			else
 				{
 				b.append("\"").append(C.escape(this.value.toString())).append("\"");
+				if(dataType!=null)
+					{
+					b.append("^^<").append(this.dataType).append("> ");
+					}
+				else if(lang!=null)
+					{
+					b.append("@").append(this.lang);
+					}
 				}
+			
 			b.append(" .");
 			return b.toString();
+			}
+		
+		
+		@Override
+		public String toString() {
+			return asN3();
 			}
 		}
 	
@@ -244,10 +324,16 @@ public class DOM4RDF
 
 	
 	
-	protected URI createAnonId()
+	protected URI createAnonId() throws InvalidXMLException
 		{
-		URI uri=URI.create( "_"+(++ID_GENERATOR)+"_"+rand.nextLong() );
-		return uri;
+		try
+			{
+			return new URI("_:"+TimeUtils.toYYYYMMDDHHMMSS()+"-"+(++ID_GENERATOR)+"-"+Math.abs(rand.nextInt() ) ,true);
+			}
+		catch(URISyntaxException err)
+			{
+			throw new InvalidXMLException(err);
+			}
 		}
 	
 	/** parse a rdf:RDF element */
@@ -283,12 +369,55 @@ public class DOM4RDF
 			}
 		}
 	
+	protected URI createURI(String s)  throws InvalidXMLException
+		{
+		try {
+			return new URI(s);
+		} catch (URISyntaxException e)
+			{
+			throw new InvalidXMLException(e);
+			}
+		}
+	
+	/** returns a URI for an Resource element */
+	public URI getResourceURI(Element root) throws InvalidXMLException
+		{
+		URI subject=null;
+		if(root.hasAttributes())
+			{
+			NamedNodeMap atts=root.getAttributes();
+			for(int i=0;i< atts.getLength();++i)
+				{
+				Attr att=(Attr)atts.item(i);
+				if(!RDF.NS.equals(att.getNamespaceURI())) continue;
+				if(att.getLocalName().equals("about"))
+					{
+					if(subject!=null) throw new InvalidXMLException(root,"subject id defined twice");
+					subject= createURI(att.getValue());
+					}
+				else if(att.getLocalName().equals("ID"))
+					{
+					if(subject!=null) throw new InvalidXMLException(root,"subject id defined twice");
+					subject= createURI(getBase(root)+att.getValue());
+					}
+				else if(att.getLocalName().equals("nodeID"))
+					{
+					if(subject!=null) throw new InvalidXMLException(root,"subject id defined twice");
+					subject= createURI("_:"+att.getValue());
+					//uri= URI.create(getBase(root)+att.getValue());
+					}
+				}
+			}
+		if(subject==null) subject= createAnonId();
+		return subject;
+		}
+	
 	/** parse everything under rdf:RDF
 	 * @return the URI of the resource
 	 */
 	public URI parseResource(Element root) throws InvalidXMLException
 		{
-		URI subject=null;
+		URI subject=getResourceURI(root);
 		
 		if(root.hasAttributes())
 			{
@@ -298,21 +427,12 @@ public class DOM4RDF
 				Attr att=(Attr)atts.item(i);
 				if(RDF.NS.equals(att.getNamespaceURI()))
 					{
-					if(att.getLocalName().equals("about"))
+					if(att.getLocalName().equals("about") ||
+					   att.getLocalName().equals("nodeID") ||
+					   att.getLocalName().equals("ID")
+						)
 						{
-						if(subject!=null) throw new InvalidXMLException(root,"subject id defined twice");
-						subject= URI.create(att.getValue());
-						}
-					else if(att.getLocalName().equals("ID"))
-						{
-						if(subject!=null) throw new InvalidXMLException(root,"subject id defined twice");
-						subject= URI.create(getBase(root)+att.getValue());
-						}
-					else if(att.getLocalName().equals("nodeID"))
-						{
-						if(subject!=null) throw new InvalidXMLException(root,"subject id defined twice");
-						subject= URI.create(att.getValue());
-						//uri= URI.create(getBase(root)+att.getValue());
+						continue;
 						}
 					else  if(att.getLocalName().equals("resource"))
 						{
@@ -323,10 +443,14 @@ public class DOM4RDF
 						throw new UnsupportedOperationException("rdf:* node supported");
 						}
 					}
+				else if(XMLConstants.XML_NS_URI.equals(att.getNamespaceURI()))
+					{
+					//ignore
+					}
 				else
 					{
 					foundStatement(subject,
-						URI.create(att.getNamespaceURI()+att.getLocalName()),
+						createURI(att.getNamespaceURI()+att.getLocalName()),
 						att.getValue(),
 						null,null
 						);
@@ -336,38 +460,6 @@ public class DOM4RDF
 		parseResourceChildren(root, subject);
 		return subject;
 		}
-	
-	/** @return uri is valid 
-	protected URI parseURI(Node node,String uri) throws InvalidXMLException
-		{
-		try {
-			URI uri1= new URI(uri);
-			if(getBase()!=null)
-				{
-				uri1=getBase().resolve(uri1);
-				}
-			else if(node==null)
-				{
-				return uri1;
-				}
-			else if(node.getNodeType()==Node.ATTRIBUTE_NODE)
-				{
-				Element elt=Attr.class.cast(node).getOwnerElement();
-				if(elt==null) return uri1;
-				URI b= getBase(elt);
-				return (b==null?uri1:b.resolve(uri1));
-				}
-			else
-				{
-				URI b= getBase(node);
-				return (b==null?uri1:b.resolve(uri1));
-				}
-			return uri1;
-		} catch (URISyntaxException err)
-			{
-			throw new InvalidXMLException(node,"Not a valid URI:"+uri);
-			}
-		}*/
 	
 	
 	protected boolean checkNodeIsEmpty(Node n1) throws InvalidXMLException
@@ -414,6 +506,17 @@ public class DOM4RDF
 			}
 		}
 	
+	private String getLang(Node root)
+		{
+		if(root==null) return null;
+		if( root.getNodeType()==Node.ELEMENT_NODE && root.hasAttributes())
+			{
+			Attr att= Element.class.cast(root).getAttributeNodeNS(XMLConstants.XML_NS_URI, "lang");
+			if(att!=null) return att.getValue();
+			}
+		return getLang(root.getParentNode());
+		}
+	
 	/** parse everything under rdf:RDF */
 	protected void parseProperty(Element property,URI subject)
 		throws 	InvalidXMLException
@@ -421,9 +524,10 @@ public class DOM4RDF
 		Attr parseTypeNode= property.getAttributeNodeNS(RDF.NS, "parseType");
 		Attr dataTypeNode =  property.getAttributeNodeNS(RDF.NS, "dataType");
 		String dataType= (dataTypeNode==null?null:dataTypeNode.getValue());
-		
 		String parseType=parseTypeNode!=null?parseTypeNode.getValue():null;
-		URI predicate=URI.create(property.getNamespaceURI()+property.getLocalName());
+		
+		URI predicate= createURI(property.getNamespaceURI()+property.getLocalName());
+		
 		if(predicate==null)
 			{
 			throw new InvalidXMLException(property,"Cannot parse URI of this predicate");
@@ -435,7 +539,7 @@ public class DOM4RDF
 			if(!property.hasChildNodes())
 				{
 				if(rsrc==null) throw new InvalidXMLException(property,"missing rdf:resource");
-				foundStatement(subject, predicate, URI.create(rsrc.getValue()), null, null);
+				foundStatement(subject, predicate, createURI(rsrc.getValue()), null, null);
 				}
 			else
 				{
@@ -443,7 +547,7 @@ public class DOM4RDF
 				int count = XMLUtilities.count(property);
 				switch(count)
 					{
-					case 0: foundStatement(subject, predicate, property.getTextContent(), null, null); break;
+					case 0: foundStatement(subject, predicate, property.getTextContent(), dataType, getLang(property)); break;
 					case 1: URI value= parseResource(XMLUtilities.firstChild(property));
 							foundStatement(subject, predicate, value, null, null);
 							break;
@@ -488,7 +592,7 @@ public class DOM4RDF
 			
 			if(subject!=null && predicate!=null && buff!=null)
 				{
-				foundStatement(subject,predicate,buff.toString(),null,getLang(property));
+				foundStatement(subject,predicate,buff.toString(),RDF.NS+"XMLLiteral", getLang(property));
 				}
 			}
 		else if(parseType.equals("Resource"))
@@ -496,7 +600,7 @@ public class DOM4RDF
 			URI rsrc= createAnonId();
 			if(subject!=null && predicate!=null)
 				{
-				foundStatement(subject,predicate,rsrc,null,getLang(property));
+				foundStatement(subject,predicate,rsrc,null,null);
 				}
 			
 			for(Node n1=property.getFirstChild();n1!=null;n1=n1.getNextSibling())
@@ -514,6 +618,7 @@ public class DOM4RDF
 						parseProperty(Element.class.cast(n1), rsrc);
 						break;
 						}
+					default: warning(n1, "unsupported node type");break;
 					}
 				}
 			
@@ -537,6 +642,7 @@ public class DOM4RDF
 						list.add(r);
 						break;
 						}
+					default: warning(n1, "unsupported node type");break;
 					}
 				}
 			
@@ -551,21 +657,21 @@ public class DOM4RDF
 				
 				if(subject!=null && predicate!=null)
 					{
-					foundStatement(subject, predicate,prevURI, null, getLang(property));
+					foundStatement(subject, predicate,prevURI, null, null);
 					}
 				
 				for(int i=0;i< list.size();++i)
 					{
 					if(i+1==list.size())
 						{
-						foundStatement(prevURI,URI.create(RDF.NS+"first"), list.get(i), null,  getLang(property));
-						foundStatement(prevURI,URI.create(RDF.NS+"rest"), URI.create(RDF.NS+"nil"), null, getLang(property));
+						foundStatement(prevURI,createURI(RDF.NS+"first"), list.get(i), null, null);
+						foundStatement(prevURI,createURI(RDF.NS+"rest"), createURI(RDF.NS+"nil"), null, null);
 						}
 					else
 						{
 						URI newURI= createAnonId();
-						foundStatement(prevURI,URI.create(RDF.NS+"first"), list.get(i), null,  getLang(property));
-						foundStatement(prevURI,URI.create(RDF.NS+"rest"), newURI, null,  getLang(property));
+						foundStatement(prevURI,createURI(RDF.NS+"first"), list.get(i), null,null);
+						foundStatement(prevURI,createURI(RDF.NS+"rest"), newURI, null, null);
 						prevURI=newURI;
 						}
 					}
@@ -579,26 +685,18 @@ public class DOM4RDF
 		}
 	
 	
-	protected String getLang(Node n)
-		{
-		if(n==null) return null;
-		if(n.hasAttributes())
-			{
-			Node lang= n.getAttributes().getNamedItemNS(XMLConstants.XML_NS_PREFIX,"lang");
-			if(lang!=null) return lang.getNodeValue();
-			}
-		return getLang(n.getParentNode());
-		}
 	
 	
-	protected URI getBase(Node n)
+	
+	protected URI getBase(Node n) throws InvalidXMLException
 		{
 		String s=n.getOwnerDocument().getBaseURI();
-		return URI.create(s);
+		if(s==null) throw new InvalidXMLException(n.getOwnerDocument(),"document has not xml:base");
+		return createURI(s);
 		}
 	
 	
-	public void warning(Node node,String message)
+	protected void warning(Node node,String message)
 		{
 		System.err.println("[WARNING]"+message);
 		}
