@@ -1,19 +1,24 @@
 package org.lindenb.xml;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.logging.Logger;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.lindenb.lang.IllegalInputException;
+import org.lindenb.util.Compilation;
 import org.w3c.dom.Attr;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -54,6 +59,7 @@ public class DocumentSerializer
 		return in.readUTF();
 		}
 	
+	@SuppressWarnings("unused")
 	private Logger log()
 		{
 		return LOG;
@@ -64,39 +70,56 @@ public class DocumentSerializer
 			Document dom,
 			OutputStream out) throws IOException
 		{
+		GZIPOutputStream zout=null;
+		DataOutputStream output=null;
 		out.write(isCompressed()?1:0);
 		if(isCompressed())
 			{
-			out= new GZIPOutputStream(out);
+			zout= new GZIPOutputStream(out);
+			output=new DataOutputStream(zout);
 			}
-		DataOutputStream output= new DataOutputStream(out);
+		else
+			{
+			output= new DataOutputStream(out);
+			}
 		
-		Map<String,Integer> ns2idx=new HashMap<String,Integer>();
-		Map<String,Integer> qName2idx=new HashMap<String,Integer>();
+		Map<String,Integer> ns2idx=new TreeMap<String,Integer>();
+		Map<String,Integer> qName2idx=new TreeMap<String,Integer>();
 		collectNS(dom,ns2idx,qName2idx);
 		output.writeInt(ns2idx.size());
 		for(String ns:ns2idx.keySet())
 			{
+			output.writeInt(ns2idx.get(ns));
 			writeString(output,ns);
 			}
+		
 		output.writeInt(qName2idx.size());
-		for(String ns:qName2idx.keySet())
+		for(String tag:qName2idx.keySet())
 			{
-			writeString(output,ns);
+			output.writeInt(qName2idx.get(tag));
+			writeString(output,tag);
 			}
+		
 		node2entry(dom,ns2idx,qName2idx,output);
 		output.flush();
+		if(zout!=null)
+			{
+			zout.flush();//see http://forums.sun.com/thread.jspa?threadID=190326&tstart=56040
+			zout.finish();
+			}
+		out.flush();
 		}
 	/** collect the namespaces and the QName */
-	private static void collectNS(
+	private void collectNS(
 		Node object,
 		Map<String,Integer> nsidx,
-		Map<String,Integer> qName2idx)
+		Map<String,Integer> qName2idx
+		)
 		{
 		String ns=object.getNamespaceURI();
 		if(ns!=null && !nsidx.containsKey(ns))
 			{
-			nsidx.put(ns, nsidx.size()+1);
+			nsidx.put(ns, nsidx.size());
 			}
 		if(object.getNodeType()==Node.ATTRIBUTE_NODE ||
 			object.getNodeType()==Node.ELEMENT_NODE)
@@ -104,7 +127,7 @@ public class DocumentSerializer
 			String tag= object.getNodeName();
 			if(!qName2idx.containsKey(tag))
 				{
-				qName2idx.put(tag, qName2idx.size()+1);
+				qName2idx.put(tag, qName2idx.size());
 				}
 			}
 		
@@ -118,14 +141,17 @@ public class DocumentSerializer
 			}
 		if(object.hasChildNodes())
 			{
-			for(Node n=object.getFirstChild();n!=null;n=n.getNextSibling())
+			for(Node n=object.getFirstChild();
+				n!=null;
+				n=n.getNextSibling())
 				{
 				collectNS(n,nsidx,qName2idx);
 				}
 			}
 		}
-
-	private static void node2entry(
+	
+	/** serialize node to outputstream */
+	private void node2entry(
 		Node n,
 		Map<String,Integer> ns2idx,
 		Map<String,Integer> qName2idx,
@@ -161,7 +187,9 @@ public class DocumentSerializer
 				
 				int i= XMLUtilities.countAllNodes(doc);
 				output.writeInt(i);
-				for(Node c=doc.getFirstChild();c!=null;c=c.getNextSibling())
+				for(Node c=doc.getFirstChild();
+					c!=null;
+					c=c.getNextSibling())
 					{
 					node2entry(c,ns2idx,qName2idx,output);
 					}
@@ -180,15 +208,19 @@ public class DocumentSerializer
 					output.writeInt(ns2idx.get(ns));
 					}
 				output.writeInt(qName2idx.get( e.getTagName()));
+				//save attributes
 				NamedNodeMap atts=e.getAttributes();
 				output.writeInt(atts.getLength());
 				for(int i=0;i< atts.getLength();++i)
 					{
 					node2entry(atts.item(i),ns2idx,qName2idx,output);
 					}
+				//save child nodes
 				int i= XMLUtilities.countAllNodes(e);
 				output.writeInt(i);
-				for(Node c=e.getFirstChild();c!=null;c=c.getNextSibling())
+				for(Node c=e.getFirstChild();
+					c!=null;
+					c=c.getNextSibling())
 					{
 					node2entry(c,ns2idx,qName2idx,output);
 					}
@@ -211,12 +243,39 @@ public class DocumentSerializer
 				{
 				EntityReference entity=EntityReference.class.cast(n);
 				writeString(output,entity.getNodeName());
+				break;
 				}
-			default: throw new IllegalArgumentException("Node not handled");
+			default: throw new IllegalArgumentException("Node Type not handled");
 			}
 		}
 	
+	/** read a serialized document */
+	public Document readDocument(DocumentBuilder builder,InputStream in) throws IOException
+		{
+	    int compress= in.read();
+	    if(compress==-1) throw new IllegalInputException("compression byte missing");
+	    if(compress==1) in= new GZIPInputStream(in);
+	    DataInputStream input=new DataInputStream(in);
+	    
+	    int n= input.readInt();
+		Map<Integer,String> idx2ns=new TreeMap<Integer,String>();
+		for(int i=0;i< n;++i)
+			{
+			idx2ns.put(input.readInt(), readString(input));
+			}
+		
+		n= input.readInt();
+		Map<Integer,String> idx2qname=new TreeMap<Integer,String>();
+		for(int i=0;i< n;++i)
+			{
+			idx2qname.put(input.readInt(), readString(input));
+			}
+		
+		Document dom= builder.newDocument();
+		return (Document)entry2node(dom,idx2ns,idx2qname,input);
+		}
 	
+	/** convert a DataInputStream to dom */
 	private Node entry2node(
 		Document dom,
 		Map<Integer,String> idx2ns,
@@ -257,6 +316,7 @@ public class DocumentSerializer
 			case Node.ELEMENT_NODE:
 				{
 				int nsid= in.readInt();
+				
 				String tagName=idx2qname.get(in.readInt());
 				Element e= null;
 				if(nsid==-1)
@@ -265,8 +325,10 @@ public class DocumentSerializer
 					}
 				else
 					{
+					String ns=idx2ns.get(nsid);
+					
 					e= dom.createElementNS(
-						idx2ns.get(nsid),
+						ns,
 						tagName
 						);
 					}
@@ -299,35 +361,74 @@ public class DocumentSerializer
 				{
 				return dom.createEntityReference(readString(in));
 				}
+			
 			default: throw new IllegalArgumentException("Node not handled");
 			}
 		}
 	
+
 	
-	public Document readDocument(DocumentBuilder builder,InputStream in) throws IOException
+	
+	/**
+	 * 
+	 * main
+	 * 
+	 */
+	public static void main(String[] args)
 		{
-	    int compress= in.read();
-	    if(compress==-1) throw new IllegalInputException("compression byte missing");
-	    if(compress==1) in= new GZIPInputStream(in);
-	    DataInputStream input=new DataInputStream(in);
-	    
-	    int n= input.readInt();
-		Map<Integer,String> idx2ns=new HashMap<Integer,String>(n);
-		for(int i=0;i< n;++i)
-			{
-			idx2ns.put(i+1, readString(input));
+			try
+				{
+				int optind=0;
+				while(optind< args.length)
+					{
+					if(args[optind].equals("-h"))
+						{
+						System.err.println(Compilation.getLabel());
+						}
+					else if(args[optind].equals("--"))
+						{
+						optind++;
+						break;
+						}
+					else if(args[optind].startsWith("-"))
+						{
+						System.err.println("Unknown option "+args[optind]);
+						}
+					else 
+						{
+						break;
+						}
+					++optind;
+					}
+							
+				DocumentBuilderFactory f=DocumentBuilderFactory.newInstance();
+				f.setCoalescing(true);
+				f.setNamespaceAware(true);
+				f.setValidating(false);
+				f.setExpandEntityReferences(false);
+				f.setIgnoringComments(false);
+				f.setIgnoringElementContentWhitespace(true);
+				DocumentBuilder docBuilder= f.newDocumentBuilder();
+				DocumentSerializer app= new DocumentSerializer();
+				app.setCompressed(true);
+				
+				while(optind < args.length)
+					{
+					
+					Document dom=docBuilder.parse(new File(args[optind++]));
+					for(int i=0;i< 100;++i)
+						{
+						ByteArrayOutputStream out= new ByteArrayOutputStream();
+						app.writeDocument(dom, out);
+						byte array[]=out.toByteArray();
+						dom=app.readDocument(docBuilder, new ByteArrayInputStream(array));
+						}
+					}
+				} 
+			catch(Throwable err)
+				{
+				err.printStackTrace();
+				}
 			}
-		
-		n= input.readInt();
-		Map<Integer,String> idx2qname=new HashMap<Integer,String>(n);
-		for(int i=0;i< n;++i)
-			{
-			idx2qname.put(i+1, readString(input));
-			}
-		
-		return (Document)entry2node(null,idx2ns,idx2qname,input);
-		}
-	
-	
 	
 	}
