@@ -3,7 +3,6 @@ package org.lindenb.xml;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 import org.lindenb.util.StringUtils;
