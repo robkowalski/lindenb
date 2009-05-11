@@ -1,6 +1,8 @@
 package org.lindenb.tinytools;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
@@ -12,17 +14,28 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.xml.XMLConstants;
+import javax.xml.namespace.NamespaceContext;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathException;
+import javax.xml.xpath.XPathFactory;
 
+import org.json.XML;
 import org.lindenb.berkeley.DocumentBinding;
 import org.lindenb.lang.IllegalInputException;
+import org.lindenb.sw.vocabulary.XHTML;
 import org.lindenb.util.Compilation;
+import org.lindenb.xml.NamespaceContextImpl;
 import org.lindenb.xml.NodeWrapper;
 import org.lindenb.xml.XMLUtilities;
 import org.w3c.dom.Attr;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
 
 import com.sleepycat.bind.tuple.StringBinding;
@@ -35,6 +48,7 @@ import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
 import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
+import com.sun.org.apache.xpath.internal.NodeSet;
 
 
 /**
@@ -51,80 +65,23 @@ private Database protein2protein=null;
 private DocumentBuilder domBuilder=null;
 private static Logger _log = Logger.getLogger(EmblStringsTool.class.getName());
 private DocumentBinding documentBinding;
-private int maxDepth=2;
+private int maxDepth=3;
+private XPath xpath;
 
-private class PsiDoc
-	extends NodeWrapper<Document>
+
+/** an external source of candidate loaded in the 'main'
+ * with a p-value.
+ */
+private static class Candidate
 	{
-	private Map<String,Element> id2interactor= new HashMap<String, Element>();
-	private List<Interaction> interactions= new ArrayList<Interaction>();
-	private Element interactorList;
-	private Element interactionList;
-	
-	class Interactor
-	extends NodeWrapper<Element>
-		{
-		Interactor(Element e)
-			{
-			super(e);
-			}
-		}
-	
-	class Interaction
-	extends NodeWrapper<Element>
-		{
-		Interaction(Element e)
-			{
-			super(e);
-			}
-		}
-	
-	
-	PsiDoc(Document dom) throws IllegalInputException
-		{
-		super(dom);
-		Element root= dom.getDocumentElement();
-		verify(root!=null);
-		if(XMLUtilities.isA(root, NS, "entrySet")) throw new IllegalInputException("root not entry Set");
-		Element entry=XMLUtilities.firstChild(root,NS, "entry");
-		verify(entry!=null);
-		this.interactorList=XMLUtilities.firstChild(entry,NS, "interactorList");
-		verify(interactorList!=null);
-
-		
-		for(Element interactor: XMLUtilities.elements(interactorList, NS, "interactor"))
-			{
-			Attr att= interactor.getAttributeNode("id");
-			verify(att!=null);
-			String id=att.getValue();
-			id2interactor.put(id, interactor);
-			}
-		this.interactionList=XMLUtilities.firstChild(entry,NS, "interactionList");
-		verify(interactionList!=null);
-		for(Element interaction: XMLUtilities.elements(interactionList, NS, "interaction"))
-			{
-			this.interactions.add(new Interaction(interaction));
-			
-			Element participantList= XMLUtilities.firstChild(interaction,NS, "participantList");
-			verify(participantList!=null);
-			List<Element> participants= XMLUtilities.elements(participantList,NS, "participant");
-			verify(participants.size()==2);
-			String identifiers[]=new String[2];
-			for(int i=0;i< 2;++i)
-				{
-				Element interactorRef = XMLUtilities.firstChild(participants.get(i),NS, "interactorRef");
-				verify(interactorRef!=null);
-				String content= interactorRef.getTextContent();
-				Element interactor=id2interactor.get(content);
-				verify(interactor!=null);
-				identifiers[i]=getEnsemblIdentifier(interactor);
-				}
-			}
-		
-		}
-	
+	String acn=null;
+	String protName=null;
+	double foldChange=0.0;
 	}
+/** all the candidates */
+private List<Candidate> candidates= new ArrayList<Candidate>();
 
+/** init this */
 private void init(File directory) throws IOException, DatabaseException
 	{
 	try {
@@ -137,6 +94,15 @@ private void init(File directory) throws IOException, DatabaseException
 		domFactory.setNamespaceAware(true);
 		this.domBuilder= domFactory.newDocumentBuilder();
 		this.documentBinding= new DocumentBinding(this.domBuilder);
+		
+		
+		XPathFactory xpf=XPathFactory.newInstance();
+		xpf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, false);
+		this.xpath=xpf.newXPath();
+		NamespaceContextImpl context= new NamespaceContextImpl();
+		context.setPrefixURI("psi", "net:sf:psidev:mi");
+		this.xpath.setNamespaceContext(context);
+		
 		}	
 
 	catch (Exception e)
@@ -234,13 +200,14 @@ private void scan(String identifier,int depth)
 	log().info("Inserting: "+identifier);
 	DatabaseEntry key=new DatabaseEntry();
 	DatabaseEntry data=new DatabaseEntry();
+	StringBinding.stringToEntry(identifier, key);
 	documentBinding.objectToEntry(dom, data);
 	if(this.protein2psixml.put(null, key, data)!=OperationStatus.SUCCESS)
 		{
 		throw new DatabaseException("Cannot insert psi/xml for "+identifier);
 		}
 	
-	if(depth> getMaxDepth())
+	if(depth+1>= getMaxDepth())
 		{
 		//skip children
 		log().info("Max depth reached");
@@ -250,7 +217,7 @@ private void scan(String identifier,int depth)
 	
 	Element root= dom.getDocumentElement();
 	verify(root!=null);
-	if(XMLUtilities.isA(root, NS, "entrySet")) throw new IllegalInputException("root not entry Set");
+	if(!XMLUtilities.isA(root, NS, "entrySet")) throw new IllegalInputException("root not entrySet but root:"+root.getTagName());
 	Element entry=XMLUtilities.firstChild(root,NS, "entry");
 	verify(entry!=null);
 	Element interactorList=XMLUtilities.firstChild(entry,NS, "interactorList");
@@ -265,6 +232,9 @@ private void scan(String identifier,int depth)
 		String id=att.getValue();
 		id2interactor.put(id, interactor);
 		}
+	log().info("interactors count:"+id2interactor.size());
+	
+	
 	Element interactionList=XMLUtilities.firstChild(entry,NS, "interactionList");
 	verify(interactionList!=null);
 	for(Element interaction: XMLUtilities.elements(interactionList, NS, "interaction"))
@@ -285,21 +255,22 @@ private void scan(String identifier,int depth)
 			
 			
 			}
-		if(identifiers[0].equalsIgnoreCase(identifier) ||
-		   identifiers[1].equalsIgnoreCase(identifier)
-				)
+		
+		log().info("interaction:"+identifiers[0]+" / "+identifiers[1]+" "+identifier);
+	
+		
+		putInteraction(identifiers[0],identifiers[1]);
+		
+		for(String ensembl:identifiers)
 			{
-			putInteraction(identifiers[0],identifiers[1]);
-			
-			for(String ensembl:identifiers)
-				{
-				if(ensembl.equalsIgnoreCase(identifier)) continue;
-				if(contains(ensembl)) continue;
-				log().info("adding "+identifier+" in remaining list");
-				remaining.add(ensembl);
-				}
+			if(ensembl.equalsIgnoreCase(identifier)) continue;
+			if(contains(ensembl)) continue;
+			log().info("adding "+identifier+" in remaining list");
+			remaining.add(ensembl);
 			}
+			
 		}
+	log().info("remaining interactions size:"+remaining.size());
 	for(String ensembl:remaining)
 		{
 		scan(ensembl, depth+1);
@@ -308,15 +279,106 @@ private void scan(String identifier,int depth)
 
 private abstract class PathMatcher
 	{
-	public abstract void foundPath(List<String> stack) throws DatabaseException;
+	abstract void foundPath(List<String> stack) throws DatabaseException;
 	}
+
+
+private void dump(String s)throws DatabaseException
+	{
+	List<String> chain=new ArrayList<String>();
+	chain.add(s);
+	System.out.println(XHTML.DOCTYPE);
+	System.out.println("<html><body style='font-size:10pt;'><table border='1'>");
+	walkNetwork(chain,new PathMatcher()
+		{
+		void foundPath(List<String> stack) throws DatabaseException
+			{
+			System.out.print("<tr>");
+			
+			
+			for(int i=0;i<stack.size();++i)
+				{
+				Document dom= getPsiXml(stack.get(i));
+				verify(dom!=null);
+				System.out.print("<td>");
+				try
+					{
+					Node interactor =(Node)xpath.evaluate("psi:entrySet/psi:entry/psi:interactorList/psi:interactor[psi:xref/psi:primaryRef/@id=\""+stack.get(i)+"\"]", dom, XPathConstants.NODE);
+					verify(interactor!=null);
+					System.out.print("<b>Short Label:</b>");
+					System.out.print("<a href='http://www.ensembl.org/Homo_sapiens/Gene/Summary?g="+stack.get(i)+"'>");
+					System.out.print(XMLUtilities.escape(xpath.evaluate("psi:names/psi:shortLabel",interactor)));
+					System.out.print("</a>");
+					System.out.print("<br/><b>Full Name:</b>");
+					System.out.print(XMLUtilities.escape(xpath.evaluate("psi:names/psi:fullName",interactor)));
+					
+					for(Candidate candidate: candidates)
+						{
+						Element xref=XMLUtilities.firstChild(interactor, NS, "xref");
+						for(Node n=xref.getFirstChild();n!=null;n=n.getNextSibling())
+							{
+							if(!(XMLUtilities.isA(n, NS, "primaryRef") || (XMLUtilities.isA(n, NS, "secondaryRef")))) continue;
+							String id= Element.class.cast(n).getAttribute("id");
+							if(id.equalsIgnoreCase(candidate.acn))
+								{
+								System.out.print("<br/><b>FOLD RANGE: "+candidate.foldChange+"</b>");
+								break;
+								}
+							}
+						}
+					
+					
+					System.out.print("</td>");
+					
+					if(i+1< stack.size())
+						{
+						String interactor_id= xpath.evaluate("@id",interactor);
+						Object next_interactor = xpath.evaluate("psi:entrySet/psi:entry/psi:interactorList/psi:interactor[psi:xref/psi:primaryRef/@id=\""+stack.get(i+1)+"\"]", dom, XPathConstants.NODE);
+						if(next_interactor==null)
+							{
+							System.out.print("<td><i>weak</i></td>");
+							continue;
+							}
+						String next_id= xpath.evaluate("@id",next_interactor);
+						Node interaction= (Node)xpath.evaluate("psi:entrySet/psi:entry/psi:interactionList/psi:interaction[" +
+								"(psi:participantList/psi:participant[1]/psi:interactorRef=\""+interactor_id+"\" and " +
+								" psi:participantList/psi:participant[2]/psi:interactorRef=\""+next_id+"\") or "+
+								"(psi:participantList/psi:participant[1]/psi:interactorRef=\""+next_id+"\" and " +
+								" psi:participantList/psi:participant[2]/psi:interactorRef=\""+interactor_id+"\")"+
+								"]", dom, XPathConstants.NODE);
+						
+						verify(interaction!=null);
+						String expRef= xpath.evaluate("psi:experimentList/psi:experimentRef",interaction);
+						Node experiment = (Node)xpath.evaluate("psi:entrySet/psi:entry/psi:experimentList/psi:experimentDescription[@id=\""+expRef+"\"]", dom, XPathConstants.NODE);
+						verify(experiment!=null);
+						System.out.print("<td><b>");
+						System.out.print("Confidence:</b> "+xpath.evaluate("psi:confidenceList/psi:confidence/psi:value",interaction));
+						System.out.print("<br/>");
+						System.out.print(xpath.evaluate("psi:names/psi:shortLabel", experiment));
+						System.out.print("</td>");
+						
+						}
+					}
+				catch(XPathException err)
+					{
+					err.printStackTrace();
+					}
+
+				
+				}
+			System.out.println("</tr>");
+			}
+		});
+	System.out.println("</table></body></html>");
+	}
+
 
 private void walkNetwork(
 		List<String> stack,
 		PathMatcher matcher
 		)throws DatabaseException
 	{
-	if(stack.size()==1+ getMaxDepth())
+	if(stack.size()==getMaxDepth())
 		{
 		matcher.foundPath(stack);
 		return;
@@ -388,7 +450,7 @@ private void putInteraction(String p1,String  p2)
 	DatabaseEntry data=new DatabaseEntry();
 	StringBinding.stringToEntry(p1, key);
 	StringBinding.stringToEntry(p2, data);
-
+	log().info("put interaction "+p1+"/"+p2);
 	protein2protein.putNoDupData(null, key, data);
 	protein2protein.putNoDupData(null, data, key);
 	}
@@ -408,12 +470,46 @@ private static void verify(boolean b)
 	{
 	if(!b) throw new AssertionError("Assertion failed");
 	}
+
+
+/** read the candidate name acn/protName/p-value we got from a microaaray analysis*/
+private void readAltNames(File f) throws IOException
+	{
+	BufferedReader r= new BufferedReader(new FileReader(f));
+	String line;
+	while((line=r.readLine())!=null)
+		{
+		if(line.startsWith("#") && line.trim().length()==0) continue;
+		String tokens[]=line.split("[\t]");
+		Candidate c= new Candidate();
+		c.acn=tokens[0];
+		c.protName=tokens[1];
+		c.foldChange=Double.parseDouble(tokens[2]);
+		
+		for(int i=0;i< candidates.size();++i)
+			{
+			Candidate c2= this.candidates.get(i);
+			if(c2.acn.equalsIgnoreCase(c.acn)  )
+				{
+				if(Math.abs(c2.foldChange) < Math.abs(c.foldChange))
+					{
+					this.candidates.set(i, c);
+					}
+				c=null;
+				break;
+				}
+			}
+		if(c!=null) this.candidates.add(c);
+		}
+	r.close();
+	}
 	
 public static void main(String[] args)
 	{
+	EmblStringsTool app= null;
 	try {
 		File directory= new File(System.getProperty("java.io.tmpdir", "/tmp"));
-		EmblStringsTool app= new EmblStringsTool();
+		app= new EmblStringsTool();
 		int optind=0;
 		String program=null;
 	    while(optind<args.length)
@@ -424,6 +520,7 @@ public static void main(String[] args)
 				System.err.println("-h this screen");
 				System.err.println("--log-level <LEVEL>");
 				System.err.println("-D max-deph <int>");
+				System.err.println("-f read alt names <file> (name <tab> alt-name <tab> weight )");
 				System.err.println("-p <program>");
 				System.err.println("    clear");
 				System.err.println("    load");
@@ -432,6 +529,10 @@ public static void main(String[] args)
 			else if (args[optind].equals("-D"))
 			     {
 				 app.maxDepth = Integer.parseInt(args[++optind]);
+			     }
+			else if (args[optind].equals("-f"))
+			     {
+				 app.readAltNames(new File(args[++optind]));
 			     }
 			else if (args[optind].equals("--log-level"))
 			     {
@@ -457,48 +558,57 @@ public static void main(String[] args)
 			     }
 			++optind;
 			}
-	   app.init(directory);
+	
 	    
-	   if(program==null)
+	if(program==null)
 	   	{
 		System.err.println("No program defined");
 		return;
 	   	}
-	   else if(program.equals("clear"))
-	   	{
+	
+	app.init(directory);
+	
+	if(program.equals("clear"))
+		{
 		app.clear();
-	   	}
-	   else if(program.equals("load"))
-   		   {
-		   Set<String> identifiers= new HashSet<String>();
-			
-			while(optind< args.length)
-				{
-				identifiers.add(args[optind++].toUpperCase());
-				}
-			if(identifiers.isEmpty())
-				{
-				System.err.println("Identifiers are missing");
-				}
-			for(String id: identifiers)
-				{
-				app.log().info("scanning "+id);
-				app.scan(id,0);
-				}
-	   	    }
-	   
-    try {
+		}
+	else if(program.equals("load"))
+		{
+	   Set<String> identifiers= new HashSet<String>();
 		
-		app.init(directory);
+		while(optind< args.length)
+			{
+			identifiers.add(args[optind++].toUpperCase());
+			}
+		if(identifiers.isEmpty())
+			{
+			System.err.println("Identifiers are missing");
+			}
+		for(String id: identifiers)
+			{
+			app.log().info("scanning "+id);
+			app.scan(id,0);
+			}
+		}
+	else if(program.equals("dump"))
+		{
+		while(optind< args.length)
+			{
+			
+			app.dump(args[optind++].toUpperCase());
+			}
+		}
+   else
+	   	{
+	   System.err.println("Unknown program "+program);
+	   	}
+    
 	} catch (Exception e) {
 		e.printStackTrace();
-		}
+	}
 	finally
 		{
 		if(app!=null) app.close();
 		}
-	} catch (Exception e) {
-		e.printStackTrace();
-	}
 }
 }
