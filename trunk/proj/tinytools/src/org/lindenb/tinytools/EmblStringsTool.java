@@ -23,7 +23,6 @@ import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathException;
 import javax.xml.xpath.XPathFactory;
 
-import org.json.XML;
 import org.lindenb.berkeley.DocumentBinding;
 import org.lindenb.lang.IllegalInputException;
 import org.lindenb.sw.vocabulary.XHTML;

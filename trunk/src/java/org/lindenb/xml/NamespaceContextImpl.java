@@ -13,12 +13,17 @@ import java.util.Set;
 
 import javax.xml.XMLConstants;
 
+import org.lindenb.util.StringUtils;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
+
 /**
  * @author lindenb
  * NamespaceContext: a context used in XPATH.setNamespaceContext
  *
  */
-public class NamespaceContextImpl implements javax.xml.namespace.NamespaceContext
+public class NamespaceContextImpl
+	implements javax.xml.namespace.NamespaceContext
 	{
 	private Map<String, String> prefix2uri=new HashMap<String, String>();
 	private Map<String, Set<String>> uri2prefix=new HashMap<String, Set<String>>();
@@ -28,6 +33,60 @@ public class NamespaceContextImpl implements javax.xml.namespace.NamespaceContex
 		
 		}
 	
+	/** copy constructor */
+	public NamespaceContextImpl(NamespaceContextImpl cp)
+		{
+		this.prefix2uri.putAll(cp.prefix2uri);
+		for(String s:cp.uri2prefix.keySet())
+			{
+			this.uri2prefix.put(s, new HashSet<String>(cp.uri2prefix.get(s)));
+			}
+		}
+	
+	
+	/** clear everything */
+	public void clear()
+		{
+		this.prefix2uri.clear();
+		this.uri2prefix.clear();
+		}
+	
+	/** load all the namespaces in a DOM object */
+	public void loadDOM(Node node)
+		{
+		switch(node.getNodeType())
+			{
+			case Node.ELEMENT_NODE:
+			case Node.ATTRIBUTE_NODE:
+				String ns= node.getNamespaceURI();
+				String prefix= node.getPrefix();
+				if(!StringUtils.isEmpty(ns) && !StringUtils.isEmpty(ns))
+					{
+					setPrefixURI(prefix, ns);
+					}
+				break;
+			default:break;
+			}
+		if(node.hasAttributes())
+			{
+			NamedNodeMap map= node.getAttributes();
+			for(int i=0;i< map.getLength();++i)
+				{
+				loadDOM(map.item(i));
+				}
+			}
+		
+		if(node.hasChildNodes())
+			{
+			for(Node c=node.getFirstChild();c!=null;c=c.getNextSibling())
+				{
+				loadDOM(c);
+				}
+			}
+		
+		}
+	
+	/** add the given prefix and uri */
 	public void setPrefixURI(String prefix,String uri)
 		{
 		if(prefix==null || uri==null) return;
@@ -80,6 +139,17 @@ public class NamespaceContextImpl implements javax.xml.namespace.NamespaceContex
 		Set<String> set= uri2prefix.get(namespaceURI);
 		if(set==null) return new ArrayList<String>(1).iterator();
 		return set.iterator();
+		}
+	
+	@Override
+	protected Object clone()
+		{
+		return new NamespaceContextImpl(this);
+		}
+	
+	@Override
+	public String toString() {
+		return "NamespaceContext:"+prefix2uri;
 		}
 
 }
