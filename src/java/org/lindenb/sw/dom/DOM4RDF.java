@@ -6,11 +6,8 @@ import java.io.Reader;
 import java.io.StringWriter;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
-import java.util.Set;
 import java.util.logging.Logger;
 
 import javax.xml.XMLConstants;
@@ -25,8 +22,12 @@ import javax.xml.transform.stream.StreamResult;
 
 import org.lindenb.io.IOUtils;
 import org.lindenb.lang.InvalidXMLException;
+import org.lindenb.sw.nodes.Literal;
+import org.lindenb.sw.nodes.RDFNode;
+import org.lindenb.sw.nodes.Resource;
+import org.lindenb.sw.nodes.Statement;
+import org.lindenb.sw.nodes.StmtSet;
 import org.lindenb.sw.vocabulary.RDF;
-import org.lindenb.util.C;
 import org.lindenb.util.Compilation;
 import org.lindenb.util.StringUtils;
 import org.lindenb.util.TimeUtils;
@@ -50,229 +51,26 @@ public class DOM4RDF
 	static private Logger _log= Logger.getLogger(DOM4RDF.class.getName());
 	private Random rand= new Random(ID_GENERATOR);
 	private Transformer transformer;
-	
-	/**
-	 * A Resource (URI) in the document
-	 * @author lindenb
-	 *
-	 */
-	public static class Resource
-		{
-		private String uri;
-		private boolean anonymous;
-		private Resource(String s) throws URISyntaxException
-			{
-			this(s,false);
-			}
-		private Resource(String s,boolean anonymous) throws URISyntaxException
-			{
-			this.uri=s;
-			if(s.startsWith("_:")) anonymous=true;
-			this.anonymous=anonymous;
-			if(!anonymous) new java.net.URI(s);
-			}
-		@Override
-		public int hashCode()
-			{
-			return uri.hashCode();
-			}
-		/** is it an anonymous resource */
-		public boolean isAnonymous()
-			{
-			return anonymous;
-			}
+
 		
-		@Override
-		public boolean equals(Object obj) {
-			if (this == obj) return true;
-			if (obj == null || getClass() != obj.getClass())
-				return false;
-			Resource other = (Resource) obj;
-			return uri.equals(other.uri);
-			}
-		
-		@Override
-		public String toString() {
-			return uri;
-			}
-		}
-	
-	/**
-	 * 
-	 * A Statement (subject/predicate/value)
-	 *
-	 */
-	public static class Statement
-		{
-		private Resource subject;
-		private Resource predicate;
-		private Object value;
-		private String dataType;
-		private String lang;
-		
-		
-		
-		private Statement(Resource subject, Resource predicate, Object value,
-				String dataType, String lang)
-			{
-			this.subject = subject;
-			this.predicate = predicate;
-			this.value = value;
-			this.dataType = dataType;
-			this.lang = lang;
-			}
-		
-		public Resource getSubject() {
-			return subject;
-			}
-		public Resource getPredicate() {
-			return predicate;
-			}
-		public Object getValue() {
-			return value;
-			}
-		public String getDataType() {
-			return dataType;
-			}
-		public String getLang() {
-			return lang;
-			}
-		
-		@Override
-		public int hashCode()
-			{
-			final int prime = 31;
-			int result = 1;
-			result = prime * result + predicate.hashCode();
-			result = prime * result + subject.hashCode();
-			result = prime * result +  value.hashCode();
-			return result;
-			}
-		
-		@Override
-		public boolean equals(Object obj) {
-			if (this == obj)
-				return true;
-			if (obj == null)
-				return false;
-			if (!(obj instanceof Statement))
-				return false;
-			Statement other = (Statement) obj;
-			
-			if (!subject.equals(other.subject)) return false;
-			if (!predicate.equals(other.predicate)) return false;
-			if (!value.equals(other.value)) return false;
-			
-			if (dataType == null) {
-				if (other.dataType != null)
-					return false;
-			} else if (!dataType.equals(other.dataType))
-				return false;
-			if (lang == null) {
-				if (other.lang != null)
-					return false;
-			} else if (!lang.equals(other.lang))
-				return false;
-			
-			return true;
-			}
-		
-		public boolean isLiteral()
-			{
-			return !(value instanceof Resource);
-			}
-		
-		public String asN3()
-			{
-			StringBuilder b=new StringBuilder();
-			if(this.subject.isAnonymous())
-				{
-				b.append(this.subject).append(" ");;
-				}
-			else
-				{
-				b.append("<").append(this.subject).append("> ");
-				}
-			
-			if(this.predicate.isAnonymous())
-				{
-				b.append(this.predicate).append(" ");;
-				}
-			else
-				{
-				b.append("<").append(this.predicate).append("> ");
-				}
-			
-			if(!isLiteral())
-				{
-				if(Resource.class.cast(this.value).isAnonymous())
-					{
-					b.append(this.value).append(" ");
-					}
-				else
-					{
-					b.append("<").append(this.value).append("> ");
-					}
-				}
-			else
-				{
-				b.append("\"").append(C.escape(this.value.toString())).append("\"");
-				if(dataType!=null)
-					{
-					b.append("^^<").append(this.dataType).append("> ");
-					}
-				else if(lang!=null)
-					{
-					b.append("@").append(this.lang);
-					}
-				}
-			
-			b.append(" .");
-			return b.toString();
-			}
-		
-		/**
-		 * return wether this statement match a given rule
-		 * @param subject used as a filter. if null, select wathever 
-		 * @param predicate used as a filter. if null, select wathever 
-		 * @param value used as a filter. Can be a String or a Resource. If null, select wathever
-		 * @returna true if this Stmt match the rules
-		 */
-		public boolean match( Resource subject, Resource predicate, Object value)
-			{
-			if(subject!=null && !this.subject.equals(subject)) return false;
-			if(predicate!=null && !this.predicate.equals(predicate)) return false;
-			if(value!=null && !this.value.equals(value)) return false;
-			return true;
-			}
-		
-		@Override
-		public String toString() {
-			return asN3();
-			}
-		}
-	
-	
-	
 	
 	
 	private static class PileUpStmt
 		extends DOM4RDF
 		{
-		private Set<Statement> stmts= new HashSet<Statement>();
+		private StmtSet stmts= new StmtSet();
 		private Resource subject;
 		private Resource predicate;
-		private Object value;
+		private RDFNode value;
 		
 		
 		public PileUpStmt()
 			{
-			this(null,null,null,null,null);
+			this(null,null,null);
 			}
 		
 		public PileUpStmt(
-				Resource subject, Resource predicate, Object value,
-				String dataType, String lang)
+				Resource subject, Resource predicate, RDFNode value)
 			{
 			this.subject=subject;
 			this.predicate=predicate;
@@ -282,15 +80,15 @@ public class DOM4RDF
 		
 		@Override
 		public void foundStatement(
-				Resource subject, Resource predicate, Object value,
-				String dataType, String lang)
+				Resource subject, Resource predicate, RDFNode value
+				)
 			{
-			Statement stmt=new Statement(subject,predicate,value,dataType,lang);
+			Statement stmt=new Statement(subject,predicate,value);
 			if(!stmt.match(this.subject, this.predicate, this.value)) return;
 			this.stmts.add(stmt);
 			}
 		
-		public Set<Statement> getStatements()
+		public StmtSet getStatements()
 			{
 			return this.stmts;
 			}
@@ -435,30 +233,6 @@ public class DOM4RDF
 			}
 		}
 	
-	/**
-	 * return a Set of filtered RDF Statements
-	 * @param an original collection of rdf:RDF or a Statement
-	 * @param subject used as a filter. if null, select all the subjects
-	 * @param predicate used as a filter. if null, select all the predicates
-	 * @param value used as a filter. Can be a String or a Resource. If null, select all the values
-	 * @returna Set of filtered RDF Statements
-	 */
-	public static Set<Statement> filter(
-			final Collection<Statement> stmts,
-			final Resource subject,
-			final Resource predicate,
-			final Object value)
-		{
-		Set<Statement> set= new HashSet<Statement>();
-		for(Statement stmt: stmts)
-			{
-			if(stmt.match(subject, predicate, value))
-				{
-				set.add(stmt);
-				}
-			}
-		return set;
-		}
 	
 	/** return wether this node a a rdf:(abou|ID|nodeId) */
 	public static boolean isAnonymousResource(Element rsrc)
@@ -543,10 +317,10 @@ public class DOM4RDF
 					}
 				else
 					{
-					foundStatement(subject,
+					foundStatement(
+						subject,
 						createResource(att.getNamespaceURI()+att.getLocalName()),
-						att.getValue(),
-						null,null
+						new Literal(att.getValue())
 						);
 					}
 				}
@@ -635,7 +409,7 @@ public class DOM4RDF
 			if(!property.hasChildNodes())
 				{
 				if(rsrc==null) throw new InvalidXMLException(property,"missing rdf:resource");
-				foundStatement(subject, predicate, createResource(rsrc.getValue()), null, null);
+				foundStatement(subject, predicate, createResource(rsrc.getValue()));
 				}
 			else
 				{
@@ -644,9 +418,10 @@ public class DOM4RDF
 				int count = XMLUtilities.count(property);
 				switch(count)
 					{
-					case 0: foundStatement(subject, predicate, property.getTextContent(), dataType, getLang(property)); break;
+					case 0: foundStatement(subject, predicate, new Literal( property.getTextContent(), dataType, getLang(property)));
+							break;
 					case 1: Resource value= parseResource(XMLUtilities.firstChild(property));
-							foundStatement(subject, predicate, value, null, null);
+							foundStatement(subject, predicate,value);
 							break;
 					default: throw new InvalidXMLException(property,"illegal number of element under.");
 					}
@@ -689,7 +464,7 @@ public class DOM4RDF
 			
 			if(subject!=null && predicate!=null && buff!=null)
 				{
-				foundStatement(subject,predicate,buff.toString(),RDF.NS+"XMLLiteral", getLang(property));
+				foundStatement(subject,predicate,new Literal(buff.toString(),RDF.NS+"XMLLiteral", getLang(property)));
 				}
 			}
 		else if(parseType.equals("Resource"))
@@ -697,7 +472,7 @@ public class DOM4RDF
 			Resource rsrc= createAnonId();
 			if(subject!=null && predicate!=null)
 				{
-				foundStatement(subject,predicate,rsrc,null,null);
+				foundStatement(subject,predicate,rsrc);
 				}
 			
 			for(Node n1=property.getFirstChild();n1!=null;n1=n1.getNextSibling())
@@ -754,21 +529,21 @@ public class DOM4RDF
 				
 				if(subject!=null && predicate!=null)
 					{
-					foundStatement(subject, predicate,prevURI, null, null);
+					foundStatement(subject, predicate,prevURI);
 					}
 				
 				for(int i=0;i< list.size();++i)
 					{
 					if(i+1==list.size())
 						{
-						foundStatement(prevURI,createResource(RDF.NS+"first"), list.get(i), null, null);
-						foundStatement(prevURI,createResource(RDF.NS+"rest"), createResource(RDF.NS+"nil"), null, null);
+						foundStatement(prevURI,createResource(RDF.NS+"first"), list.get(i));
+						foundStatement(prevURI,createResource(RDF.NS+"rest"), createResource(RDF.NS+"nil"));
 						}
 					else
 						{
 						Resource newURI= createAnonId();
-						foundStatement(prevURI,createResource(RDF.NS+"first"), list.get(i), null,null);
-						foundStatement(prevURI,createResource(RDF.NS+"rest"), newURI, null, null);
+						foundStatement(prevURI,createResource(RDF.NS+"first"), list.get(i));
+						foundStatement(prevURI,createResource(RDF.NS+"rest"), newURI);
 						prevURI=newURI;
 						}
 					}
@@ -813,9 +588,7 @@ public class DOM4RDF
 	public void foundStatement(
 		Resource subject,
 		Resource property,
-		Object value,
-		String dataType,
-		String lang
+		RDFNode value
 		)
 		{
 		
@@ -830,14 +603,14 @@ public class DOM4RDF
 	 * @returna Set of filtered RDF Statements
 	 * @throws InvalidXMLException
 	 */
-	public static Set<Statement> getStatements(Node node,
+	public static StmtSet getStatements(Node node,
 			Resource subject,
 			Resource predicate,
-			Object value
+			RDFNode value
 			) throws InvalidXMLException
 		{
 		if(node==null) throw new NullPointerException("node==null");
-		PileUpStmt app= new PileUpStmt(subject,predicate,value,null,null);
+		PileUpStmt app= new PileUpStmt(subject,predicate,value);
 		switch(node.getNodeType())
 			{
 			case Node.DOCUMENT_NODE: app.parse(Document.class.cast(node));break;
@@ -864,7 +637,7 @@ public class DOM4RDF
 	 * @return a set of Statements
 	 * @throws InvalidXMLException
 	 */
-	public static Set<Statement> getStatements(Node node) throws InvalidXMLException
+	public static StmtSet getStatements(Node node) throws InvalidXMLException
 		{
 		return getStatements(node, null, null, null);
 		}
@@ -899,10 +672,9 @@ public class DOM4RDF
 				{
 				@Override
 				public void foundStatement(
-						Resource subject, Resource predicate, Object value,
-						String dataType, String lang)
+						Resource subject, Resource predicate, RDFNode value)
 					{
-					Statement stmt=new Statement(subject,predicate,value,dataType,lang);
+					Statement stmt=new Statement(subject,predicate,value);
 					System.out.println(stmt.asN3());
 					}
 				};
