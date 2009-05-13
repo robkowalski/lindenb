@@ -14,6 +14,8 @@ import java.util.logging.Logger;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
+import javax.xml.XMLConstants;
+import javax.xml.namespace.QName;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
@@ -26,6 +28,11 @@ import org.w3c.dom.EntityReference;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.ProcessingInstruction;
+import org.xml.sax.Attributes;
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.AttributesImpl;
+import org.xml.sax.helpers.DefaultHandler;
 
 /**
  * Serialize document to/from InputStream/OutputStream
@@ -367,7 +374,130 @@ public class DocumentSerializer
 		}
 	
 
+	/** read a serialized document using a SAX Handler. Not Tested*/
+	public void parseDocument(ContentHandler handler,InputStream in) throws IOException,SAXException
+		{
+	    int compress= in.read();
+	    if(compress==-1) throw new IllegalInputException("compression byte missing");
+	    if(compress==1) in= new GZIPInputStream(in);
+	    DataInputStream input=new DataInputStream(in);
+	    
+	    int n= input.readInt();
+		Map<Integer,String> idx2ns=new TreeMap<Integer,String>();
+		for(int i=0;i< n;++i)
+			{
+			idx2ns.put(input.readInt(), readString(input));
+			}
+		
+		n= input.readInt();
+		Map<Integer,String> idx2qname=new TreeMap<Integer,String>();
+		for(int i=0;i< n;++i)
+			{
+			idx2qname.put(input.readInt(), readString(input));
+			}
 	
+		parsenode(handler,idx2ns,idx2qname,input);
+		}
+	
+	/** parse a DataInputStream with a SAX Handler */
+	private void parsenode(
+			ContentHandler handler,
+		Map<Integer,String> idx2ns,
+		Map<Integer,String> idx2qname,
+		DataInputStream in)
+		throws IOException,SAXException
+		{
+		int nodeType=in.readInt();
+		switch(nodeType)
+			{
+			case Node.DOCUMENT_NODE:
+				{
+				handler.startDocument();
+				readString(in);// XmlVersion
+				in.readBoolean();//XmlStandalone
+				
+				int count= in.readInt();
+				for(int i=0;i< count;++i)
+					{
+					parsenode(handler, idx2ns,idx2qname,in);
+					}
+				handler.endDocument();
+				break;
+				}
+			case Node.ELEMENT_NODE:
+				{
+				AttributesImpl atts= new AttributesImpl();
+
+				int nsid= in.readInt();
+				String ns=null;
+				String qName=idx2qname.get(in.readInt());
+				String localName=qName;
+				
+				if(nsid!=-1)
+					{
+					int i= qName.indexOf(':');
+					if(i!=-1) localName=qName.substring(i+1);
+					ns=idx2ns.get(nsid);
+					}
+				//loop over attributes
+				int count= in.readInt();
+				for(int i=0;i< count;++i)
+					{
+					in.readInt();//ignore read Node.ATTRIBUTE_NODE
+					nsid= in.readInt();
+					String attns=null;
+					String attQName= idx2qname.get(in.readInt());
+					
+					String attLocalName= attQName;
+					
+					if(nsid!=-1)
+						{
+						int j= attQName.indexOf(':');
+						if(j!=-1)
+							{
+							attLocalName=attQName.substring(j+1);
+							}
+						attns=idx2ns.get(nsid);
+						}
+					
+						
+					if(attns!=null && attns.equals(XMLConstants.XMLNS_ATTRIBUTE_NS_URI))
+						{
+						handler.startPrefixMapping(attLocalName, readString(in));
+						}
+					else
+						{
+						atts.addAttribute(attns, attLocalName, attQName, "TODO", readString(in));
+						}
+					}
+				handler.startElement(ns, localName, qName, atts);
+				count= in.readInt();
+				for(int i=0;i< count;++i)
+					{
+					parsenode(handler,idx2ns,idx2qname,in);
+					}
+				handler.endElement(ns, localName, qName);
+				break;
+				}
+			case Node.COMMENT_NODE:
+				{
+				//ignore
+				break;
+				}
+			case Node.TEXT_NODE:
+				{
+				char s[]=readString(in).toCharArray();
+				handler.characters(s, 0, s.length);
+				break;
+				}
+			case Node.PROCESSING_INSTRUCTION_NODE:
+				{
+				handler.processingInstruction(readString(in),readString(in));
+				break;
+				}
+			default: throw new IllegalArgumentException("Node not handled "+nodeType);
+			}
+		}
 	
 	/**
 	 * 
@@ -400,7 +530,9 @@ public class DocumentSerializer
 						}
 					++optind;
 					}
-							
+				
+				
+				
 				DocumentBuilderFactory f=DocumentBuilderFactory.newInstance();
 				f.setCoalescing(true);
 				f.setNamespaceAware(true);
@@ -414,9 +546,9 @@ public class DocumentSerializer
 				
 				while(optind < args.length)
 					{
-					
-					Document dom=docBuilder.parse(new File(args[optind++]));
-					for(int i=0;i< 100;++i)
+					File fin=new File(args[optind++]);
+					Document dom=docBuilder.parse(fin);
+					for(int i=0;i< 10;++i)
 						{
 						ByteArrayOutputStream out= new ByteArrayOutputStream();
 						app.writeDocument(dom, out);
