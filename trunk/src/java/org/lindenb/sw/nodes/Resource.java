@@ -1,20 +1,36 @@
 package org.lindenb.sw.nodes;
 
 import java.net.URISyntaxException;
+import java.util.Random;
+
+import org.lindenb.util.TimeUtils;
 
 public class Resource
 	extends RDFNode
 	implements Comparable<Resource>
 	{
+	private static long ID_GENERATOR=System.currentTimeMillis();
+	private static Random RANDOM=new Random();
 	private static final long serialVersionUID = 1L;
 	private String uri;
 	private boolean anonymous;
-	public Resource(String s) throws URISyntaxException
+	
+	/**
+	 * An anonymous Node
+	 */
+	public Resource()
 		{
-		this(s,false);
+		this("_:"+TimeUtils.toYYYYMMDDHHMMSS()+"-"+
+				(++ID_GENERATOR)+"-"+RANDOM.nextInt()
+			,true);
 		}
 	
-	public Resource(String uri,boolean anonymous) throws URISyntaxException
+	public Resource(String uri)
+		{
+		this(uri,false);
+		}
+	
+	public Resource(String uri,boolean anonymous)
 		{
 		if(uri==null) throw new NullPointerException("null uri");
 		this.uri=uri;

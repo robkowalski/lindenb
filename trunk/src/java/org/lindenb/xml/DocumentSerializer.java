@@ -252,7 +252,7 @@ public class DocumentSerializer
 				writeString(output,entity.getNodeName());
 				break;
 				}
-			default: throw new IllegalArgumentException("Node Type not handled");
+			default: throw new IllegalArgumentException("Node Type not handled :"+n.getNodeType());
 			}
 		}
 	
