@@ -4,10 +4,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.io.StringWriter;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.logging.Logger;
 
 import javax.xml.XMLConstants;
@@ -30,7 +28,6 @@ import org.lindenb.sw.nodes.StmtSet;
 import org.lindenb.sw.vocabulary.RDF;
 import org.lindenb.util.Compilation;
 import org.lindenb.util.StringUtils;
-import org.lindenb.util.TimeUtils;
 import org.lindenb.xml.XMLUtilities;
 import org.w3c.dom.Attr;
 import org.w3c.dom.Document;
@@ -47,9 +44,7 @@ import org.xml.sax.SAXException;
  */
 public class DOM4RDF
 	{
-	static private long ID_GENERATOR=System.currentTimeMillis();
 	static private Logger _log= Logger.getLogger(DOM4RDF.class.getName());
-	private Random rand= new Random(ID_GENERATOR);
 	private Transformer transformer;
 
 		
@@ -181,9 +176,9 @@ public class DOM4RDF
 		{
 		try
 			{
-			return new Resource("_:"+TimeUtils.toYYYYMMDDHHMMSS()+"-"+(++ID_GENERATOR)+"-"+Math.abs(rand.nextInt() ) ,true);
+			return new Resource();
 			}
-		catch(URISyntaxException err)
+		catch(Exception err)
 			{
 			throw new InvalidXMLException(err);
 			}
@@ -227,7 +222,7 @@ public class DOM4RDF
 		{
 		try {
 			return new Resource(uri);
-		} catch (URISyntaxException e)
+		} catch (Exception e)
 			{
 			throw new InvalidXMLException(e);
 			}
