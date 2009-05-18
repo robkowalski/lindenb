@@ -27,6 +27,29 @@ public class StmtSet
 		while(iter.hasNext()) add(iter.next());
 		}
 	
+	/** get all distinct subjects in the model */
+	public Set<Resource> getSubjects()
+		{
+		Set<Resource> subjects= new HashSet<Resource>();
+		for(Statement stmt:getStmts())
+			{
+			subjects.add(stmt.getSubject());
+			}
+		return subjects;
+		}
+	
+	/** get all distinct predicates in the model */
+	public Set<Resource> getPredicates()
+		{
+		Set<Resource> subjects= new HashSet<Resource>();
+		for(Statement stmt:getStmts())
+			{
+			subjects.add(stmt.getPredicate());
+			}
+		return subjects;
+		}
+	
+	
 	public boolean add(Statement stmt)
 		{
 		return getStmts().add(stmt);
