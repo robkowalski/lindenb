@@ -320,6 +320,14 @@ public class DOM4RDF
 					}
 				}
 			}
+		if(!XMLUtilities.isA(root, RDF.NS, "Resource"))
+			{
+			foundStatement(
+					subject,
+					createResource(RDF.NS+"type"),
+					createResource(root.getNamespaceURI()+root.getLocalName())
+					);
+			}
 		parseResourceChildren(root, subject);
 		return subject;
 		}
