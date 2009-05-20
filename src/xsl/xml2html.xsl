@@ -34,6 +34,12 @@ This stylesheet transform xml to html
 </xsl:choose>
 </xsl:template>
 
+<xsl:template match="comment()"><span style="color:green;"
+>&lt;!-- <xsl:value-of select="."/> --&gt;</span
+></xsl:template>
+
+<xsl:template match="processing-instruction()"><span style="color:blue;"
+>&lt;?<xsl:value-of select="name()"/><xsl:text> </xsl:text>  <xsl:value-of select="."/> ?&gt;</span></xsl:template>
 
 
 
