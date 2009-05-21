@@ -13,6 +13,7 @@ import java.sql.SQLWarning;
 import java.util.Properties;
 import java.util.Stack;
 import org.lindenb.sql.SQLUtilities;
+import org.lindenb.sw.RDFException;
 
 
 

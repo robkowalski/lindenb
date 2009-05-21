@@ -23,6 +23,7 @@ import javax.xml.stream.XMLStreamWriter;
 
 
 import org.lindenb.sw.PrefixMapping;
+import org.lindenb.sw.RDFException;
 import org.lindenb.sw.vocabulary.RDF;
 import org.lindenb.util.C;
 import org.lindenb.util.XObject;
