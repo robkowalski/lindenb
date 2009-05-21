@@ -1,7 +1,7 @@
 /**
  * 
  */
-package org.lindenb.sw.model;
+package org.lindenb.sw;
 
 /**
  * @author pierre

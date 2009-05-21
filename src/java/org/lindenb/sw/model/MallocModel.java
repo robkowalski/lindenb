@@ -7,6 +7,7 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Vector;
 
+import org.lindenb.sw.RDFException;
 import org.lindenb.util.Algorithms;
 import org.lindenb.util.Pair;
 
