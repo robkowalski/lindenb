@@ -110,7 +110,8 @@ see: http://en.wikipedia.org/wiki/Template:Infobox_Journal
 <xsl:for-each select="BroadJournalHeadingList/BroadJournalHeading">
 [[Category:<xsl:choose>
 <xsl:when test=".=&apos;Science&apos;">Scientific</xsl:when>
-<xsl:otherwise><xsl:value-of select="."/></xsl:otherwise></xsl:choose></xsl:for-each> literature]]
+<xsl:otherwise><xsl:value-of select="."/></xsl:otherwise></xsl:choose> literature]]
+</xsl:for-each>
 <xsl:text>
 
 
