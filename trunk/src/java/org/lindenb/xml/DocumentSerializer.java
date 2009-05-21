@@ -15,7 +15,6 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 import javax.xml.XMLConstants;
-import javax.xml.namespace.QName;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
@@ -28,11 +27,9 @@ import org.w3c.dom.EntityReference;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.ProcessingInstruction;
-import org.xml.sax.Attributes;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.AttributesImpl;
-import org.xml.sax.helpers.DefaultHandler;
 
 /**
  * Serialize document to/from InputStream/OutputStream
@@ -44,7 +41,12 @@ public class DocumentSerializer
 	private static Logger LOG=Logger.getLogger(DocumentSerializer.class.getName()); 
 	/** should we gzip */
 	private boolean compressed=false;
-	/** blank text */
+	
+	/** Ctor */
+	public DocumentSerializer()
+		{
+		
+		}
 	
 	/** set the use a GZIPOutputStream for output */
 	public void setCompressed(boolean compressed)
@@ -497,6 +499,11 @@ public class DocumentSerializer
 				}
 			default: throw new IllegalArgumentException("Node not handled "+nodeType);
 			}
+		}
+	
+	@Override
+	public String toString() {
+		return getClass().getName();
 		}
 	
 	/**
