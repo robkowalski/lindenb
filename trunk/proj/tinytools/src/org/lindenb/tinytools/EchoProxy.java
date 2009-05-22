@@ -34,6 +34,9 @@ public void handle(HttpExchange http) throws IOException
     PrintWriter web= new PrintWriter(http.getResponseBody());
     PrintWriter out= new PrintWriter(new YWriter(web,console));
     out.println("### "+new Date()+" ###");
+    out.println("Method: "+http.getRequestMethod());
+    out.println("Protocol: "+http.getProtocol());
+    out.println("RemoteAddress.HostName: "+http.getRemoteAddress().getHostName());
     for(String key:reqHeaders.keySet())
     	{
     	out.println("* \""+key+"\"");
