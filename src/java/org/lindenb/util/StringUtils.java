@@ -43,4 +43,19 @@ public class StringUtils
 		return s;
 		}
 	
+	/** anwsers wether the first string is in the choice */
+	public static boolean isIn(String search,String...choice)
+		{
+		for(String s:choice) if(s.equals(search)) return true;
+		return false;
+		}
+	
+	/** anwsers wether the first string is in the choice */
+	public static boolean isInIgnoreCase(String search,String...choice)
+		{
+		for(String s:choice) if(s.equalsIgnoreCase(search)) return true;
+		return false;
+		}
+	
+	
 	}
