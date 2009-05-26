@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <!-- xjc SANDBOX/SANDBOX/org/lindenb/sandox/tinyseq.xsd -d SANDBOX/SANDBOX -p org.lindenb.sandbox.tinyseq -->
+  <xs:annotation>
+    <xs:documentation> XML schema for NCBI tinyseq format</xs:documentation>
+  </xs:annotation>
+
+  <xs:element name="TSeqSet">
+    <xs:annotation>
+      <xs:documentation>Set of sequences</xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="TSeq" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="TSeq">
+    <xs:annotation>
+      <xs:documentation>A Tiny Sequence</xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="TSeq_seqtype">
+	   <xs:complexType>
+            <xs:attribute name="value">
+              <xs:simpleType>
+                <xs:restriction base="xs:string">
+                  <xs:enumeration value="nucleotide"/>
+                  <xs:enumeration value="protein"/>
+                </xs:restriction>
+              </xs:simpleType>
+            </xs:attribute>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="TSeq_gi" type="xs:integer"/>
+        <xs:element name="TSeq_accver" type="xs:string"/>
+        <xs:element name="TSeq_sid" type="xs:string"/>
+        <xs:element name="TSeq_taxid" type="xs:nonNegativeInteger"/>
+        <xs:element name="TSeq_orgname" type="xs:string"/>
+        <xs:element name="TSeq_defline" type="xs:string"/>
+        <xs:element name="TSeq_length" type="xs:nonNegativeInteger"/>
+        <xs:element name="TSeq_sequence" type="xs:string"/>
+      </xs:sequence>
+   </xs:complexType>
+  </xs:element>
+
+</xs:schema>
