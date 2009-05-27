@@ -1,0 +1,164 @@
+/**
+ *  A custom ASN.1 parser just for fun
+ *  When I got time, I'll finish to write this
+ * http://www.obj-sys.com/asn1tutorial/node11.html
+ */
+ 
+options {
+  JDK_VERSION = "1.6";
+  STATIC=true;
+	}
+PARSER_BEGIN(Asn1Parser)
+
+package org.lindenb.asn1;
+
+public class Asn1Parser
+   {
+  public static void main(String args[]) throws ParseException {
+    Asn1Parser parser = new Asn1Parser(System.in);
+    while (true) {
+      System.out.println("Reading from standard input...");
+      System.out.print("Enter an expression like \"1+(2+3)*4;\" :");
+      try {
+        switch (AsnParser.input()) {
+        case 0:
+          System.out.println("OK.");
+          break;
+        case 1:
+          System.out.println("Goodbye.");
+          break;
+        default:
+          break; 
+        }
+      } catch (Exception e) {
+        System.out.println("NOK.");
+        System.out.println(e.getMessage());
+        AsnParser.ReInit(System.in);
+      } catch (Error e) {
+        System.out.println("Oops.");
+        System.out.println(e.getMessage());
+        break;
+      }
+    }
+  }
+}
+PARSER_END(Asn1Parser)
+
+SKIP :
+{
+ 	" "
+|	"\r"
+|	"\t"
+|	"\n"
+| 	"--": WithinComment
+}
+
+<WithinComment> SKIP:
+{
+    "\n": DEFAULT
+|   "\r": DEFAULT
+|    <~[]>
+}
+
+TOKEN :
+{
+	< ANY: "ANY" >
+|	< BEGIN: "BEGIN" >
+|	< BOOLEAN: "BOOLEAN" >
+|	< CHOICE: "CHOICE" >
+|	< DEFINITIONS: "DEFINITIONS" >
+|	< ENUMERATED: "ENUMERATED" >
+|	< END: "END" >
+|	< INTEGER: "INTEGER" >
+|	< NILL: "NULL" >
+|	< OPTIONAL: "OPTIONAL" >
+|	< OF: "OF" >
+|	< REAL: "REAL" >
+|	< SELECTION: "SELECTION" >
+|	< SEQUENCE: "SEQUENCE" >
+|	< SET: "SET" >
+|	< VISIBLESTRING: "VisibleString" >
+|	< DECL: "::=" >
+|	< OB: "{" >
+|	< CB: "}" >
+|	< OP: "(" >
+|	< CP: ")" >
+|	< OA: "[" >
+|	< CA: "]" >
+|	< COMMA: "," >
+}
+
+TOKEN:
+{
+	<IDENTIFIER: (["A"-"Z"])+>
+|	<INT_VALUE: (["0"-"9"])+>
+}
+
+void input():
+	{
+	}
+	{
+	definition()
+	}
+
+void definition():
+	{
+	}
+	{
+	<IDENTIFIER> <DEFINITIONS> <DECL> <BEGIN> definition_body() <END> 
+	}
+
+void definition_body():
+	{
+	}
+	{
+	typeDecl() ( typeDecl())*
+	}
+
+void typeDecl():
+	{
+	}
+	{
+		<IDENTIFIER> <DECL> <SEQUENCE>  ( <OF> <IDENTIFIER> | <OB> field() (<COMMA> field())* <CB> )
+	}
+
+void field():
+	{
+	
+	}
+	{
+	<IDENTIFIER> (<SEQUENCE> <OF> )
+	(
+		<VISIBLESTRING> 
+	| 	 <INTEGER> 
+	| 	 <BOOLEAN> 
+	|	fieldIsenumeration()
+	)  (<OPTIONAL>)?
+	}
+
+
+
+
+
+
+void fieldIsenumeration():
+	{
+	}
+	{
+	<IDENTIFIER> <ENUMERATED> <OB> enumItem() (<COMMA> enumItem() )* <CB>  (<OPTIONAL>)?
+	}
+
+void enumItem():
+	{
+	}
+	{
+	<IDENTIFIER> <OP> intValue() <CP>
+	}
+
+void intValue():
+	{
+	}
+	{
+	<INT_VALUE>
+	}
+
