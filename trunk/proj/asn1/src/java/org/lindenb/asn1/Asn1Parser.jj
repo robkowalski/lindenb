@@ -2,6 +2,7 @@
  *  A custom ASN.1 parser just for fun
  *  When I got time, I'll finish to write this
  * http://www.obj-sys.com/asn1tutorial/node11.html
+ * http://www.ncbi.nlm.nih.gov/data_specs/asn/cdd.asn
  */
  
 options {
@@ -128,10 +129,48 @@ void definition_body():
 	typeDecl() ( typeDecl())*
 	}
 
+void typeDecl():
+	{
+	}
+	{
+	<IDENTIFIER> <DECL> anyType()
+	}
+
+void anyType():
+	{
+	}
+	{
+		simpleType()
+	|	complexType()
+	}
+
 void simpleType():
 	{
 	}
 	{
+		<SEQUENCE> <OF> typeName()
+	|	<CHOICE> <OF> typeName()
+	|	<SET> <OF> typeName()
+	|	typeName()
+	}
+
+void typeName():
+	{
+	}
+	{
+		<IDENTIFIER>
+	|	buildInType()
+	|	enumeration()
+	}
+
+void buildInType():
+	{
+	}
+	{
+		<VISIBLESTRING> 
+	| 	<INTEGER> integerEnum()?
+	| 	<BOOLEAN> 
+
 	}
 
 void complexType():
@@ -173,40 +212,28 @@ void complexField():
 	{
 	}
 	{
-	<IDENTIFIER> simpleType() 
+	<IDENTIFIER> complexFieldType() (<OPTIONAL>)?
 	}
 
-void typeDecl():
+void complexFieldType():
 	{
 	}
 	{
-		<IDENTIFIER> <DECL> <SEQUENCE>  ( <OF> <IDENTIFIER> | <OB> field() (<COMMA> field())* <CB> )
-	}
-
-void field():
-	{
-	
-	}
-	{
-	<IDENTIFIER> (<SEQUENCE> <OF> )
-	(
-		<VISIBLESTRING> 
-	| 	 <INTEGER> 
-	| 	 <BOOLEAN> 
-	|	fieldIsenumeration()
-	)  (<OPTIONAL>)?
 	}
 
 
-
-
-
-
-void fieldIsenumeration():
+void enumeration():
 	{
 	}
 	{
-	<IDENTIFIER> <ENUMERATED> <OB> enumItem() (<COMMA> enumItem() )* <CB>  (<OPTIONAL>)?
+	<ENUMERATED> <OB> enumItem() (<COMMA> enumItem() )* <CB>  (<OPTIONAL>)?
+	}
+
+void integerEnum():
+	{
+	}
+	{
+	<OB> enumItem() (<COMMA> enumItem() )* <CB>
 	}
 
 void enumItem():
