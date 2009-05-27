@@ -5,42 +5,28 @@
  */
  
 options {
-  JDK_VERSION = "1.6";
-  STATIC=true;
+	JDK_VERSION = "1.6";
+	STATIC=true;
 	}
+
 PARSER_BEGIN(Asn1Parser)
 
 package org.lindenb.asn1;
 
 public class Asn1Parser
-   {
-  public static void main(String args[]) throws ParseException {
-    Asn1Parser parser = new Asn1Parser(System.in);
-    while (true) {
-      System.out.println("Reading from standard input...");
-      System.out.print("Enter an expression like \"1+(2+3)*4;\" :");
-      try {
-        switch (AsnParser.input()) {
-        case 0:
-          System.out.println("OK.");
-          break;
-        case 1:
-          System.out.println("Goodbye.");
-          break;
-        default:
-          break; 
-        }
-      } catch (Exception e) {
-        System.out.println("NOK.");
-        System.out.println(e.getMessage());
-        AsnParser.ReInit(System.in);
-      } catch (Error e) {
-        System.out.println("Oops.");
-        System.out.println(e.getMessage());
-        break;
-      }
-    }
-  }
+{
+public static void main(String args[])
+  	{
+  	try
+  		{
+  		Asn1Parser parser = new Asn1Parser(System.in);
+  		parser.input();
+  		}
+  	catch(Throwable err)
+  		{
+  		err.printStackTrace();
+  		}
+	}
 }
 PARSER_END(Asn1Parser)
 
@@ -69,6 +55,9 @@ TOKEN :
 |	< DEFINITIONS: "DEFINITIONS" >
 |	< ENUMERATED: "ENUMERATED" >
 |	< END: "END" >
+|	< EXPORTS: "EXPORTS" >
+|	< FROM: "FROM" >
+|	< IMPORTS: "IMPORTS" >
 |	< INTEGER: "INTEGER" >
 |	< NILL: "NULL" >
 |	< OPTIONAL: "OPTIONAL" >
@@ -86,6 +75,7 @@ TOKEN :
 |	< OA: "[" >
 |	< CA: "]" >
 |	< COMMA: "," >
+|	< SEMICOLON: ";" >
 }
 
 TOKEN:
@@ -105,7 +95,30 @@ void definition():
 	{
 	}
 	{
-	<IDENTIFIER> <DEFINITIONS> <DECL> <BEGIN> definition_body() <END> 
+	<IDENTIFIER> <DEFINITIONS> <DECL> <BEGIN> exports()? imports()? definition_body() <END> 
+	}
+
+void exports():
+	{
+	}
+	{
+	<EXPORTS> <IDENTIFIER> (<COMMA> <IDENTIFIER> )* <SEMICOLON>
+	}
+
+
+
+void imports():
+	{
+	}
+	{
+	importSet() (<COMMA> importSet() )*  <SEMICOLON>
+	}
+
+void importSet():
+	{
+	}
+	{
+	<IMPORTS> <IDENTIFIER> (<COMMA> <IDENTIFIER> )* <FROM> <IDENTIFIER>
 	}
 
 void definition_body():
@@ -113,6 +126,54 @@ void definition_body():
 	}
 	{
 	typeDecl() ( typeDecl())*
+	}
+
+void simpleType():
+	{
+	}
+	{
+	}
+
+void complexType():
+	{
+	}
+	{
+		choiceType()
+	|	sequenceType()
+	}
+
+void choiceType():
+	{
+	}
+	{
+	<CHOICE> <OB>
+	complexContent()
+	<CB>
+	}
+
+
+void sequenceType():
+	{
+	}
+	{
+	<SEQUENCE> <OB>
+	complexContent()
+	<CB>
+	}
+
+void complexContent():
+	{
+	}
+	{
+	complexField() (<COMMA> complexField())*
+	}
+
+
+void complexField():
+	{
+	}
+	{
+	<IDENTIFIER> simpleType() 
 	}
 
 void typeDecl():
