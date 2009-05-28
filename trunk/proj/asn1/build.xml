@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="asn1" default="all">
+
+	<target name="all"></target>
+	
+	<target name="javacc">
+		<property name="jj.dir" value="src/java/org/lindenb/asn1/"/>
+		<delete file="${jj.dir}/TokenMgrError.java"/>
+		<delete file="${jj.dir}/ParseException.java"/>
+		<delete file="${jj.dir}/Token.java"/>
+		<delete file="${jj.dir}/SimpleCharStream.java"/>
+		<exec executable="javacc">
+			<arg value="-OUTPUT_DIRECTORY=${jj.dir}"/>
+			<arg value="${jj.dir}/Asn1Parser.jj"/>
+		</exec>
+	</target>	
+	
+</project>
