@@ -8,12 +8,11 @@
 options {
 	JDK_VERSION = "1.6";
 	STATIC=false;
-	LOOKAHEAD=2;
 	}
 
 PARSER_BEGIN(Asn1Parser)
 
-//package org.lindenb.asn1;
+package org.lindenb.asn1;
 import java.net.URL;
 import java.util.*;
 
@@ -26,95 +25,235 @@ import java.util.*;
  */
 public class Asn1Parser
 {
-/** parent parser */
-private Asn1Parser owner;
 
-public class DataType
+/**
+ *
+ * ASN1 Module
+ *
+ */
+public static class Module
+	implements Iterable<NamedType>
 	{
+	private java.util.List<NamedType> types =  new java.util.ArrayList<NamedType>();
+	public NamedType get(int i)
+		{
+		return this.types.get(i);
+		}
+	
+	public NamedType findTypeByName(String name)
+		{
+		for(int i=0;i< size();++i) if(get(i).getName().equals(name))
+			{
+			return get(i);
+			}
+		return null;
+		}
+	
+	public int size()
+		{
+		return this.types.size();
+		}
+		
+	public Iterator<NamedType> iterator()
+		{
+		return this.types.iterator();
+		}
 	}
 
-public class SimpleType extends DataType
+public static abstract class DataType
 	{
+	protected DataType()
+		{
+		}
+	}
+
+public static abstract  class SimpleType extends DataType
+	{
+	protected SimpleType()
+		{
+		}
 	}
 
 
-public class ComplexType extends DataType
+public static abstract class ComplexType
+	extends DataType
+	implements Iterable<ComplexNamedType>
 	{
-	private java.util.List<NamedType> columns= new java.util.ArrayList();
+	java.util.List<ComplexNamedType> columns= null;
+	
+	protected ComplexType(java.util.List<ComplexNamedType> columns)
+		{
+		this.columns=columns;
+		}
+	
+	public ComplexNamedType get(int i)
+		{
+		return this.columns.get(i);
+		}
+	
+	public ComplexNamedType findTypeByName(String name)
+		{
+		for(int i=0;i< size();++i) if(get(i).getName().equals(name))
+			{
+			return get(i);
+			}
+		return null;
+		}
+	
+	public int size()
+		{
+		return this.columns.size();
+		}
+		
+	public Iterator<ComplexNamedType> iterator()
+		{
+		return this.columns.iterator();
+		}
 	}
 
-public class ChoiceType extends ComplexType
+public static class Choice extends ComplexType
 	{
+	Choice(java.util.List<ComplexNamedType> columns)
+		{
+		super(columns);
+		}
 	}
 
-public class SequenceType extends ComplexType
+public static class Sequence extends ComplexType
 	{
+	Sequence(java.util.List<ComplexNamedType> columns)
+		{
+		super(columns);
+		}
 	}
 
-public class CollectionOf extends DataType
+public static class CollectionOf extends DataType
 	{
+	private DataType range;
+	protected CollectionOf(DataType range)
+		{
+		this.range=range;
+		}
+	public DataType getRange()
+		{
+		return this.range;
+		}
 	}
 
-public class SequenceOf extends CollectionOf
+public static class SequenceOf extends CollectionOf
 	{
+	SequenceOf(DataType range)
+		{
+		super(range);
+		}
 	}
 
-public class SetOf extends CollectionOf
+public static class SetOf extends CollectionOf
 	{
+	SetOf(DataType range)
+		{
+		super(range);
+		}
 	}
 
-public class IntegerType extends SimpleType
+public static class ChoiceOf extends CollectionOf
+	{
+	ChoiceOf(DataType range)
+		{
+		super(range);
+		}
+	}
+
+public static class IntegerType extends SimpleType
 	{
 	java.util.Map<Integer,String> id2enum =null;
 	Integer defaultValue=null;
 	}
 
-public class VisibleString extends SimpleType
+public static class VisibleString extends SimpleType
 	{
 	
 	}
 
-public class OctetString extends SimpleType
+public static class OctetString extends SimpleType
 	{
 	
 	}
 
 
-public class BooleanType extends SimpleType
+public static class BooleanType extends SimpleType
 	{
 	Boolean defaultValue=null;
 	}
 
-public class RealType extends SimpleType
+public static class RealType extends SimpleType
 	{
 	
 	}
 
-public class EnumerationType extends SimpleType
+public static class EnumerationType extends SimpleType
 	{
 	java.util.Map<Integer,String> id2enum =null;
 	Integer defaultValue=null;
 	}
 
-
-class NamedType
+public static class ReferenceType extends DataType
 	{
-	String name;
-	DataType type;
+	private String typename;
+	ReferenceType(String typename)
+		{
+		this.typename=typename;
+		}
+	public String getTypeName()
+		{
+		return this.typename;
+		}
 	}
 
 
+/**
+ *
+ */
+public static class NamedType
+	{
+	private String name;
+	private DataType type;
+	
+	NamedType(String name,DataType type)
+		{
+		this.name=name;
+		this.type=type;
+		}
+	
+	public String getName()
+		{
+		return this.name;
+		}
+	public DataType getDataType()
+		{
+		return this.type;
+		}
+	}
+
+public static class ComplexNamedType
+	extends NamedType
+	{
+	private boolean optional=false;
+	ComplexNamedType(String name,DataType type,boolean optional)
+		{
+		super(name,type);
+		this.optional=optional;
+		}
+	public boolean isOptional()
+		{
+		return this.optional;
+		}
+	}
 
 
 public Asn1Parser(URL url) throws java.io.IOException
 	{
-	this(null,url);
-	}
-
-public Asn1Parser(Asn1Parser owner,URL url) throws java.io.IOException
-	{
 	this(url.openStream());
-	this.owner=owner;
 	}
 
 public static void main(String args[])
@@ -122,7 +261,7 @@ public static void main(String args[])
   	try
   		{
   		Asn1Parser parser = new Asn1Parser(new URL("http://www.ncbi.nlm.nih.gov/data_specs/asn/NCBI_all.asn"));
-  		parser.input();
+  		Module module=parser.module();
   		}
   	catch(Throwable err)
   		{
@@ -193,18 +332,18 @@ TOKEN:
 |	<INT_VALUE: (<DIGIT>)+>
 }
 
-void input():
-	{
-	}
-	{
-	definition()
-	}
 
-void definition():
+Module module():
 	{
+	List<NamedType> definitions=null;
 	}
 	{
-	<IDENTIFIER> <DEFINITIONS> <DECL> <BEGIN> (exports())? (imports())? definition_body() <END> 
+	<IDENTIFIER> <DEFINITIONS> <DECL> <BEGIN> (exports())? (imports())? definitions=definition_body() <END> 
+		{
+		Module module=new Module();
+		module.types = definitions;
+		return module;
+		}
 	}
 
 void exports():
@@ -230,60 +369,117 @@ void importSet():
 	<IDENTIFIER> (<COMMA> <IDENTIFIER> )* <FROM> <IDENTIFIER>
 	}
 
-void definition_body():
+List<NamedType> definition_body():
 	{
+	List<NamedType> types= new ArrayList<NamedType>();
+	Set<String> seen= new HashSet<String>();
+	NamedType t1=null;
+	NamedType t2=null;
 	}
 	{
-	typeDecl() ( typeDecl())*
-	}
-
-void typeDecl():
-	{
-	}
-	{
-	<IDENTIFIER> <DECL> anyType()
-	}
-
-void anyType():
-	{
-	}
-	{
-		sequenceOfType()
-	|	choiceOfType()
-	|	setOfType()
-	|	enumType()
-	|	identifier()
-	|	visibleStringType()
-	|	octetString()
-	|	integerType()
-	|	booleanType()
-	|	realType()
+	t1=typeDecl() { types.add(t1); seen.add(t1.getName());} ( t2=typeDecl()
+			{
+			if(seen.contains(t2.getName())) throw new ParseException("Duplicate Name  "+t2.getName() );
+			types.add(t2);
+			seen.add(t2.getName());
+			})*
+		{
+		return types;
+		}
 	}
 
-
-void sequenceOfType():
+NamedType typeDecl():
 	{
-	List<NamedType> columns=null;
+	String name=null;
+	DataType datatype=null;
 	}
 	{
-	<SEQUENCE> ( <OF> anyType() | <OB> columns=complexContent() <CB> )
+	name = identifier() <DECL> datatype=anyType()
+		{
+		return new NamedType(name,datatype);
+		}
 	}
 
-void choiceOfType():
+DataType anyType():
 	{
-	List<NamedType> columns=null;
+	DataType dt=null;
 	}
 	{
-	<CHOICE> ( <OF> anyType() | <OB> columns=complexContent() <CB> )
+	(	dt= sequenceOfType()
+	|	dt= choiceOfType()
+	|	dt= setOfType()
+	|	dt= enumType()
+	|	dt= referenceType()
+	|	dt= visibleStringType()
+	|	dt= octetString()
+	|	dt= integerType()
+	|	dt= booleanType()
+	|	dt= realType()
+	)	{
+		return dt;
+		}
+	}
+
+ReferenceType referenceType():
+	{
+	String id;
+	}
+	{
+	id=identifier()
+		{
+		return new ReferenceType(id);
+		}
+	}
+
+DataType sequenceOfType():
+	{
+	List<ComplexNamedType> columns=null;
+	DataType range=null;
+	}
+	{
+	<SEQUENCE>
+		(
+			<OF> range=anyType()
+				{
+				return new SequenceOf(range);
+				}
+		| 	<OB> columns=complexContent() <CB>
+				{
+				return new Sequence(columns);
+				}
+		)
+	}
+
+DataType choiceOfType():
+	{
+	DataType range=null;
+	List<ComplexNamedType> columns=null;
+	}
+	{
+	<CHOICE>
+		(
+			<OF> range=anyType()
+				{
+				return new ChoiceOf(range);
+				}
+		|	<OB> columns=complexContent() <CB>
+				{
+				return new Choice(columns);
+				}
+		)
 	}
 
 
 
-void setOfType():
+SetOf setOfType():
 	{
+	DataType range=null;
 	}
 	{
-	<SET>  <OF> anyType()
+	<SET>  <OF> range=anyType()
+		{
+		return new SetOf(range);
+		}
 	}
 
 EnumerationType enumType():
@@ -363,7 +559,7 @@ IntegerType integerType():
 				}
 			if( defaultInt==null)
 				{
-				 throw new ParseException("Cannot find default value "+defaultValue );
+				throw new ParseException("Cannot find default value "+defaultValue );
 				}
 			}
 		t.defaultValue=defaultInt;
@@ -392,27 +588,43 @@ RealType realType():
 	}
 
 
-List<NamedType> complexContent():
+List<ComplexNamedType> complexContent():
 	{
-	List<NamedType> columns= new ArrayList<NamedType>();
+	List<ComplexNamedType> columns= new ArrayList<ComplexNamedType>();
+	ComplexNamedType c1=null;
+	ComplexNamedType c2=null;
 	}
 	{
-	complexField() (<COMMA> complexField())*
+	c1=complexField()
+		{
+		columns.add(c1);
+		} (<COMMA> c2=complexField()
+			{
+			for(ComplexNamedType c: columns)
+				{
+				if(c.getName().equals(c2.getName()))
+					{
+					throw new ParseException("duplicate name "+c2 );
+					}
+				}
+			columns.add(c2);
+			})*
 		{
 		return columns;
 		}
 	}
 
 
-void complexField():
+ComplexNamedType complexField():
 	{
 	String fieldName;
+	DataType type;
 	boolean optional=false;
 	}
 	{
-	fieldName = identifier() anyType() (<OPTIONAL> { optional=true; })?
+	fieldName = identifier() type = anyType() (<OPTIONAL> { optional=true; })?
 		{
-		
+		return new ComplexNamedType(fieldName,type,optional);
 		}
 	}
 
