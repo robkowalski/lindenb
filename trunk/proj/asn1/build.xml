@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="asn1" default="all">
-
-	<target name="all"></target>
+	 <property name="rootdir" value="../.."/>
+	 <property name="builddir" value="${rootdir}/build"/>
+	 <property name="compiledir" value="${builddir}/compile"/>
+	
+	<target name="all" depends="javacc"></target>
 	
 	<target name="javacc">
 		<property name="jj.dir" value="src/java/org/lindenb/asn1/"/>

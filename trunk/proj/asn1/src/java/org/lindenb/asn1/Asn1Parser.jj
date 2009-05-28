@@ -13,10 +13,9 @@ options {
 PARSER_BEGIN(Asn1Parser)
 
 package org.lindenb.asn1;
-import java.net.URL;
 import java.util.*;
-
-
+import org.lindenb.util.Compilation;
+import org.lindenb.io.IOUtils;
 
 /**
  *
@@ -34,7 +33,41 @@ public class Asn1Parser
 public static class Module
 	implements Iterable<NamedType>
 	{
-	private java.util.List<NamedType> types =  new java.util.ArrayList<NamedType>();
+	private java.util.List<NamedType> types =  null;
+	/** name of this module */
+	private String name;
+	/** imports */
+	private List<Import> imports=null;
+	/** export */
+	private Set<String> export=null;
+	Module(
+		String name,
+		java.util.List<NamedType> types,
+		List<Import> imports,
+		Set<String> export
+		)
+		{
+		this.name=name;
+		this.types=types;
+		this.imports=imports;
+		this.export=export;
+		}
+	
+	public String getName()
+		{
+		return this.name;
+		}
+		
+	public List<Import> getImports()
+		{
+		return this.imports;
+		}
+	
+	public Set<String> getExports()
+		{
+		return this.export;
+		}
+	
 	public NamedType get(int i)
 		{
 		return this.types.get(i);
@@ -60,11 +93,30 @@ public static class Module
 		}
 	}
 
+public static enum TYPE_ENUM
+	{
+	SEQUENCE,
+	SEQUENCE_OF,
+	SET,
+	SET_OF,
+	CHOICE,
+	CHOICE_OF,
+	VISIBLE_STRING,
+	OCTET_STRING,
+	INTEGER,
+	REAL,
+	BOOLEAN,
+	ENUMERATION,
+	REFERENCE,
+	NIL
+	}
+
 public static abstract class DataType
 	{
 	protected DataType()
 		{
 		}
+	public abstract TYPE_ENUM getType();
 	}
 
 public static abstract  class SimpleType extends DataType
@@ -117,6 +169,7 @@ public static class Choice extends ComplexType
 		{
 		super(columns);
 		}
+	public TYPE_ENUM getType() { return TYPE_ENUM.CHOICE;}
 	}
 
 public static class Sequence extends ComplexType
@@ -125,9 +178,11 @@ public static class Sequence extends ComplexType
 		{
 		super(columns);
 		}
+	@Override
+	public TYPE_ENUM getType() { return TYPE_ENUM.SEQUENCE;}
 	}
 
-public static class CollectionOf extends DataType
+public static abstract class CollectionOf extends DataType
 	{
 	private DataType range;
 	protected CollectionOf(DataType range)
@@ -146,6 +201,8 @@ public static class SequenceOf extends CollectionOf
 		{
 		super(range);
 		}
+	@Override
+	public TYPE_ENUM getType() { return TYPE_ENUM.SEQUENCE_OF;}
 	}
 
 public static class SetOf extends CollectionOf
@@ -154,6 +211,8 @@ public static class SetOf extends CollectionOf
 		{
 		super(range);
 		}
+	@Override
+	public TYPE_ENUM getType() { return TYPE_ENUM.SET_OF;}
 	}
 
 public static class ChoiceOf extends CollectionOf
@@ -162,39 +221,68 @@ public static class ChoiceOf extends CollectionOf
 		{
 		super(range);
 		}
+	@Override
+	public TYPE_ENUM getType() { return TYPE_ENUM.CHOICE_OF;}
 	}
 
 public static class IntegerType extends SimpleType
 	{
 	java.util.Map<Integer,String> id2enum =null;
-	Integer defaultValue=null;
+	private Integer defaultValue=null;
+	
+	public Integer getDefaultValue()
+		{
+		return defaultValue;
+		} 
+	@Override
+	public TYPE_ENUM getType() { return TYPE_ENUM.INTEGER;}
 	}
 
 public static class VisibleString extends SimpleType
 	{
-	
+	@Override
+	public TYPE_ENUM getType() { return TYPE_ENUM.VISIBLE_STRING;}
 	}
 
 public static class OctetString extends SimpleType
 	{
-	
+	@Override
+	public TYPE_ENUM getType() { return TYPE_ENUM.OCTET_STRING;}
 	}
 
 
 public static class BooleanType extends SimpleType
 	{
 	Boolean defaultValue=null;
+	
+	@Override
+	public TYPE_ENUM getType() { return TYPE_ENUM.BOOLEAN;}
 	}
 
 public static class RealType extends SimpleType
 	{
-	
+	@Override
+	public TYPE_ENUM getType() { return TYPE_ENUM.REAL;}
+	}
+
+public static class NULLType extends SimpleType
+	{
+	@Override
+	public TYPE_ENUM getType() { return TYPE_ENUM.NIL;}
 	}
 
 public static class EnumerationType extends SimpleType
 	{
 	java.util.Map<Integer,String> id2enum =null;
 	Integer defaultValue=null;
+	
+	public Integer getDefaultValue()
+		{
+		return defaultValue;
+		}
+	
+	@Override
+	public TYPE_ENUM getType() { return TYPE_ENUM.ENUMERATION;}
 	}
 
 public static class ReferenceType extends DataType
@@ -208,11 +296,13 @@ public static class ReferenceType extends DataType
 		{
 		return this.typename;
 		}
+	@Override
+	public TYPE_ENUM getType() { return TYPE_ENUM.REFERENCE;}
 	}
 
 
 /**
- *
+ * NamedType
  */
 public static class NamedType
 	{
@@ -235,6 +325,9 @@ public static class NamedType
 		}
 	}
 
+/**
+ * ComplexNamedType
+ */
 public static class ComplexNamedType
 	extends NamedType
 	{
@@ -250,24 +343,79 @@ public static class ComplexNamedType
 		}
 	}
 
-
-public Asn1Parser(URL url) throws java.io.IOException
+/***
+ * Import
+ */
+public static class Import
 	{
-	this(url.openStream());
+	private String moduleName;
+	private Set<String> typeNames;
+	Import(String moduleName,  Set<String> typeNames)
+		{
+		this.moduleName=moduleName;
+		this.typeNames=typeNames;
+		}
+	public String getModuleName()
+		{
+		return this.moduleName;
+		}
+	public Set<String> getTypeNames()
+		{
+		return this.typeNames;
+		}
 	}
 
-public static void main(String args[])
-  	{
-  	try
-  		{
-  		Asn1Parser parser = new Asn1Parser(new URL("http://www.ncbi.nlm.nih.gov/data_specs/asn/NCBI_all.asn"));
-  		Module module=parser.module();
-  		}
-  	catch(Throwable err)
-  		{
-  		err.printStackTrace();
-  		}
-	}
+
+	public static void main(String[] args) {
+		try
+			{
+			int optind=0;
+			while(optind< args.length)
+				{
+				if(args[optind].equals("-h"))
+					{
+					System.err.println(Compilation.getLabel());
+					}
+				else if(args[optind].equals("--"))
+					{
+					optind++;
+					break;
+					}
+				else if(args[optind].startsWith("-"))
+					{
+					System.err.println("Unknown option "+args[optind]);
+					}
+				else 
+					{
+					break;
+					}
+				++optind;
+				}
+			Asn1Parser parser =null;
+			if(optind==args.length)
+				{
+				parser= new Asn1Parser(System.in);
+				parser.module();
+				}
+			else
+				{
+				while(optind< args.length)
+					{
+					System.err.println(args[optind]);
+					java.io.BufferedReader r= IOUtils.openReader(args[optind++]);
+					parser= new Asn1Parser(r);
+					parser.module();
+					r.close();
+					}
+				}
+			
+			} 
+		catch(Throwable err)
+			{
+			err.printStackTrace();
+			}
+		}
+
 }
 PARSER_END(Asn1Parser)
 
@@ -333,43 +481,67 @@ TOKEN:
 }
 
 
-Module module():
+public Module module():
 	{
+	String moduleName=null;
 	List<NamedType> definitions=null;
+	List<Import> imports= new ArrayList<Import>();
+	Set<String> export= new HashSet<String>();
 	}
 	{
-	<IDENTIFIER> <DEFINITIONS> <DECL> <BEGIN> (exports())? (imports())? definitions=definition_body() <END> 
+	moduleName = identifier() <DEFINITIONS> <DECL> <BEGIN> (export=exports())? (imports=imports())? definitions=definition_body() <END> 
 		{
-		Module module=new Module();
-		module.types = definitions;
+		Module module=new Module(moduleName,definitions,imports,export);
 		return module;
 		}
 	}
 
-void exports():
+private Set<String> exports():
 	{
+	Set<String> export= new HashSet<String>();
+	String s1=null;
+	String s2=null;
 	}
 	{
-	<EXPORTS> <IDENTIFIER> (<COMMA> <IDENTIFIER> )* <SEMICOLON>
-	}
-
-
-
-void imports():
-	{
-	}
-	{
-	<IMPORTS> importSet() (importSet() )*  <SEMICOLON>
+	<EXPORTS> s1=identifier() { export.add(s1);} (<COMMA> s2=identifier()  { export.add(s2);} )* <SEMICOLON>
+		{
+		return export;
+		}
 	}
 
-void importSet():
+
+
+private List<Import> imports():
 	{
+	List<Import> list= new ArrayList<Import>();
+	Import i1=null;
+	Import i2=null;
 	}
 	{
-	<IDENTIFIER> (<COMMA> <IDENTIFIER> )* <FROM> <IDENTIFIER>
+	<IMPORTS> i1=importSet() { list.add(i1);} (i2=importSet()  { list.add(i2);} )*  <SEMICOLON>
+		{
+		return list;
+		}
 	}
 
-List<NamedType> definition_body():
+private Import importSet():
+	{
+	String name=null;
+	String id1=null;
+	String id2=null;
+	Set<String> set= new HashSet<String>();
+	}
+	{
+	id1=identifier()
+		{
+		set.add(id1);
+		} (<COMMA> id2=identifier() { set.add(id2);} )* <FROM> name=identifier()
+		{
+		return new Import(name,set);
+		}
+	}
+
+private List<NamedType> definition_body():
 	{
 	List<NamedType> types= new ArrayList<NamedType>();
 	Set<String> seen= new HashSet<String>();
@@ -388,7 +560,7 @@ List<NamedType> definition_body():
 		}
 	}
 
-NamedType typeDecl():
+private NamedType typeDecl():
 	{
 	String name=null;
 	DataType datatype=null;
@@ -400,7 +572,7 @@ NamedType typeDecl():
 		}
 	}
 
-DataType anyType():
+private DataType anyType():
 	{
 	DataType dt=null;
 	}
@@ -414,13 +586,24 @@ DataType anyType():
 	|	dt= octetString()
 	|	dt= integerType()
 	|	dt= booleanType()
+	|	dt= nullType()
 	|	dt= realType()
 	)	{
 		return dt;
 		}
 	}
 
-ReferenceType referenceType():
+private NULLType nullType():
+	{
+	}
+	{
+	<NILL>
+		{
+		return new NULLType();
+		}
+	}
+
+private ReferenceType referenceType():
 	{
 	String id;
 	}
@@ -431,7 +614,7 @@ ReferenceType referenceType():
 		}
 	}
 
-DataType sequenceOfType():
+private DataType sequenceOfType():
 	{
 	List<ComplexNamedType> columns=null;
 	DataType range=null;
@@ -450,7 +633,7 @@ DataType sequenceOfType():
 		)
 	}
 
-DataType choiceOfType():
+private DataType choiceOfType():
 	{
 	DataType range=null;
 	List<ComplexNamedType> columns=null;
@@ -471,7 +654,7 @@ DataType choiceOfType():
 
 
 
-SetOf setOfType():
+private SetOf setOfType():
 	{
 	DataType range=null;
 	}
@@ -482,7 +665,7 @@ SetOf setOfType():
 		}
 	}
 
-EnumerationType enumType():
+private EnumerationType enumType():
 	{
 	String defaultValue=null;
 	Map<Integer,String> id2enum=null;
@@ -516,7 +699,7 @@ EnumerationType enumType():
 	}
 
 
-OctetString octetString():
+private OctetString octetString():
 	{
 	}
 	{
@@ -526,7 +709,7 @@ OctetString octetString():
 	}
 
 
-VisibleString visibleStringType():
+private VisibleString visibleStringType():
 	{
 	}
 	{
@@ -536,7 +719,7 @@ VisibleString visibleStringType():
 	}
 
 
-IntegerType integerType():
+private IntegerType integerType():
 	{
 	Integer defaultInt=null;
 	String defaultValue=null;
@@ -567,7 +750,7 @@ IntegerType integerType():
 		}
 	}
 
-BooleanType booleanType():
+private BooleanType booleanType():
 	{
 	Boolean defaultValue=null;
 	}
@@ -580,7 +763,7 @@ BooleanType booleanType():
 		}
 	}
 
-RealType realType():
+private RealType realType():
 	{
 	}
 	{
@@ -588,7 +771,7 @@ RealType realType():
 	}
 
 
-List<ComplexNamedType> complexContent():
+private List<ComplexNamedType> complexContent():
 	{
 	List<ComplexNamedType> columns= new ArrayList<ComplexNamedType>();
 	ComplexNamedType c1=null;
@@ -615,14 +798,16 @@ List<ComplexNamedType> complexContent():
 	}
 
 
-ComplexNamedType complexField():
+private ComplexNamedType complexField():
 	{
 	String fieldName;
 	DataType type;
 	boolean optional=false;
 	}
 	{
-	fieldName = identifier() type = anyType() (<OPTIONAL> { optional=true; })?
+	fieldName = identifier()
+	type = anyType()
+	(<OPTIONAL> { optional=true; })?
 		{
 		return new ComplexNamedType(fieldName,type,optional);
 		}
@@ -631,7 +816,7 @@ ComplexNamedType complexField():
 
 
 
-Map<Integer,String> integerEnum():
+private Map<Integer,String> integerEnum():
 	{
 	Map<Integer,String> id2enum=new TreeMap<Integer,String>();
 	Map.Entry<Integer,String> entry1=null;
@@ -656,7 +841,7 @@ Map<Integer,String> integerEnum():
 		}
 	}
 
-Map.Entry<Integer,String> enumItem():
+private Map.Entry<Integer,String> enumItem():
 	{
 	String value=null;
 	Integer key=null;
@@ -668,7 +853,7 @@ Map.Entry<Integer,String> enumItem():
 		}
 	}
 
-Integer intValue():
+private Integer intValue():
 	{
 	Token t;
 	}
@@ -679,7 +864,7 @@ Integer intValue():
 		}
 	}
 
-boolean booleanValue():
+private boolean booleanValue():
 	{
 	}
 	{
@@ -687,7 +872,7 @@ boolean booleanValue():
 	|	<FALSE> { return false;}
 	}
 
-String identifier():
+private String identifier():
 	{
 	Token t;
 	}
