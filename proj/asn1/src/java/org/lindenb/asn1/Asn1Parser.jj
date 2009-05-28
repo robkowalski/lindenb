@@ -7,20 +7,121 @@
  
 options {
 	JDK_VERSION = "1.6";
-	STATIC=true;
+	STATIC=false;
+	LOOKAHEAD=2;
 	}
 
 PARSER_BEGIN(Asn1Parser)
 
-package org.lindenb.asn1;
+//package org.lindenb.asn1;
+import java.net.URL;
+import java.util.*;
 
+
+
+/**
+ *
+ * Asn1Parser
+ *
+ */
 public class Asn1Parser
 {
+/** parent parser */
+private Asn1Parser owner;
+
+public class DataType
+	{
+	}
+
+public class SimpleType extends DataType
+	{
+	}
+
+
+public class ComplexType extends DataType
+	{
+	private java.util.List<NamedType> columns= new java.util.ArrayList();
+	}
+
+public class ChoiceType extends ComplexType
+	{
+	}
+
+public class SequenceType extends ComplexType
+	{
+	}
+
+public class CollectionOf extends DataType
+	{
+	}
+
+public class SequenceOf extends CollectionOf
+	{
+	}
+
+public class SetOf extends CollectionOf
+	{
+	}
+
+public class IntegerType extends SimpleType
+	{
+	java.util.Map<Integer,String> id2enum =null;
+	Integer defaultValue=null;
+	}
+
+public class VisibleString extends SimpleType
+	{
+	
+	}
+
+public class OctetString extends SimpleType
+	{
+	
+	}
+
+
+public class BooleanType extends SimpleType
+	{
+	Boolean defaultValue=null;
+	}
+
+public class RealType extends SimpleType
+	{
+	
+	}
+
+public class EnumerationType extends SimpleType
+	{
+	java.util.Map<Integer,String> id2enum =null;
+	Integer defaultValue=null;
+	}
+
+
+class NamedType
+	{
+	String name;
+	DataType type;
+	}
+
+
+
+
+public Asn1Parser(URL url) throws java.io.IOException
+	{
+	this(null,url);
+	}
+
+public Asn1Parser(Asn1Parser owner,URL url) throws java.io.IOException
+	{
+	this(url.openStream());
+	this.owner=owner;
+	}
+
 public static void main(String args[])
   	{
   	try
   		{
-  		Asn1Parser parser = new Asn1Parser(System.in);
+  		Asn1Parser parser = new Asn1Parser(new URL("http://www.ncbi.nlm.nih.gov/data_specs/asn/NCBI_all.asn"));
   		parser.input();
   		}
   	catch(Throwable err)
@@ -53,20 +154,25 @@ TOKEN :
 |	< BEGIN: "BEGIN" >
 |	< BOOLEAN: "BOOLEAN" >
 |	< CHOICE: "CHOICE" >
+|	< DEFAULTVALUE: "DEFAULT" >
 |	< DEFINITIONS: "DEFINITIONS" >
 |	< ENUMERATED: "ENUMERATED" >
 |	< END: "END" >
 |	< EXPORTS: "EXPORTS" >
+|	< FALSE: "FALSE" >
 |	< FROM: "FROM" >
 |	< IMPORTS: "IMPORTS" >
 |	< INTEGER: "INTEGER" >
 |	< NILL: "NULL" >
+|	< OCTET: "OCTET" >
 |	< OPTIONAL: "OPTIONAL" >
 |	< OF: "OF" >
 |	< REAL: "REAL" >
 |	< SELECTION: "SELECTION" >
 |	< SEQUENCE: "SEQUENCE" >
 |	< SET: "SET" >
+|	< STRING: "STRING" >
+|	< TRUE: "TRUE" >
 |	< VISIBLESTRING: "VisibleString" >
 |	< DECL: "::=" >
 |	< OB: "{" >
@@ -81,8 +187,10 @@ TOKEN :
 
 TOKEN:
 {
-	<IDENTIFIER: (["A"-"Z"])+>
-|	<INT_VALUE: (["0"-"9"])+>
+	<#LETTER: (["A"-"Z"]|["a"-"z"])>
+|	<#DIGIT: (["0"-"9"])>
+|	<IDENTIFIER: <LETTER> (<LETTER>|<DIGIT>|"-"|"_")*>
+|	<INT_VALUE: (<DIGIT>)+>
 }
 
 void input():
@@ -96,7 +204,7 @@ void definition():
 	{
 	}
 	{
-	<IDENTIFIER> <DEFINITIONS> <DECL> <BEGIN> exports()? imports()? definition_body() <END> 
+	<IDENTIFIER> <DEFINITIONS> <DECL> <BEGIN> (exports())? (imports())? definition_body() <END> 
 	}
 
 void exports():
@@ -112,14 +220,14 @@ void imports():
 	{
 	}
 	{
-	importSet() (<COMMA> importSet() )*  <SEMICOLON>
+	<IMPORTS> importSet() (importSet() )*  <SEMICOLON>
 	}
 
 void importSet():
 	{
 	}
 	{
-	<IMPORTS> <IDENTIFIER> (<COMMA> <IDENTIFIER> )* <FROM> <IDENTIFIER>
+	<IDENTIFIER> (<COMMA> <IDENTIFIER> )* <FROM> <IDENTIFIER>
 	}
 
 void definition_body():
@@ -140,113 +248,242 @@ void anyType():
 	{
 	}
 	{
-		simpleType()
-	|	complexType()
-	}
-
-void simpleType():
-	{
-	}
-	{
-		<SEQUENCE> <OF> typeName()
-	|	<CHOICE> <OF> typeName()
-	|	<SET> <OF> typeName()
-	|	typeName()
-	}
-
-void typeName():
-	{
-	}
-	{
-		<IDENTIFIER>
-	|	buildInType()
-	|	enumeration()
-	}
-
-void buildInType():
-	{
-	}
-	{
-		<VISIBLESTRING> 
-	| 	<INTEGER> integerEnum()?
-	| 	<BOOLEAN> 
-
-	}
-
-void complexType():
-	{
-	}
-	{
-		choiceType()
-	|	sequenceType()
-	}
-
-void choiceType():
-	{
-	}
-	{
-	<CHOICE> <OB>
-	complexContent()
-	<CB>
+		sequenceOfType()
+	|	choiceOfType()
+	|	setOfType()
+	|	enumType()
+	|	identifier()
+	|	visibleStringType()
+	|	octetString()
+	|	integerType()
+	|	booleanType()
+	|	realType()
 	}
 
 
-void sequenceType():
+void sequenceOfType():
 	{
+	List<NamedType> columns=null;
 	}
 	{
-	<SEQUENCE> <OB>
-	complexContent()
-	<CB>
+	<SEQUENCE> ( <OF> anyType() | <OB> columns=complexContent() <CB> )
 	}
 
-void complexContent():
+void choiceOfType():
 	{
+	List<NamedType> columns=null;
+	}
+	{
+	<CHOICE> ( <OF> anyType() | <OB> columns=complexContent() <CB> )
+	}
+
+
+
+void setOfType():
+	{
+	}
+	{
+	<SET>  <OF> anyType()
+	}
+
+EnumerationType enumType():
+	{
+	String defaultValue=null;
+	Map<Integer,String> id2enum=null;
+	}
+	{
+	<ENUMERATED> id2enum=integerEnum() (<DEFAULTVALUE> defaultValue=identifier() )?
+		{
+		EnumerationType t=  new EnumerationType();
+		Integer defaultInt=null;
+		t.id2enum=id2enum;
+		if(defaultValue!=null)
+			{
+			for(Integer key: t.id2enum.keySet())
+				{
+				if( t.id2enum.get(key).equals( defaultValue ) )
+					{
+					defaultInt=key;
+					break;
+					}
+				}
+			if( defaultInt==null)
+				{
+				 throw new ParseException("Cannot find default value "+defaultValue );
+				}
+			}
+		t.defaultValue=defaultInt;
+
+		return t;
+		}
+	
+	}
+
+
+OctetString octetString():
+	{
+	}
+	{
+	<OCTET> <STRING> {
+		return new OctetString();
+		}
+	}
+
+
+VisibleString visibleStringType():
+	{
+	}
+	{
+	<VISIBLESTRING> {
+		return new VisibleString();
+		}
+	}
+
+
+IntegerType integerType():
+	{
+	Integer defaultInt=null;
+	String defaultValue=null;
+	Map<Integer,String> id2enum=null;
+	}
+	{
+	<INTEGER> ( id2enum=integerEnum()  (<DEFAULTVALUE> defaultValue=identifier())? | <DEFAULTVALUE> defaultInt=intValue() )?
+		{
+		IntegerType t= new IntegerType();
+		t.id2enum=id2enum;
+		if(t.id2enum!=null && defaultValue!=null)
+			{
+			for(Integer key: t.id2enum.keySet())
+				{
+				if( t.id2enum.get(key).equals( defaultValue ) )
+					{
+					defaultInt=key;
+					break;
+					}
+				}
+			if( defaultInt==null)
+				{
+				 throw new ParseException("Cannot find default value "+defaultValue );
+				}
+			}
+		t.defaultValue=defaultInt;
+		return t;
+		}
+	}
+
+BooleanType booleanType():
+	{
+	Boolean defaultValue=null;
+	}
+	{
+	<BOOLEAN>  (<DEFAULTVALUE> defaultValue=booleanValue() )?
+		{
+		BooleanType b= new BooleanType();
+		b.defaultValue=defaultValue;
+		return b;
+		}
+	}
+
+RealType realType():
+	{
+	}
+	{
+	<REAL> { return new RealType(); }
+	}
+
+
+List<NamedType> complexContent():
+	{
+	List<NamedType> columns= new ArrayList<NamedType>();
 	}
 	{
 	complexField() (<COMMA> complexField())*
+		{
+		return columns;
+		}
 	}
 
 
 void complexField():
 	{
+	String fieldName;
+	boolean optional=false;
 	}
 	{
-	<IDENTIFIER> complexFieldType() (<OPTIONAL>)?
+	fieldName = identifier() anyType() (<OPTIONAL> { optional=true; })?
+		{
+		
+		}
 	}
 
-void complexFieldType():
-	{
-	}
-	{
-	}
 
 
-void enumeration():
+
+Map<Integer,String> integerEnum():
 	{
+	Map<Integer,String> id2enum=new TreeMap<Integer,String>();
+	Map.Entry<Integer,String> entry1=null;
+	Map.Entry<Integer,String> entry2=null;
 	}
 	{
-	<ENUMERATED> <OB> enumItem() (<COMMA> enumItem() )* <CB>  (<OPTIONAL>)?
+	<OB> entry1=enumItem()
+		{
+		id2enum.put(entry1.getKey(),entry1.getValue());
+		}(<COMMA> entry2=enumItem()
+			{
+			if( id2enum.containsKey( entry2.getKey())) throw new ParseException("Duplicate key "+entry2.getKey() );
+			for(Integer k: id2enum.keySet())
+				{
+				if( id2enum.get(k).equals(entry2.getValue())) throw new ParseException("Duplicate value "+entry2.getValue() );
+				}
+			id2enum.put(entry2.getKey(),entry2.getValue());
+			})* <CB>
+		{
+		
+		return id2enum;
+		}
 	}
 
-void integerEnum():
+Map.Entry<Integer,String> enumItem():
 	{
+	String value=null;
+	Integer key=null;
 	}
 	{
-	<OB> enumItem() (<COMMA> enumItem() )* <CB>
-	}
-
-void enumItem():
-	{
-	}
-	{
-	<IDENTIFIER> <OP> intValue() <CP>
+	value=identifier() <OP> key=intValue() <CP>
+		{
+		return new AbstractMap.SimpleEntry<Integer,String>(key,value);
+		}
 	}
 
-void intValue():
+Integer intValue():
+	{
+	Token t;
+	}
+	{
+	t=<INT_VALUE>
+		{
+		return new Integer(t.image);
+		}
+	}
+
+boolean booleanValue():
 	{
 	}
 	{
-	<INT_VALUE>
+		<TRUE> { return true;}
+	|	<FALSE> { return false;}
 	}
+
+String identifier():
+	{
+	Token t;
+	}
+	{
+	t=<IDENTIFIER>
+		{
+		return t.image;
+		}
+	}
+
 
