@@ -13,7 +13,9 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
+import org.lindenb.sw.vocabulary.RDF;
 import org.lindenb.util.StringUtils;
+import org.lindenb.xml.XMLUtilities;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.xml.sax.InputSource;
@@ -115,6 +117,7 @@ public class ControlServlet extends HttpServlet
 			}
 		Element root= dom.getDocumentElement();
 		if(root==null) throw new IOException("No Root");
+		if(!XMLUtilities.isA(root, RDF.NS, "RDF")) throw new IOException("Not a RDF root");
 		
 		}
 	}
