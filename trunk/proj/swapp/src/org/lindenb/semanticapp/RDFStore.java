@@ -1,9 +1,6 @@
 package org.lindenb.semanticapp;
 
 import java.io.File;
-import java.util.Collection;
-import java.util.Map;
-import java.util.Set;
 import java.util.logging.Logger;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -11,14 +8,9 @@ import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.lindenb.berkeley.DocumentBinding;
 import org.lindenb.sw.RDFException;
-import org.lindenb.sw.nodes.Statement;
-import org.lindenb.xml.DocumentSerializer;
-import org.omg.CosNaming.NamingContextExtPackage.StringNameHelper;
 import org.w3c.dom.Document;
-import org.xml.sax.helpers.DefaultHandler;
 
 import com.sleepycat.bind.tuple.StringBinding;
-import com.sleepycat.je.Cursor;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.DatabaseEntry;

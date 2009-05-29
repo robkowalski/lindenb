@@ -111,6 +111,9 @@ public static enum TYPE_ENUM
 	NIL
 	}
 
+/**
+ * DataType
+ */ 
 public static abstract class DataType
 	{
 	protected DataType()
@@ -119,11 +122,30 @@ public static abstract class DataType
 	public abstract TYPE_ENUM getType();
 	}
 
-public static abstract  class SimpleType extends DataType
+/**
+ * SimpleType
+ */ 
+public static abstract  class SimpleType<T> extends DataType
 	{
+	private T defaultValue=null;
+	
 	protected SimpleType()
 		{
+		this(null);
 		}
+	
+	protected SimpleType(T defaultValue)
+		{
+		this.defaultValue=defaultValue;
+		}
+	public T getDefaultValue()
+		{
+		return this.defaultValue;
+		}
+	public boolean hasDefaultValue()
+		{
+		return getDefaultValue()!=null;
+		}	
 	}
 
 
@@ -163,6 +185,9 @@ public static abstract class ComplexType
 		}
 	}
 
+/**
+ * Choice
+ */
 public static class Choice extends ComplexType
 	{
 	Choice(java.util.List<ComplexNamedType> columns)
@@ -172,6 +197,9 @@ public static class Choice extends ComplexType
 	public TYPE_ENUM getType() { return TYPE_ENUM.CHOICE;}
 	}
 
+/**
+ * Sequence
+ */
 public static class Sequence extends ComplexType
 	{
 	Sequence(java.util.List<ComplexNamedType> columns)
@@ -182,6 +210,9 @@ public static class Sequence extends ComplexType
 	public TYPE_ENUM getType() { return TYPE_ENUM.SEQUENCE;}
 	}
 
+/**
+ * CollectionOf
+ */
 public static abstract class CollectionOf extends DataType
 	{
 	private DataType range;
@@ -194,7 +225,9 @@ public static abstract class CollectionOf extends DataType
 		return this.range;
 		}
 	}
-
+/**
+ * SequenceOf
+ */
 public static class SequenceOf extends CollectionOf
 	{
 	SequenceOf(DataType range)
@@ -205,6 +238,9 @@ public static class SequenceOf extends CollectionOf
 	public TYPE_ENUM getType() { return TYPE_ENUM.SEQUENCE_OF;}
 	}
 
+/**
+ * SetOf
+ */
 public static class SetOf extends CollectionOf
 	{
 	SetOf(DataType range)
@@ -214,7 +250,9 @@ public static class SetOf extends CollectionOf
 	@Override
 	public TYPE_ENUM getType() { return TYPE_ENUM.SET_OF;}
 	}
-
+/**
+ * ChoiceOf
+ */
 public static class ChoiceOf extends CollectionOf
 	{
 	ChoiceOf(DataType range)
@@ -225,35 +263,52 @@ public static class ChoiceOf extends CollectionOf
 	public TYPE_ENUM getType() { return TYPE_ENUM.CHOICE_OF;}
 	}
 
-public static class IntegerType extends SimpleType
+public static class IntegerType
+	extends SimpleType<Integer>
 	{
 	java.util.Map<Integer,String> id2enum =null;
-	private Integer defaultValue=null;
 	
-	public Integer getDefaultValue()
+	public IntegerType()
 		{
-		return defaultValue;
-		} 
+		}
+	
+	public IntegerType(Integer defaultValue)
+		{
+		super(defaultValue);
+		}
+	
 	@Override
 	public TYPE_ENUM getType() { return TYPE_ENUM.INTEGER;}
 	}
 
-public static class VisibleString extends SimpleType
+public static class VisibleString
+	extends SimpleType<String>
 	{
+	public VisibleString()
+		{
+		super(null);
+		}	
+		
 	@Override
 	public TYPE_ENUM getType() { return TYPE_ENUM.VISIBLE_STRING;}
 	}
 
-public static class OctetString extends SimpleType
+public static class OctetString
+	extends SimpleType<byte[]>
 	{
+	public OctetString() { super(null);}
 	@Override
 	public TYPE_ENUM getType() { return TYPE_ENUM.OCTET_STRING;}
 	}
 
 
-public static class BooleanType extends SimpleType
+public static class BooleanType
+	extends SimpleType<Boolean>
 	{
-	Boolean defaultValue=null;
+	BooleanType(Boolean b)
+		{
+		super(b);
+		}
 	
 	@Override
 	public TYPE_ENUM getType() { return TYPE_ENUM.BOOLEAN;}
@@ -728,13 +783,13 @@ private IntegerType integerType():
 	{
 	<INTEGER> ( id2enum=integerEnum()  (<DEFAULTVALUE> defaultValue=identifier())? | <DEFAULTVALUE> defaultInt=intValue() )?
 		{
-		IntegerType t= new IntegerType();
-		t.id2enum=id2enum;
-		if(t.id2enum!=null && defaultValue!=null)
+		IntegerType t;
+		
+		if(id2enum!=null && defaultValue!=null)
 			{
-			for(Integer key: t.id2enum.keySet())
+			for(Integer key: id2enum.keySet())
 				{
-				if( t.id2enum.get(key).equals( defaultValue ) )
+				if( id2enum.get(key).equals( defaultValue ) )
 					{
 					defaultInt=key;
 					break;
@@ -744,8 +799,13 @@ private IntegerType integerType():
 				{
 				throw new ParseException("Cannot find default value "+defaultValue );
 				}
+			t= new IntegerType(defaultInt);
 			}
-		t.defaultValue=defaultInt;
+		else
+			{
+			t= new IntegerType();	
+			}
+		t.id2enum=id2enum;
 		return t;
 		}
 	}
@@ -757,9 +817,7 @@ private BooleanType booleanType():
 	{
 	<BOOLEAN>  (<DEFAULTVALUE> defaultValue=booleanValue() )?
 		{
-		BooleanType b= new BooleanType();
-		b.defaultValue=defaultValue;
-		return b;
+		return new BooleanType(defaultValue);
 		}
 	}
 
