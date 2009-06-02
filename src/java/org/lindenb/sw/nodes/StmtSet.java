@@ -13,15 +13,26 @@ public class StmtSet
 	{
 	private Set<Statement> stmts= new HashSet<Statement>();
 	
+	/**
+	 * default constructor
+	 */
 	public StmtSet()
 		{
 		}
 	
+	/**
+	 * Constructor with a collection
+	 * @param stmts
+	 */
 	public StmtSet(Collection<Statement> stmts)
 		{
 		getStmts().addAll(stmts);
 		}
 	
+	/**
+	 * Constructor with an iterator
+	 * @param stmts
+	 */
 	public StmtSet(Iterator<Statement> iter)
 		{
 		while(iter.hasNext()) add(iter.next());
@@ -38,6 +49,30 @@ public class StmtSet
 		return subjects;
 		}
 	
+	public Set<Resource> listSubjectsWithProperty(Resource property)
+		{
+		Set<Resource> subjects= new HashSet<Resource>();
+		for(Statement stmt:getStmts())
+			{
+			if(!stmt.getPredicate().equals(property)) continue;
+			subjects.add(stmt.getSubject());
+			}
+		return subjects;
+		}
+	
+	public Set<Resource> listSubjectsWithProperty(Resource property,RDFNode value)
+		{
+		Set<Resource> subjects= new HashSet<Resource>();
+		for(Statement stmt:getStmts())
+			{
+			if(!(stmt.getPredicate().equals(property) &&
+					 stmt.getValue().equals(value))) continue;
+			subjects.add(stmt.getSubject());
+			}
+		return subjects;
+		}
+	
+	
 	/** get all distinct predicates in the model */
 	public Set<Resource> getPredicates()
 		{
@@ -49,6 +84,53 @@ public class StmtSet
 		return subjects;
 		}
 	
+	
+	public Set<RDFNode> getValues()
+		{
+		Set<RDFNode> objects= new HashSet<RDFNode>();
+		for(Statement stmt:getStmts())
+			{
+			objects.add(stmt.getValue());
+			}
+		return objects;
+		}
+	
+	public Set<RDFNode> listValuesOfProperty(Resource property)
+		{
+		Set<RDFNode> objects= new HashSet<RDFNode>();
+		for(Statement stmt:getStmts())
+			{
+			if(!stmt.getPredicate().equals(property)) continue;
+			objects.add(stmt.getValue());
+			}
+		return objects;
+		}
+	
+	public Set<RDFNode> listValuesOfProperty(
+			Resource subject,
+			Resource property)
+		{
+		Set<RDFNode> objects= new HashSet<RDFNode>();
+		for(Statement stmt:getStmts())
+			{
+			if(!(stmt.getSubject().equals(subject) &&
+				 stmt.getPredicate().equals(property))) continue;
+			objects.add(stmt.getValue());
+			}
+		return objects;
+		}
+	
+	
+	public StmtSet getStatementsOfSubject(Resource subject)
+		{
+		StmtSet set= new StmtSet();
+		for(Statement stmt:getStmts())
+			{
+			if(!(stmt.getSubject().equals(subject) )) continue;
+			set.add(stmt);
+			}
+		return set;
+		}
 	
 	public boolean add(Statement stmt)
 		{
@@ -78,7 +160,7 @@ public class StmtSet
 		}
 	
 	@Override
-	protected Object clone()
+	public Object clone()
 		{
 		return new StmtSet(getStmts());
 		}
@@ -169,5 +251,7 @@ public class StmtSet
 	public <T> T[] toArray(T[] a) {
 		return getStmts().toArray(a);
 		}
+	
+	
 	
 	}
