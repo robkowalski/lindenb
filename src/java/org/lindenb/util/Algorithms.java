@@ -2,7 +2,6 @@ package org.lindenb.util;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.Vector;
 
 /**
  * Algorith used to search in an orderer collection of Vector of type T

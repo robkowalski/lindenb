@@ -49,7 +49,7 @@ public class C extends StringUtils
     	{
     	if(s==null) return null;
       	StringBuilder sb= new StringBuilder(s.length());
-      	for(int i=1;i< s.length();++i)
+      	for(int i=0;i< s.length();++i)
       		{
       		if(s.charAt(i)=='\\')
     			{

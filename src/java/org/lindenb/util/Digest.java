@@ -7,16 +7,34 @@ import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
-/** public methods encrypting a string as SHA1 . Use Digest.SHA1 */
-@Deprecated
-public class SHA1
+/** public methods encrypting a string  */
+public class Digest
 {
-private static final String ALGORITHM="SHA-1";
-private static final String ENCODING="UTF-8";
-public static boolean isImplemented()
+private String algorithm;
+private String encoding;
+
+public static final Digest SHA1= new Digest("SHA-1","UTf-8");
+public static final Digest MD5= new Digest("MD5","UTf-8");
+
+
+private Digest(String algorithm,String encoding)
+	{
+	this.algorithm=algorithm;
+	this.encoding=encoding;
+	}
+	
+public String getAlgorithm() {
+	return algorithm;
+	}
+
+public String getEncoding() {
+	return encoding;
+	}
+
+public boolean isImplemented()
 	{
 	try {
-		MessageDigest.getInstance(ALGORITHM);
+		MessageDigest.getInstance(getAlgorithm());
 		return true;
 		}
 	catch (NoSuchAlgorithmException err)
@@ -25,14 +43,12 @@ public static boolean isImplemented()
 		}
 	}
 
-
-
-public static String encrypt(File file) throws IOException
+public String encrypt(File file) throws IOException
 	{
 	byte[] hash = null;
 	try {
 		FileInputStream in= new FileInputStream(file);
-		MessageDigest instance=MessageDigest.getInstance(ALGORITHM);
+		MessageDigest instance=MessageDigest.getInstance(getAlgorithm());
 		byte array[]=new byte[2048];
 		int len;
 		while((len=in.read(array))!=-1)
@@ -53,19 +69,19 @@ public static String encrypt(File file) throws IOException
 	return getHashString(hash);
 	}
 
-public static String encrypt(String string)
+public  String encrypt(String string)
 	{
 	byte[] hash = null;
 	try {
-		hash = MessageDigest.getInstance(ALGORITHM).digest(string.getBytes(ENCODING));
+		hash = MessageDigest.getInstance(getAlgorithm()).digest(string.getBytes(getEncoding()));
 		}
 	catch (NoSuchAlgorithmException err)
 		{
-		throw new Error("no "+ALGORITHM+" support in this VM");
+		throw new Error("no "+getAlgorithm()+" support in this VM");
 		}
 	catch (UnsupportedEncodingException err)
 		{
-		throw new Error("no "+ENCODING+" support in this VM");
+		throw new Error("no "+getAlgorithm()+" support in this VM");
 		}
 	return getHashString(hash);
 	}
@@ -84,17 +100,5 @@ private static String getHashString(byte[] hash)
 	return hashString.toString();
 	}
 
-public static void main(String[] args)
-	{
-	if(!isImplemented())
-		{
-		System.err.println("Doesn't support "+ALGORITHM);
-		System.exit(-1);
-		}
-	
-	for(String arg: args)
-		{
-		System.out.println(encrypt(arg));
-		}
-	}
+
 }
