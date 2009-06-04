@@ -31,7 +31,7 @@ import javax.xml.stream.events.XMLEvent;
 import org.lindenb.io.IOUtils;
 import org.lindenb.me.Me;
 import org.lindenb.util.Compilation;
-import org.lindenb.util.SHA1;
+import org.lindenb.util.Digest;
 
 
 /**
@@ -470,7 +470,7 @@ private static class EntrySet
 			{
 			return new URL(url).openStream();
 			}
-		File f= new File(System.getProperty("java.io.tmpdir","."),SHA1.encrypt(url)+".xml");
+		File f= new File(System.getProperty("java.io.tmpdir","."),Digest.SHA1.encrypt(url)+".xml");
 		debug("Cache : "+f);
 		if(f.exists())
 			{

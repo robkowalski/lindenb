@@ -107,7 +107,7 @@ import org.lindenb.util.C;
 import org.lindenb.util.Compilation;
 import org.lindenb.util.Couple;
 import org.lindenb.util.Pair;
-import org.lindenb.util.SHA1;
+import org.lindenb.util.Digest;
 import org.lindenb.util.TimeUtils;
 import org.lindenb.xml.XMLUtilities;
 import org.w3c.dom.Attr;
@@ -2031,12 +2031,12 @@ public class SciFOAF extends JFrame
 				@Override
 				protected void saveNode(String uri)
 					{
-					log().info(uri+" "+SHA1.isImplemented());
+					log().info(uri+" "+Digest.SHA1.isImplemented());
 					if(uri==null) return;
 					super.saveNode(uri);
-					if(SHA1.isImplemented())
+					if(Digest.SHA1.isImplemented())
 						{
-						String sha1= SHA1.encrypt(uri);
+						String sha1= Digest.SHA1.encrypt(uri);
 						log().info(sha1);
 						getModel().add(
 								getSubject(),
@@ -3733,7 +3733,7 @@ public class SciFOAF extends JFrame
     			}
     		log().debug("Created tmp directory in "+getTmpDirectory());
     		}
-    	String id= SHA1.encrypt(url.toString())+".png";
+    	String id= Digest.SHA1.encrypt(url.toString())+".png";
     	File dest= new File(getTmpDirectory(),id);
 		
 		//ignore if exists

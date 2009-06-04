@@ -214,7 +214,7 @@
 	<xsl:variable name="first"  select="number($bound1_array/c:PC-Bonds_aid1_E[$idx])"/>
 	<xsl:variable name="second" select="number($bound2_array/c:PC-Bonds_aid2_E[$idx])"/>
 
-	  <xsl:attribute name="style">stroke:black;stroke-opacity:0.8;stroke-width:<xsl:value-of select="number($link_array/c:PC-BondType[$idx])*2"/>px;</xsl:attribute>
+	  <xsl:attribute name="style">stroke-linecap:butt;stroke:black;stroke-opacity:0.8;stroke-width:<xsl:value-of select="number($link_array/c:PC-BondType[$idx])*2"/>px;</xsl:attribute>
   	  <xsl:attribute name="x1"><xsl:call-template name="coord-x"><xsl:with-param name="index" select="$first"/></xsl:call-template></xsl:attribute>
   	  <xsl:attribute name="y1"><xsl:call-template name="coord-y"><xsl:with-param name="index" select="$first"/></xsl:call-template></xsl:attribute>
   	  <xsl:attribute name="x2"><xsl:call-template name="coord-x"><xsl:with-param name="index" select="$second"/></xsl:call-template></xsl:attribute>
