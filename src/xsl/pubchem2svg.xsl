@@ -7,6 +7,20 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:h="http://www.w3.org/1999/xhtml"
  >
+ 
+ <!--
+
+Motivation:
+	transforms a pubchem xml result to SVG
+Author
+	Pierre Lindenbaum PhD plindenbaum@yahoo.fr
+	http://plindenbaum.blogspot.com
+Parameters:
+	scale :=scale factor
+	show-bounds := (true/false) 
+	xradius := scale factor for atoms
+-->
+
 <!-- ========================================================================= -->
 <xsl:output method='xml' indent='yes' omit-xml-declaration="no"/>
 
@@ -113,7 +127,11 @@
  <xsl:attribute name="width"><xsl:value-of select="$frame-width"/></xsl:attribute>
  <xsl:attribute name="height"><xsl:value-of select="$frame-height"/></xsl:attribute>
  <svg:title><xsl:value-of select="c:PC-Compound_id/c:PC-CompoundType/c:PC-CompoundType_id/c:PC-CompoundType_id_cid"/></svg:title>
- 
+ <xsl:comment>
+	Made with http://code.google.com/p/lindenb/source/browse/trunk/src/xsl/pubchem2svg.xsl 	
+ 	Author: Pierre Lindenbaum PhD plindenbaum@yahoo.fr
+	http://plindenbaum.blogspot.com
+</xsl:comment>
  
   <!-- DEFINITIONS -->
  <xsl:element name="svg:defs">
