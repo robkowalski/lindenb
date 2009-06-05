@@ -58,8 +58,8 @@ public class C extends StringUtils
     				++i;
     				switch(s.charAt(i))
     					{
-    					case '\n': sb.append('\n'); break;
-    					case '\r': sb.append('\r'); break;
+    					case 'n': sb.append('\n'); break;
+    					case 'r': sb.append('\r'); break;
     					case '\\': sb.append('\\'); break;
     					case 'b': sb.append('\b'); break;
     					case 't': sb.append('\t'); break;
