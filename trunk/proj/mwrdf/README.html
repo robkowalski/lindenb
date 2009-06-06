@@ -1,0 +1,17 @@
+<html>
+<head><title>MWRDF</title></head>
+<body>
+<h1>Install</h1>
+
+Create the directory  <code>$(MW)/java</code><br/>
+
+Edit your <code>$(MW)/LocalSettings.php</code> and add the following at the end.
+<pre>$wgMainCacheType = CACHE_NONE;
+$wgMessageCacheType = CACHE_NONE;
+$wgParserCacheType = CACHE_NONE;
+$wgCachePages = false;
+
+require_once("mwrdf/RDFEdit.php");
+</pre>
+</body>
+</html>

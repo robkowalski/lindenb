@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<project default="compile">
+<property environment="env"/><!-- prefix for environnement properties -->
+<property name="root.dir" value="../.."/>
+<property file="../../build.properties"/>
+
+	<!--
+	    
+	        ${JAVA_BIN}/javac -d ${MWHOME}/java/WEB-INF/classes -cp ${HTTCLIENTLIB} -sourcepath src:${HOME}/src/lindenb/src/java src/wi
+	kieditor/AbstractWikiEditor.java
+-->
+<target name="compile" depends="clean">
+	<mkdir dir="${mediawiki.dir}/mwrdf"/>
+	<mkdir dir="${mediawiki.dir}/mwrdf/WEB-INF"/>
+	<copy file="${httpclient.lib}" tofile="${mediawiki.dir}/mwrdf/WEB-INF/commons-httpclient.jar"/>
+	<copy file="${logging.lib}" tofile="${mediawiki.dir}/mwrdf/WEB-INF/commons-logging.jar"/>
+	<copy file="${codec.lib}" tofile="${mediawiki.dir}/mwrdf/WEB-INF/commons-codec.jar"/>
+	
+	<javac destdir="${mediawiki.dir}/mwrdf/WEB-INF"
+		nowarn="false"
+		
+		>	
+		<src path="./src/java"/>
+		<src path="${root.dir}/src/java"/>
+		<include name="org/lindenb/mwrdf/MWRdfEditor.java"/>
+		<classpath>
+			<pathelement location="${httpclient.lib}"/>
+		</classpath>
+	</javac>
+	
+	<jar	
+			destfile="${mediawiki.dir}/mwrdf/WEB-INF/mwrdfedit.jar"
+			
+			>
+		<fileset dir="${mediawiki.dir}/mwrdf/WEB-INF" excludes="**/*.jar"/>
+	</jar>
+	<!--
+	<delete includeemptydirs="true">
+		<fileset dir="${mediawiki.dir}/mwrdf/WEB-INF" excludes="**/org/lindenb/mwrdf/*.class *.jar"/>
+	</delete>
+	-->
+	<copy file="src/php/RDFEdit.php" todir="${mediawiki.dir}/mwrdf"/>
+</target>
+
+<target name="clean">
+	<delete dir="${mediawiki.dir}/mwrdf"/>
+</target>	
+	
+</project>
