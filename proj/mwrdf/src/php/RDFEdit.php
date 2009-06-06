@@ -19,6 +19,7 @@ global $wgOut, $wgRequest, $wgParser, $wgUser, $wgCookiePrefix, $wgScriptPath,$w
 
 if(	$wgRequest->getText("java")=="false" ||
 	$wgRequest->getCheck( 'wpSave' ) ||
+	$wgRequest->getCheck( 'wpPreview' ) ||
     $wgRequest->getCheck( 'wpDiff' ) ||
     $wgTitle->getNamespace() != NS_MAIN ) return true;
 
@@ -27,7 +28,7 @@ $editpage->initialiseForm();
 $wgOut->addHTML("<applet name='mw_editor_applet' id='mw_editor_applet'" . 
         " code='org/lindenb/mwrdf/MWRdfEditor.class' ".
 		" codebase='mwrdf/WEB-INF/' ".
-		" archive='commons-httpclient.jar, commons-logging.jar, commons-codec.jar, mwrdfedit.jar'" .
+		" archive='commons-httpclient.jar, commons-logging.jar, commons-lang.jar, commons-codec.jar, mwrdfedit.jar'" .
 		" width='800' height='500' ".
              	" >\n");
 
@@ -46,7 +47,7 @@ $wgOut->addHTML("<param name='wpScrolltop' value='".htmlspecialchars($editpage->
 $wgOut->addHTML("<param name='wpStarttime' value='".htmlspecialchars($editpage->starttime)."'/>");
 $wgOut->addHTML("<param name='wpSummary' value=\"".str_replace("'","&apos;",htmlspecialchars($editpage->summary))."\"/>");
 $wgOut->addHTML("<param name='wpAutoSummary' value='".md5( $editpage->summary )."'/>");
-$wgOut->addHTML("<param name='wpEditToken' value='". $wgUser->editToken()."'/>");
+$wgOut->addHTML("<param name='wpEditToken' value=\"". $wgUser->editToken()."\"/>");
 $wgOut->addHTML("<param name='title' value='".htmlentities($wgTitle->getText())."'/>");
 $wgOut->addHTML("<param name='pageId' value='".$wgTitle->getArticleID()."'/>");
 $wgOut->addHTML("<param name='revId' value='".$wgTitle->getLatestRevID()."'/>");

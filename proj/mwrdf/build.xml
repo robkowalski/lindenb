@@ -15,6 +15,7 @@
 	<copy file="${httpclient.lib}" tofile="${mediawiki.dir}/mwrdf/WEB-INF/commons-httpclient.jar"/>
 	<copy file="${logging.lib}" tofile="${mediawiki.dir}/mwrdf/WEB-INF/commons-logging.jar"/>
 	<copy file="${codec.lib}" tofile="${mediawiki.dir}/mwrdf/WEB-INF/commons-codec.jar"/>
+	<copy file="${lang.lib}" tofile="${mediawiki.dir}/mwrdf/WEB-INF/commons-lang.jar"/>
 	
 	<javac destdir="${mediawiki.dir}/mwrdf/WEB-INF"
 		nowarn="false"
@@ -25,6 +26,7 @@
 		<include name="org/lindenb/mwrdf/MWRdfEditor.java"/>
 		<classpath>
 			<pathelement location="${httpclient.lib}"/>
+			<pathelement location="${lang.lib}"/>
 		</classpath>
 	</javac>
 	
@@ -40,6 +42,7 @@
 	</delete>
 	-->
 	<copy file="src/php/RDFEdit.php" todir="${mediawiki.dir}/mwrdf"/>
+	<copy file="src/php/schema.xml" todir="${mediawiki.dir}/mwrdf"/>
 </target>
 
 <target name="clean">
