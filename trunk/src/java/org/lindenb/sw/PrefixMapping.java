@@ -118,4 +118,18 @@ public void addNamespaces(Element root)
 		this.setNsPrefix(prefix, att.getValue());
 		}
 	}
+
+/** create A XML doctype of this mapping for a rdf:RDF document
+ * with &lt;!DOCTYPE rdf:RDF [ (&lt;!ENTITY {prefix} "{uri}" &gt;)* ]&gt;
+ * */
+public String createDocType()
+	{
+	StringBuilder b=new StringBuilder("<!DOCTYPE rdf:RDF [\n");
+	for(String p: getPrefixes())
+		{
+		b.append("\t<!ENTITY\t"+p+"\t\""+getNsPrefixURI(p)+"\">\n");
+		}
+	b.append("]>");
+	return b.toString();
+	}
 }

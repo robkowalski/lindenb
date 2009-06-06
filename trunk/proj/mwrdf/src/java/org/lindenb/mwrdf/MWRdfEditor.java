@@ -48,6 +48,8 @@ import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.commons.httpclient.methods.multipart.MultipartRequestEntity;
 import org.apache.commons.httpclient.methods.multipart.Part;
 import org.apache.commons.httpclient.methods.multipart.StringPart;
+import org.apache.commons.lang.StringEscapeUtils;
+import org.lindenb.io.IOUtils;
 import org.lindenb.lang.InvalidXMLException;
 import org.lindenb.lang.ThrowablePane;
 import org.lindenb.me.Me;
@@ -78,11 +80,13 @@ public class MWRdfEditor extends JApplet
 	protected static final String ACTION_POST="action.article.post";
 	protected static final String ACTION_ABOUT_ME="action.about.me";
 	protected static final String ACTION_INFO_SYS="action.info.sys";
+	
 	private ActionMap actionMap= new ActionMap();
 	private JTextField infoBoxField;
 	private JTextArea textArea;
 	private DocumentBuilder docBuilder;
 	private SAXParser saxParser;
+	private Schema schema=null;
 	
 	public static final String PARAM_USERNAME="userName";
 	public static final String PARAM_USERID="userId";
@@ -219,6 +223,17 @@ public class MWRdfEditor extends JApplet
 		return path.substring(0,i)+"/api.php";
 		}
 	
+	private String getSchemaUrl()
+		{
+		String path=getDocumentBase().toExternalForm();
+		int i=path.lastIndexOf('?');
+		if(i!=-1) path=path.substring(0,i);
+		i=path.lastIndexOf('/');
+		if(i==-1) return path;
+		return path.substring(0,i)+"/mwrdf/schema.xml";
+		}
+
+	
     public String getRevisionContent() throws IOException
 	    {
 	    
@@ -245,7 +260,7 @@ public class MWRdfEditor extends JApplet
 	            this.saxParser.parse(in, h);
 	            if(h.getContent()==null)
 	                    {
-	                    return "<rdf:RDF/>";
+	                    return "";
 	                    }
 	            return h.getContent();
 	            }
@@ -305,6 +320,7 @@ public class MWRdfEditor extends JApplet
 					throw err;
 						}
 				});
+			this.schema= new Schema(this.docBuilder.parse(getSchemaUrl()));
 			
 			
 			JMenuBar bar= new JMenuBar();
@@ -417,44 +433,47 @@ public class MWRdfEditor extends JApplet
 			if(1==2)
 				{
 				String wpTextbox1=getNonNullParameter("wpTextbox1");
-				int i= wpTextbox1.indexOf(START_TAGS);
-				if(i!=-1)
-					{
-					i+=START_TAGS.length();
-					int j= wpTextbox1.indexOf(END_TAGS,i);
-					if(j!=-1)
-						{
-						wpTextbox1= C.unescape(XMLUtilities.unescape( wpTextbox1.substring(i,j)));
-						}
-					else
-						{
-						wpTextbox1= "CANNOT GET RDF IN :\n"+wpTextbox1;
-						}
-					}
-				else
-					{
-					if(wpTextbox1.trim().length()>0)
-						{
-						wpTextbox1= "CANNOT GET RDF IN :\n"+wpTextbox1;
-						}
-					else
-						{
-						wpTextbox1=null;
-						}
-					}
-				if(wpTextbox1==null)
-					{
-					wpTextbox1="<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-							"<rdf:RDF xmlns:rdf=\""+RDF.NS+"\">\n"+
-							"</rdf:RDF>";
-					}
+				
 				this.textArea.setText(wpTextbox1);	
 				}
 			else
 				{
 				String content= getRevisionContent();
+				
+				int i= content.indexOf(START_TAGS);
+				if(content.length()==0)
+					{
+					content= this.schema.createEmptyRDFDocument();
+					}
+				else if(i!=-1)
+					{
+					i+=START_TAGS.length();
+					int j= content.indexOf(END_TAGS,i);
+					if(j!=-1)
+						{
+						content= StringEscapeUtils.unescapeXml(content.substring(i,j));
+						}
+					else
+						{
+						content= "CANNOT GET RDF IN :\n"+content;
+						}
+					}
+				else
+					{
+					content= "CANNOT GET RDF IN :\n"+content;
+					}
+				
 				this.textArea.setText(content);		
 				}
+			menu.add(new AbstractAction("Insert RDF")
+				{
+				@Override
+				public void actionPerformed(ActionEvent arg0) {
+					textArea.insert(schema.createEmptyRDFDocument(),0);
+					}
+				});
+			
+			
 			setContentPane(contentPanel);
 			setJMenuBar(bar);
 			}
@@ -463,40 +482,7 @@ public class MWRdfEditor extends JApplet
 			setContentPane(new ThrowablePane(error,error.getMessage()));
 			}
 		}
-	
-	
-	private static String escapeXML(CharSequence s)
-	    {
-	    if(s==null) throw new NullPointerException("XML.escape(null)");
-	    int needed=-1;
-	    for(int i=0;i< s.length();++i)
-	        {
-	        switch(s.charAt(i))
-	            {
-	            case '\"':
-				case '&': 
-				case '<':
-				case '>':  needed=i; break;
-	
-	            default: break;
-	            }
-	        if(needed!=-1) break;
-	        }
-		if(needed==-1) return s.toString();
-		StringBuilder buffer=new StringBuilder(s.subSequence(0,needed));
-		for(int i=needed;i< s.length();++i)
-		       {
-		       switch(s.charAt(i))
-		               {
-		               case '\"': buffer.append("&quot;"); break;
-		               case '&': buffer.append("&amp;"); break;
-		               case '<': buffer.append("&lt;"); break;
-		               case '>': buffer.append("&gt;"); break;
-		               default:  buffer.append(s.charAt(i));break;
-		               }
-		       }
-		return buffer.toString();
-	    }
+
 	
 	public String getArticleContent() throws SAXException,IOException
 		{
@@ -504,7 +490,7 @@ public class MWRdfEditor extends JApplet
 		if(dom==null) throw new SAXException("No document");
 		
 		return  START_TAGS+
-				escapeXML(this.textArea.getText())+
+				StringEscapeUtils.escapeXml(this.textArea.getText())+
 				END_TAGS+"\n[[Category:RDF doc]]";
 		
 		}
@@ -604,7 +590,7 @@ public class MWRdfEditor extends JApplet
 			}
 		catch(Exception err)
 			{
-			
+			err.printStackTrace();
 			}
 		}
 	
@@ -619,6 +605,7 @@ public class MWRdfEditor extends JApplet
 			ThrowablePane.show(this, err);
 			}
 		}
+	
 	
 	protected int sendData(String submitName,String submitValue)
 		throws HttpException,IOException,SAXException
@@ -642,7 +629,7 @@ public class MWRdfEditor extends JApplet
 			for(String s:new String[]{
 					"wpSection","wpEdittime","wpScrolltop","wpStarttime","wpEditToken"})
 				{
-				parts.add(new StringPart(s,C.unescape(getNonNullParameter(s))));
+				parts.add(new StringPart(s,getNonNullParameter(s)));
 				}
 			parts.add(new StringPart("action","edit"));
 			parts.add(new StringPart("wpTextbox1",getArticleContent()));
@@ -659,7 +646,12 @@ public class MWRdfEditor extends JApplet
 			postMethod.setRequestEntity(requestEntity);
 			int status = getHttpClient().executeMethod(postMethod);
 			
-			/*String html= IOUtils.getReaderContent(new InputStreamReader(postMethod.getResponseBodyAsStream())).trim();
+			
+			
+			
+			IOUtils.copyTo(postMethod.getResponseBodyAsStream(),System.err);
+			System.err.println("\n"+getArticleContent()+"\n");
+			/*String html= IOUtils.getReaderContent(new InputStreamReader().trim();
 			getContentPane().removeAll();
 			getContentPane().add(new JScrollPane(new JTextArea(html)));
 			getContentPane().validate();*/
