@@ -312,8 +312,19 @@ public static String node2path(Node n)
 				}
 			case Node.ELEMENT_NODE:
 				{
-				int L=getLevel(n);
-				b.insert(0,"/"+n.getNodeName()+"["+(L+1)+"]");
+				int L=0;
+				Node curr= n;
+				while(curr!=null)
+					{
+					if(curr.getNodeType()==Node.ELEMENT_NODE &&
+					   curr.getNodeName().equals(n.getNodeName()))
+						{
+						L++;
+						}
+					curr=curr.getPreviousSibling();
+					}
+				
+				b.insert(0,"/"+n.getNodeName()+"["+(L)+"]");
 				break;
 				}
 			}

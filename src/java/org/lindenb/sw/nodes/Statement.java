@@ -104,7 +104,11 @@ public class Statement
 	 * @param value used as a filter. Can be a String or a Resource. If null, select wathever
 	 * @returna true if this Stmt match the rules
 	 */
-	public boolean match( Resource subject, Resource predicate, RDFNode value)
+	public boolean match(
+				Resource subject,
+				Resource predicate,
+				RDFNode value
+				)
 		{
 		if(subject!=null && !getSubject().equals(subject)) return false;
 		if(predicate!=null && !getPredicate().equals(predicate)) return false;

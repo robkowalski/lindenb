@@ -1,5 +1,6 @@
 package org.lindenb.sw.nodes;
 
+import java.lang.reflect.Constructor;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -142,6 +143,38 @@ public class StmtSet
 		return getStmts().remove(stmt);
 		}
 	
+	/** find the first Literal given the subject and resource */
+	public Literal getLiteral(Resource r,Resource p)
+		{
+		for(Statement stmt: getStmts())
+			{
+			if( stmt.isLiteral() &&
+				stmt.getSubject().equals(r) &&
+				stmt.getPredicate().equals(p)
+				)
+				{
+				return stmt.getValue().asLiteral();
+				}
+			}
+		return null;
+		}
+	
+	
+	
+	/** find the first Literal given the subject and resource and
+	 * return its LexicalForm or null if it was not found */
+	public String getString(Resource r,Resource p)
+		{
+		return getString(r,p,null);
+		}
+	
+	/** find the first Literal given the subject and resource and
+	 * return its LexicalForm or the default value */
+	public String getString(Resource r,Resource p,String defaultValue)
+		{
+		Literal L= getLiteral(r,p);
+		return L==null?defaultValue:L.getLexicalForm();
+		}
 	
 	
 	protected Set<Statement> getStmts()
@@ -194,10 +227,16 @@ public class StmtSet
 		}
 
 	
-	
+	/** filter those statements. Parameters can be used as a filter */
 	public StmtSet filter(Resource r,Resource p,RDFNode o)
 		{
-		return new StmtSet(select(r, p, o));
+		StmtSet cp= new StmtSet();
+		for(Statement stmt:this)
+			{
+			if(!stmt.match(r,p,o)) continue;
+			cp.add(stmt);
+			};
+		return cp;
 		}
 
 	@Override

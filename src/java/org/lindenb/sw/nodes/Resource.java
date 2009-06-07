@@ -25,6 +25,22 @@ public class Resource
 			,true);
 		}
 	
+	/**
+	 * Copy Constructor for derived classes
+	 */
+	public Resource(Resource cp)
+		{
+		this.uri=cp.uri;
+		this.anonymous=cp.anonymous;
+		}
+	
+	/** new resource with the given uri/localName */
+	public Resource(String uri,String localName)
+		{
+		this(uri+localName,false);
+		}
+	
+	/** new resource with the given uri */
 	public Resource(String uri)
 		{
 		this(uri,false);
@@ -76,6 +92,12 @@ public class Resource
 	@Override
 	public int compareTo(Resource o) {
 		return this.getURI().compareTo(o.getURI());
+		}
+	
+	@Override
+	protected Object clone()
+		{
+		return new Resource(this);
 		}
 	
 	@Override
