@@ -49,11 +49,11 @@ import org.apache.commons.httpclient.methods.multipart.MultipartRequestEntity;
 import org.apache.commons.httpclient.methods.multipart.Part;
 import org.apache.commons.httpclient.methods.multipart.StringPart;
 import org.apache.commons.lang.StringEscapeUtils;
-import org.lindenb.io.IOUtils;
 import org.lindenb.lang.InvalidXMLException;
 import org.lindenb.lang.ThrowablePane;
 import org.lindenb.me.Me;
 import org.lindenb.sw.dom.DOM4RDF;
+import org.lindenb.sw.nodes.StmtSet;
 import org.lindenb.sw.vocabulary.RDF;
 import org.lindenb.swing.DocumentAdapter;
 import org.lindenb.util.C;
@@ -100,8 +100,7 @@ public class MWRdfEditor extends JApplet
 	
 	/** httpClient */
 	private HttpClient httpClient=null;
-	/** RDF parse */
-	private DOM4RDF rdfParser= new DOM4RDF();
+	
 	
 	
     private static class GetRevisionHandler
@@ -320,8 +319,9 @@ public class MWRdfEditor extends JApplet
 					throw err;
 						}
 				});
-			this.schema= new Schema(this.docBuilder.parse(getSchemaUrl()));
-			
+			this.schema= new Schema(
+					DOM4RDF.getStatements(this.docBuilder.parse(getSchemaUrl()))
+					);
 			
 			JMenuBar bar= new JMenuBar();
 			
@@ -508,7 +508,9 @@ public class MWRdfEditor extends JApplet
 			if(root==null) throw new InvalidXMLException(dom,"No root");
 			if(!XMLUtilities.isA(root, RDF.NS, "RDF")) throw new InvalidXMLException(dom,"Not a RDF root");
 			if(XMLUtilities.count(root)!=1) throw new InvalidXMLException(root,"Expected one and only one element under rdf:RDF");	
-			this.rdfParser.parse(dom);
+			
+			StmtSet stmts=DOM4RDF.getStatements(dom);
+			this.schema.validate(stmts);
 			getActionMap().get(ACTION_POST).setEnabled(true);
 			this.infoBoxField.setText("OK");
 			this.infoBoxField.setForeground(Color.GREEN);
@@ -649,8 +651,8 @@ public class MWRdfEditor extends JApplet
 			
 			
 			
-			IOUtils.copyTo(postMethod.getResponseBodyAsStream(),System.err);
-			System.err.println("\n"+getArticleContent()+"\n");
+			//IOUtils.copyTo(postMethod.getResponseBodyAsStream(),System.err);
+			//System.err.println("\n"+getArticleContent()+"\n");
 			/*String html= IOUtils.getReaderContent(new InputStreamReader().trim();
 			getContentPane().removeAll();
 			getContentPane().add(new JScrollPane(new JTextArea(html)));

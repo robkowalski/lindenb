@@ -312,6 +312,10 @@ public class DOM4RDF
 					}
 				else
 					{
+					if(att.getNamespaceURI()==null)
+						{
+						throw new InvalidXMLException(root,"No NamespaceURI associated with "+att.getNodeName());
+						}
 					foundStatement(
 						subject,
 						createResource(att.getNamespaceURI()+att.getLocalName()),
@@ -322,6 +326,10 @@ public class DOM4RDF
 			}
 		if(!XMLUtilities.isA(root, RDF.NS, "Resource"))
 			{
+			if(root.getNamespaceURI()==null)
+				{
+				throw new InvalidXMLException(root,"No NamespaceURI associated with "+root.getTagName());
+				}
 			foundStatement(
 					subject,
 					createResource(RDF.NS+"type"),
@@ -398,6 +406,11 @@ public class DOM4RDF
 		Attr dataTypeNode =  property.getAttributeNodeNS(RDF.NS, "dataType");
 		String dataType= (dataTypeNode==null?null:dataTypeNode.getValue());
 		String parseType=parseTypeNode!=null?parseTypeNode.getValue():null;
+		
+		if(property.getNamespaceURI()==null)
+			{
+			throw new InvalidXMLException(property,"no namespaceURI for "+property.getTagName());
+			}
 		
 		Resource predicate= createResource(property.getNamespaceURI()+property.getLocalName());
 		
