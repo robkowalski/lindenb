@@ -202,26 +202,21 @@ public class Schema
 				{
 				StmtSet stmts= Schema.this.getCurrentRDFStore().filter(subject, prop.asResource(), null);
 				
-			
-				
 				Schema.this.processed.addAll(stmts);
 				Integer max= prop.getMaxCardinality();
-				
-	
-				
 				Integer min= prop.getMinCardinality();
 				
 				
-				
+				//System.err.println("n="+stmts.size()+" min="+min+" max="+max+" "+prop.getQName());
 				if(prop.isResource() || ((prop instanceof OntDataTypeProperty) && !OntDataTypeProperty.class.cast(prop).isLocalized()))
 					{
 					if(min!=null && stmts.size() < min)
 						{
-						throw new RDFException(prop.getURI()+" has min cardinality:"+min);
+						throw new RDFException(subject.getURI()+" "+prop.getQName()+" has min cardinality:"+min);
 						}
 					if(max!=null && stmts.size() > max)
 						{
-						throw new RDFException(prop.getURI()+" has max cardinality:"+min);
+						throw new RDFException(subject.getURI()+" "+prop.getQName()+" has max cardinality:"+min);
 						}
 					for(Statement stmt:stmts)
 						{
@@ -408,7 +403,7 @@ public class Schema
 		public OntClass getOntClassInRange()
 			{
 			if(range!=null) return range;
-			for(Statement stmt:Schema.this.getCurrentRDFStore().filter(this, new Resource(RDFS.NS,"range"), null))
+			for(Statement stmt:Schema.this.getOntology().filter(this, new Resource(RDFS.NS,"range"), null))
 				{
 				if(!stmt.isResource()) continue;
 				this.range= Schema.this.uri2class.get(stmt.getValue().asResource().getURI());
@@ -479,11 +474,15 @@ public class Schema
 		public Constructor<?> getJavaClassInRange()throws RDFException
 			{
 			if(this.constructor!=null) return constructor;
-			StmtSet ranges=Schema.this.getCurrentRDFStore().filter(this, new Resource(RDFS.NS,"range"), null);
-			System.err.println(ranges);
+			StmtSet ranges=Schema.this.getOntology().filter(
+					this,
+					new Resource(RDFS.NS,"range"),
+					null
+					);
+			
 			for(Statement stmt:ranges)
 				{
-				System.err.println(stmt);
+				//System.err.println("X1:"+stmt);
 				if(!stmt.isResource()) continue;
 				try {
 					String ttype=stmt.getValue().asResource().getURI();
