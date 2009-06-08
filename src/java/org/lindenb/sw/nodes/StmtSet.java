@@ -1,6 +1,5 @@
 package org.lindenb.sw.nodes;
 
-import java.lang.reflect.Constructor;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;

@@ -83,7 +83,7 @@ public class Resource
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj) return true;
-		if (obj == null || getClass() != obj.getClass())
+		if (obj == null || !(obj instanceof Resource))
 			return false;
 		Resource other = (Resource) obj;
 		return getURI().equals(other.getURI());

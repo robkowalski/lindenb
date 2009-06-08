@@ -20,6 +20,7 @@ import javax.swing.AbstractAction;
 import javax.swing.ActionMap;
 import javax.swing.JApplet;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
@@ -49,14 +50,17 @@ import org.apache.commons.httpclient.methods.multipart.MultipartRequestEntity;
 import org.apache.commons.httpclient.methods.multipart.Part;
 import org.apache.commons.httpclient.methods.multipart.StringPart;
 import org.apache.commons.lang.StringEscapeUtils;
+import org.lindenb.io.IOUtils;
 import org.lindenb.lang.InvalidXMLException;
 import org.lindenb.lang.ThrowablePane;
 import org.lindenb.me.Me;
+import org.lindenb.sw.PrefixMapping;
 import org.lindenb.sw.dom.DOM4RDF;
+import org.lindenb.sw.nodes.Statement;
 import org.lindenb.sw.nodes.StmtSet;
 import org.lindenb.sw.vocabulary.RDF;
 import org.lindenb.swing.DocumentAdapter;
-import org.lindenb.util.C;
+
 import org.lindenb.util.Digest;
 import org.lindenb.xml.XMLUtilities;
 import org.w3c.dom.Document;
@@ -76,10 +80,12 @@ import org.xml.sax.helpers.DefaultHandler;
 public class MWRdfEditor extends JApplet
 	{
 	private static final long serialVersionUID = 1L;
-	protected static final String ACTION_PREVIEW="action.article.preview";
+
 	protected static final String ACTION_POST="action.article.post";
 	protected static final String ACTION_ABOUT_ME="action.about.me";
 	protected static final String ACTION_INFO_SYS="action.info.sys";
+
+
 	
 	private ActionMap actionMap= new ActionMap();
 	private JTextField infoBoxField;
@@ -87,6 +93,8 @@ public class MWRdfEditor extends JApplet
 	private DocumentBuilder docBuilder;
 	private SAXParser saxParser;
 	private Schema schema=null;
+	private JCheckBox cBoxValidateRDF;
+	private JCheckBox cBoxValidateSchema;
 	
 	public static final String PARAM_USERNAME="userName";
 	public static final String PARAM_USERID="userId";
@@ -101,8 +109,26 @@ public class MWRdfEditor extends JApplet
 	/** httpClient */
 	private HttpClient httpClient=null;
 	
+	/** An action inserting a namespace */
+	private class NSInsertAction
+		extends org.lindenb.swing.ActionAdapter
+		{
+		private static final long serialVersionUID = 1L;
+
+		NSInsertAction(String prefix,String ns)
+			{
+			super(prefix,prefix,ns);
+			}
+		
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			MWRdfEditor.this.textArea.insert(" xmlns:"+getObject(0)+"=\""+getObject(1)+"\" ",
+					MWRdfEditor.this.textArea.getCaretPosition()
+					);
+			}
+		}
 	
-	
+	/** GetRevisionHandler */
     private static class GetRevisionHandler
     extends DefaultHandler
 	    {
@@ -174,7 +200,9 @@ public class MWRdfEditor extends JApplet
 		return getNonNullParameter(PARAM_SESSION);
 		}
 	
-
+	public Schema getSchema() {
+		return schema;
+		}
 	
 	/** answer user name */
 	protected String getUserName()
@@ -229,7 +257,7 @@ public class MWRdfEditor extends JApplet
 		if(i!=-1) path=path.substring(0,i);
 		i=path.lastIndexOf('/');
 		if(i==-1) return path;
-		return path.substring(0,i)+"/mwrdf/schema.xml";
+		return path.substring(0,i)+"/mwrdf/schema.rdf";
 		}
 
 	
@@ -319,8 +347,11 @@ public class MWRdfEditor extends JApplet
 					throw err;
 						}
 				});
+			//read schema
+			Document schemaAsDom= this.docBuilder.parse(getSchemaUrl());
 			this.schema= new Schema(
-					DOM4RDF.getStatements(this.docBuilder.parse(getSchemaUrl()))
+					DOM4RDF.getStatements(schemaAsDom),
+					new PrefixMapping(schemaAsDom)
 					);
 			
 			JMenuBar bar= new JMenuBar();
@@ -402,24 +433,103 @@ public class MWRdfEditor extends JApplet
 				action.setEnabled(false);
 				menu.add(action);
 				
-				action=new AbstractAction("Preview")
-					{
-					private static final long serialVersionUID = 1L;
-		
-					@Override
-					public void actionPerformed(ActionEvent e)
-						{
-						previewArticle();
-						}
-					};
-				action.putValue(AbstractAction.SHORT_DESCRIPTION, "Preview");
-				action.putValue(AbstractAction.LONG_DESCRIPTION, "Preview");
-				getActionMap().put(ACTION_PREVIEW, action);
+				
 				//bot.add(new JButton(action));
 				
 			PlainDocument doc=new PlainDocument();
 			this.textArea= new JTextArea(doc);
 			this.textArea.setFont(new Font("Courier",Font.PLAIN,12));
+			
+			
+			contentPanel.add(new JScrollPane(this.textArea),BorderLayout.CENTER);
+			
+				
+			String content= getRevisionContent();
+				
+			int i= content.indexOf(START_TAGS);
+			if(content.length()==0)
+				{
+				content= getSchema().createEmptyRDFDocument();
+				}
+			else if(i!=-1)
+				{
+				i+=START_TAGS.length();
+				int j= content.indexOf(END_TAGS,i);
+				if(j!=-1)
+					{
+					content= StringEscapeUtils.unescapeXml(content.substring(i,j));
+					}
+				else
+					{
+					content= "CANNOT GET RDF IN :\n"+content;
+					}
+				}
+			else
+				{
+				content= "CANNOT GET RDF IN :\n"+content;
+				}
+			
+			this.textArea.setText(content);		
+				
+			menu.add(new AbstractAction("Insert RDF")
+				{
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				public void actionPerformed(ActionEvent arg0) {
+					textArea.insert(schema.createEmptyRDFDocument(),0);
+					}
+				});
+			menu.add(new AbstractAction("View Schema")
+				{
+				private static final long serialVersionUID = 1L;
+	
+				@Override
+				public void actionPerformed(ActionEvent ae)
+					{
+					StringBuilder b= new StringBuilder();
+					for(Statement stmt: MWRdfEditor.this.getSchema().getOntology())
+						{
+						b.append(stmt.asN3()).append("\n");
+						}
+					JScrollPane scroll= new JScrollPane(new JTextArea(b.toString()));
+					
+					scroll.setPreferredSize(MWRdfEditor.this.getSize());
+					JOptionPane.showMessageDialog(MWRdfEditor.this,scroll);
+					}
+				});
+			
+			action = new AbstractAction("revalidate")
+				{
+				private static final long serialVersionUID = 1L;
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					validateRDF();
+					}
+				};
+			menu.add(this.cBoxValidateRDF= new JCheckBox("Validate RDF"));
+			this.cBoxValidateRDF.setSelected(true);
+			this.cBoxValidateRDF.addActionListener(action);
+			
+			menu.add(this.cBoxValidateSchema= new JCheckBox("Validate Schema"));
+			this.cBoxValidateSchema.setSelected(true);
+			this.cBoxValidateSchema.addActionListener(action);
+			
+			//Menu Namespace
+			menu= new JMenu("Namespaces");
+			bar.add(menu);
+			for(String p: this.getSchema().getPrefixMapping().getPrefixes())
+				{
+				menu.add(new NSInsertAction(p,this.getSchema().getPrefixMapping().getNsPrefixURI(p)));
+				}
+			
+			menu= new JMenu("Instances");
+			bar.add(menu);
+			for(Schema.OntClass clazz: this.getSchema().getOntClasses())
+				{
+				//create default
+				}
+			
 			doc.addDocumentListener(new DocumentAdapter()
 				{
 				@Override
@@ -428,51 +538,6 @@ public class MWRdfEditor extends JApplet
 					validateRDF();
 					}
 				});	
-			
-			contentPanel.add(new JScrollPane(this.textArea),BorderLayout.CENTER);
-			if(1==2)
-				{
-				String wpTextbox1=getNonNullParameter("wpTextbox1");
-				
-				this.textArea.setText(wpTextbox1);	
-				}
-			else
-				{
-				String content= getRevisionContent();
-				
-				int i= content.indexOf(START_TAGS);
-				if(content.length()==0)
-					{
-					content= this.schema.createEmptyRDFDocument();
-					}
-				else if(i!=-1)
-					{
-					i+=START_TAGS.length();
-					int j= content.indexOf(END_TAGS,i);
-					if(j!=-1)
-						{
-						content= StringEscapeUtils.unescapeXml(content.substring(i,j));
-						}
-					else
-						{
-						content= "CANNOT GET RDF IN :\n"+content;
-						}
-					}
-				else
-					{
-					content= "CANNOT GET RDF IN :\n"+content;
-					}
-				
-				this.textArea.setText(content);		
-				}
-			menu.add(new AbstractAction("Insert RDF")
-				{
-				@Override
-				public void actionPerformed(ActionEvent arg0) {
-					textArea.insert(schema.createEmptyRDFDocument(),0);
-					}
-				});
-			
 			
 			setContentPane(contentPanel);
 			setJMenuBar(bar);
@@ -489,10 +554,16 @@ public class MWRdfEditor extends JApplet
 		Document dom= getDocument();
 		if(dom==null) throw new SAXException("No document");
 		
-		return  START_TAGS+
-				StringEscapeUtils.escapeXml(this.textArea.getText())+
-				END_TAGS+"\n[[Category:RDF doc]]";
-		
+		StringBuilder article=new StringBuilder();
+		article.append(START_TAGS);
+		article.append(StringEscapeUtils.escapeXml(this.textArea.getText()));
+		article.append(END_TAGS);
+		article.append("\n[[Category:RDF doc]]");
+		for(String cat: getSchema().getCategories())
+			{
+			article.append("\n[[Category:"+cat+"]]");
+			}
+		return article.toString();
 		}
 	
 	private Document getDocument() throws SAXException,IOException
@@ -506,17 +577,25 @@ public class MWRdfEditor extends JApplet
 			Document dom=getDocument();
 			Element root= dom.getDocumentElement();
 			if(root==null) throw new InvalidXMLException(dom,"No root");
-			if(!XMLUtilities.isA(root, RDF.NS, "RDF")) throw new InvalidXMLException(dom,"Not a RDF root");
-			if(XMLUtilities.count(root)!=1) throw new InvalidXMLException(root,"Expected one and only one element under rdf:RDF");	
 			
-			StmtSet stmts=DOM4RDF.getStatements(dom);
-			this.schema.validate(stmts);
+			if(this.cBoxValidateRDF.isSelected())
+				{
+				if(!XMLUtilities.isA(root, RDF.NS, "RDF")) throw new InvalidXMLException(dom,"Not a RDF root");
+				if(XMLUtilities.count(root)!=1) throw new InvalidXMLException(root,"Expected one and only one element under rdf:RDF");	
+				StmtSet stmts=DOM4RDF.getStatements(dom);
+				
+				if(this.cBoxValidateSchema.isSelected())
+					{
+					this.getSchema().validate(stmts);
+					}
+				}
 			getActionMap().get(ACTION_POST).setEnabled(true);
 			this.infoBoxField.setText("OK");
 			this.infoBoxField.setForeground(Color.GREEN);
 			} 
 		catch (Exception err)
 			{
+			//err.printStackTrace();
 			String msg=err.getMessage();
 			if(msg==null) msg= err.getClass().getName();
 			getActionMap().get(ACTION_POST).setEnabled(false);
@@ -564,7 +643,7 @@ public class MWRdfEditor extends JApplet
 		for(String s:new String[]{
 				"wpSection","wpEdittime","wpScrolltop","wpStarttime","wpEditToken","wpTextbox1"})
 			{
-			b.append(s+" "+C.unescape(getNonNullParameter(s))+"\n");
+			b.append(s+" "+getNonNullParameter(s)+"\n");
 			}
 		
 		JTextArea textArea=new JTextArea(b.toString());
@@ -592,23 +671,11 @@ public class MWRdfEditor extends JApplet
 			}
 		catch(Exception err)
 			{
-			err.printStackTrace();
+			//err.printStackTrace();
 			}
 		}
 	
-	public void previewArticle()
-		{
-		try
-			{
-			sendData("wpPreview","Show preview");
-			}
-		catch(Exception err)
-			{
-			ThrowablePane.show(this, err);
-			}
-		}
-	
-	
+		
 	protected int sendData(String submitName,String submitValue)
 		throws HttpException,IOException,SAXException
 		{
@@ -631,7 +698,7 @@ public class MWRdfEditor extends JApplet
 			for(String s:new String[]{
 					"wpSection","wpEdittime","wpScrolltop","wpStarttime","wpEditToken"})
 				{
-				parts.add(new StringPart(s,getNonNullParameter(s)));
+				parts.add(new StringPart(s,StringEscapeUtils.unescapeJava(getNonNullParameter(s))));
 				}
 			parts.add(new StringPart("action","edit"));
 			parts.add(new StringPart("wpTextbox1",getArticleContent()));
@@ -651,7 +718,7 @@ public class MWRdfEditor extends JApplet
 			
 			
 			
-			//IOUtils.copyTo(postMethod.getResponseBodyAsStream(),System.err);
+			IOUtils.copyTo(postMethod.getResponseBodyAsStream(),System.err);
 			//System.err.println("\n"+getArticleContent()+"\n");
 			/*String html= IOUtils.getReaderContent(new InputStreamReader().trim();
 			getContentPane().removeAll();
