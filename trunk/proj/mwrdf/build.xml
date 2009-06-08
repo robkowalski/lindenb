@@ -47,6 +47,13 @@
 
 <target name="clean">
 	<delete dir="${mediawiki.dir}/mwrdf"/>
-</target>	
+</target>
+	
+<target name="archive">
+	<zip destfile="${env.HOME}/mwrdf.zip">
+		 <zipfileset dir="${mediawiki.dir}/mwrdf" prefix="mwrdf"/>
+	</zip>
+</target>
+
 	
 </project>
