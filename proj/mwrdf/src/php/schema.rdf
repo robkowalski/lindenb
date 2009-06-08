@@ -55,11 +55,11 @@
 </owl:DataTypeProperty>
 
 
-<owl:DataTypeProperty rdf:about="&ont;birthDate">
+<owl:ObjectProperty rdf:about="&ont;birthDate">
 	<rdfs:domain rdf:resource="&ont;Person"/>
 	<rdfs:range rdf:resource="&ont;Date"/>
 	<owl:maxCardinality>1</owl:maxCardinality>
-</owl:DataTypeProperty>
+</owl:ObjectProperty>
 
 
 </rdf:RDF>
