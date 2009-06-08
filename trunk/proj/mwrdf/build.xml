@@ -19,7 +19,7 @@
 	
 	<javac destdir="${mediawiki.dir}/mwrdf/WEB-INF"
 		nowarn="false"
-		
+		optimize="false"
 		>	
 		<src path="./src/java"/>
 		<src path="${root.dir}/src/java"/>
@@ -42,7 +42,7 @@
 	</delete>
 	-->
 	<copy file="src/php/RDFEdit.php" todir="${mediawiki.dir}/mwrdf"/>
-	<copy file="src/php/schema.xml" todir="${mediawiki.dir}/mwrdf"/>
+	<copy file="src/php/schema.rdf" todir="${mediawiki.dir}/mwrdf"/>
 </target>
 
 <target name="clean">

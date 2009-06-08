@@ -57,12 +57,13 @@ public class Statement
 		
 		return true;
 		}
-	
+	/** shortcuts to  getValue().isLiteral() */
 	public boolean isLiteral()
 		{
 		return getValue().isLiteral();
 		}
 	
+	/** shortcuts to  getValue().isResource() */
 	public boolean isResource()
 		{
 		return getValue().isResource();

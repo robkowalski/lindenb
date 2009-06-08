@@ -36,23 +36,23 @@ $cookieNames = array("UserName", "UserID", "_session");
 foreach($cookieNames as $ndx => $value) {
     $cookieKey = $wgCookiePrefix . $value;
     if (!array_key_exists($cookieKey, $_COOKIE)) continue;
-	$wgOut->addHTML("<param name='" . htmlspecialchars($value) . "' value='" . htmlspecialchars($_COOKIE[$cookieKey]) . "'/>");
+	$wgOut->addHTML("\n<param name='" . htmlspecialchars($value) . "' \t value='" . htmlspecialchars($_COOKIE[$cookieKey]) . "'/>");
  }
-$wgOut->addHTML("<param name='cookiePrefix' value='".htmlspecialchars($wgCookiePrefix)."'/>");
-
-
-$wgOut->addHTML("<param name='wpSection' value='".htmlspecialchars($editpage->section)."'/>");
-$wgOut->addHTML("<param name='wpEdittime' value='".htmlspecialchars($editpage->edittime)."'/>");
-$wgOut->addHTML("<param name='wpScrolltop' value='".htmlspecialchars($editpage->scrolltop)."'/>");
-$wgOut->addHTML("<param name='wpStarttime' value='".htmlspecialchars($editpage->starttime)."'/>");
-$wgOut->addHTML("<param name='wpSummary' value=\"".str_replace("'","&apos;",htmlspecialchars($editpage->summary))."\"/>");
-$wgOut->addHTML("<param name='wpAutoSummary' value='".md5( $editpage->summary )."'/>");
-$wgOut->addHTML("<param name='wpEditToken' value=\"". $wgUser->editToken()."\"/>");
-$wgOut->addHTML("<param name='title' value='".htmlentities($wgTitle->getText())."'/>");
-$wgOut->addHTML("<param name='pageId' value='".$wgTitle->getArticleID()."'/>");
-$wgOut->addHTML("<param name='revId' value='".$wgTitle->getLatestRevID()."'/>");
-$wgOut->addHTML("</applet>");
+$wgOut->addHTML("\n<param name='cookiePrefix' \t value='".htmlspecialchars($wgCookiePrefix)."'/>");
+$wgOut->addHTML("\n<param name='wpSection' \t value='".htmlspecialchars($editpage->section)."'/>");
+$wgOut->addHTML("\n<param name='wpEdittime' \t value='".htmlspecialchars($editpage->edittime)."'/>");
+$wgOut->addHTML("\n<param name='wpScrolltop' \t value='".htmlspecialchars($editpage->scrolltop)."'/>");
+$wgOut->addHTML("\n<param name='wpStarttime' \t value='".htmlspecialchars($editpage->starttime)."'/>");
+$wgOut->addHTML("\n<param name='wpSummary' \t value=\"".str_replace("'","&apos;",htmlspecialchars($editpage->summary))."\"/>");
+$wgOut->addHTML("\n<param name='wpAutoSummary' \t value='".md5( $editpage->summary )."'/>");
+$wgOut->addHTML("\n<param name='wpEditToken' \t value=\"". $wgUser->editToken()."\"/>");
+$wgOut->addHTML("\n<param name='title' \t value='".htmlentities($wgTitle->getText())."'/>");
+$wgOut->addHTML("\n<param name='pageId' \t value='".$wgTitle->getArticleID()."'/>");
+$wgOut->addHTML("\n<param name='revId' \t value='".$wgTitle->getLatestRevID()."'/>");
+$wgOut->addHTML("\n</applet>");
 //$wgOut->addHTML("<br/>RevID[".$wgTitle->getLatestRevID()."] ID [".$wgTitle->getArticleID()."][".$wgTitle->getText()."][".$wgTitle->getPartialURL()."][".$wgTitle->getDBkey()."][".$wgTitle->getFragment()."]");
+
+$wgOut->addHTML("<br/><a href='".$wgTitle->escapeLocalURL("action=edit&java=false")."'>Standard Form</a><br/>" );
 
 return false;
 }

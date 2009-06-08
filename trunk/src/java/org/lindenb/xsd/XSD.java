@@ -321,13 +321,17 @@ extends  org.lindenb.sw.vocabulary.XSD
 		NormalizedString,Token
 		};
 	
-	
+	/** java class fior this xsd:type */
 	private Class<T> clazz;
+	
+	
+	/** constructor */
 	protected XSD(Class<T> clazz)
 		{
 		this.clazz=clazz;
 		}
 	
+	/** return a regex pattern or null for this xsd:type */
 	public Pattern getPattern()
 		{
 		return null;
@@ -369,6 +373,7 @@ extends  org.lindenb.sw.vocabulary.XSD
 		return getJavaClass().hashCode();
 		}
 	
+	/** returns the java class associated to this xsd:type */
 	public final Class<T> getJavaClass()
 		{
 		return this.clazz;

@@ -1,5 +1,5 @@
 /**
- * 
+ * PrefixMapping
  */
 package org.lindenb.sw;
 
@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 
+import javax.xml.XMLConstants;
 import javax.xml.namespace.QName;
 
 
@@ -16,8 +17,10 @@ import org.lindenb.sw.vocabulary.FOAF;
 import org.lindenb.sw.vocabulary.RDF;
 import org.lindenb.sw.vocabulary.RDFS;
 import org.w3c.dom.Attr;
+import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
 
 /**
  * @author pierre
@@ -26,6 +29,42 @@ import org.w3c.dom.NamedNodeMap;
 public class PrefixMapping
 {
 private HashMap<String, String> uri2prefix= new HashMap<String, String>();
+
+/** ctor from a XML document: copy all the ns declared in this document */
+public PrefixMapping(Document dom)
+	{
+	_copyNs(dom,this.uri2prefix);
+	}
+
+private static void _copyNs(Node node, HashMap<String, String> u2p)
+	{
+	if(node.hasAttributes())
+		{
+		NamedNodeMap atts=node.getAttributes();
+		for(int i=0;i< atts.getLength();++i)
+			{
+			Attr att= (Attr)atts.item(i);
+			if(XMLConstants.XMLNS_ATTRIBUTE.equals(att.getPrefix()))
+				{
+				u2p.put(att.getValue(),att.getLocalName());
+				}
+			}
+		}
+	if(node.hasChildNodes())
+		{
+		for(Node c=node.getFirstChild();c!=null;c=c.getNextSibling())
+			{
+			_copyNs(c,u2p);
+			}
+		}
+	}
+
+/** copy ctor */
+public PrefixMapping(PrefixMapping cp)
+	{
+	this.uri2prefix.putAll(cp.uri2prefix);
+	}
+
 
 public PrefixMapping(boolean initialize)
 	{
@@ -42,6 +81,7 @@ public PrefixMapping()
 	{
 	this(true);
 	}
+
 
 public void setNsPrefix(String prefix, String namespaceuri)
 	{
@@ -131,5 +171,17 @@ public String createDocType()
 		}
 	b.append("]>");
 	return b.toString();
+	}
+
+@Override
+protected Object clone()
+	{
+	return new PrefixMapping(this);
+	}
+
+@Override
+public String toString()
+	{
+	return createDocType();
 	}
 }

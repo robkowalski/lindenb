@@ -2,40 +2,49 @@ package org.lindenb.mwrdf;
 
 
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.reflect.Constructor;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 import org.lindenb.sw.PrefixMapping;
 import org.lindenb.sw.RDFException;
-import org.lindenb.sw.dom.DOM4RDF;
 import org.lindenb.sw.nodes.Literal;
 import org.lindenb.sw.nodes.RDFNode;
 import org.lindenb.sw.nodes.Resource;
 import org.lindenb.sw.nodes.Statement;
 import org.lindenb.sw.nodes.StmtSet;
+import org.lindenb.sw.vocabulary.OWL;
 import org.lindenb.sw.vocabulary.RDF;
 import org.lindenb.sw.vocabulary.RDFS;
 import org.lindenb.util.Cast;
-import org.lindenb.xml.NodeWrapper;
-import org.lindenb.xml.XMLUtilities;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
+import org.lindenb.xsd.XSD;
+
 
 public class Schema
 	{
-	public static final String NS="http://mwrdf.lindenb.org";
+	public static final String NS="http://mwrdf.lindenb.org/";
 	private static final Resource RDF_TYPE= new Resource(RDF.NS,"type");
 	
-	private class OntNode
+	private abstract class OntNode
 		extends Resource
 		{
+		private static final long serialVersionUID = 1L;
+
 		OntNode(Resource rsrc)
 			{
 			super(rsrc);
+			}
+		
+		String getQName()
+			{
+			return getPrefixMapping().shortForm(getURI());
 			}
 		
 		protected String getString(Resource property)
@@ -69,12 +78,13 @@ public class Schema
 			{
 			return getString(new Resource(RDFS.NS,"comment"),getLabel());
 			}
-
+		public abstract String createDefault();
 		}
 	
 	/** Something like a OWLClass :-) */
-	private class OntClass extends OntNode
+	class OntClass extends OntNode
 		{
+		private static final long serialVersionUID = 1L;
 		private Set<OntClass> parentClasses=null;
 		private Set<OntClass> childClasses=null;
 		private Set<OntProperty> properties=null;
@@ -86,8 +96,33 @@ public class Schema
 		
 		boolean isAbstract()
 			{
-			return getBoolean(new Resource(NS,"abstract"), false);
+			return  getOntology().contains(
+					this,RDF_TYPE,
+					new Resource("AbstractClass")
+					);
 			}	
+		
+		/** returns all the categories for the given class */
+		public Set<String> getCategories()
+			{
+			
+			Set<String> set= new TreeSet<String>();
+			for(Statement stmt:  getOntology().filter(
+					new Resource(this),new Resource(NS,"category"),null))
+				{
+				
+				if(!stmt.isLiteral()) continue;
+				set.add(stmt.getValue().asLiteral().getLexicalForm());
+				}
+			for(OntClass parent:getSuperClasses())
+				{
+				set.addAll(parent.getCategories());
+				}
+			
+			return set;
+			}
+		
+		
 		
 		Set<OntClass> getSuperClasses()
 			{
@@ -112,7 +147,7 @@ public class Schema
 			for(Statement stmt:  getOntology().filter(
 					null,new Resource(RDFS.NS,"subClassOf"),this))
 				{
-				OntClass clazz= Schema.this.uri2class.get(stmt.getSubject());
+				OntClass clazz= Schema.this.uri2class.get(stmt.getSubject().getURI());
 				if(clazz==null) continue;
 				this.childClasses.add(clazz);
 				}
@@ -127,11 +162,34 @@ public class Schema
 			for(Statement stmt:  getOntology().filter(
 					null,new Resource(RDFS.NS,"domain"),this))
 				{
-				OntProperty prop= Schema.this.uri2property.get(stmt.getSubject());
+				OntProperty prop= Schema.this.uri2property.get(stmt.getSubject().getURI());
 				if(prop==null) continue;
 				this.properties.add(prop);
 				}
+			for(OntClass parent: getSuperClasses())
+				{
+				this.properties.addAll(parent.getOntProperties());
+				}
 			return this.properties;
+			}
+		
+		
+		/** create a default */
+		@Override
+		public String createDefault()
+			{
+			StringWriter sw= new StringWriter();
+			PrintWriter w= new PrintWriter(sw);
+			w.print("<"+getQName());
+			//if(!isAnonymous()) w.print(" rdf:about=\" fix-me \"");
+			w.println(">");
+			for(OntProperty p:this.getOntProperties())
+				{
+				w.print(p.createDefault());
+				}
+			w.print("<"+getQName()+"/>");
+			w.flush();
+			return sw.toString();
 			}
 		
 		public void validate(Resource subject) throws RDFException
@@ -143,10 +201,19 @@ public class Schema
 			for(OntProperty prop: getOntProperties())
 				{
 				StmtSet stmts= Schema.this.getCurrentRDFStore().filter(subject, prop.asResource(), null);
+				
+			
+				
 				Schema.this.processed.addAll(stmts);
 				Integer max= prop.getMaxCardinality();
+				
+	
+				
 				Integer min= prop.getMinCardinality();
-				if(prop.isResource() || (prop.isLiteral() && !((DataTypeProperty)prop).isLocalized()))
+				
+				
+				
+				if(prop.isResource() || ((prop instanceof OntDataTypeProperty) && !OntDataTypeProperty.class.cast(prop).isLocalized()))
 					{
 					if(min!=null && stmts.size() < min)
 						{
@@ -158,6 +225,7 @@ public class Schema
 						}
 					for(Statement stmt:stmts)
 						{
+						Schema.this.processed.add(stmt);
 						prop.validate(stmt.getValue());
 						}
 					}
@@ -167,6 +235,7 @@ public class Schema
 					for(Statement stmt:stmts)
 						{
 						prop.validate(stmt.getValue());
+						Schema.this.processed.add(stmt);
 						String lang=stmt.getValue().asLiteral().getLanguage();
 						Integer n=lang2stmt.get(lang);
 						if(n==null) n=0;
@@ -185,8 +254,7 @@ public class Schema
 						}
 					}
 				}
-			
-			
+
 			//validate parent
 			for( OntClass parent: getSuperClasses())
 				{
@@ -199,15 +267,13 @@ public class Schema
 	private abstract class OntProperty
 		extends OntNode
 		{
+		private static final long serialVersionUID = 1L;
 		OntProperty(Resource e)
 			{
 			super(e);
 			}
-		public abstract boolean isLiteral();
-		public final boolean isResource()
-			{
-			return !isLiteral();
-			}
+		
+
 		
 		boolean isCaseSensible()
 			{
@@ -224,9 +290,26 @@ public class Schema
 			return getString(new Resource(NS,"ends-with"));
 			}
 		
+		public  Resource  getRange()
+			{
+			final Resource rdfRange= new Resource(RDF.NS,"range");
+			for(Statement stmt: getOntology().filter(this, rdfRange, null))
+				{
+				if(!stmt.isResource()) continue;
+				return stmt.getValue().asResource();
+				}
+			return null;
+			}
+		
+		
 		public abstract void validate(RDFNode node) throws RDFException;
 		
-		public void validate(String content) throws RDFException
+		
+		
+		
+		
+		
+		public void validateTextContent(String content) throws RDFException
 			{
 			boolean casesensible= isCaseSensible();
 			if(!casesensible) content= content.toLowerCase();
@@ -280,77 +363,67 @@ public class Schema
 		
 		public Integer getMinCardinality()
 			{
-			String s= getString(new Resource(NS,"min-cardinality"),getString(new Resource("cardinality")));
+			String s= getString(new Resource(OWL.NS,"minCardinality"),getString(new Resource(OWL.NS,"cardinality")));
 			return Cast.Integer.cast(s);
 			}
 		
 		public Integer getMaxCardinality()
 			{
-			String s= getString(new Resource(NS,"max-cardinality"),getString(new Resource("cardinality")));
+			String s= getString(new Resource(OWL.NS,"maxCardinality"),getString(new Resource(OWL.NS,"cardinality")));
 			return Cast.Integer.cast(s);
 			}
-		}
-	
-	private class DataTypeProperty extends OntProperty
-		{
-		DataTypeProperty(Resource e)
-			{
-			super(e);
-			}
 		@Override
-		public boolean isLiteral() {
-			return true;
-			}
-		
-		public boolean isLocalized()
+		public String createDefault()
 			{
-			Boolean b= Cast.Boolean.cast(getString(new Resource(NS,"locale"), "false"));
-			if(b==null) b=false;
-			return b;
-			}
-		
-		@Override
-		public void validate(RDFNode node) throws RDFException
-			{
-			if(!node.isLiteral()) throw new RDFException(getURI()+" shoudl be a literal");
-			String content=node.asResource().getURI();
-	
-			if(isLocalized() && node.asLiteral().getLanguage()==null) throw new RDFException(getURI()+" must be localized");
-			
-			String dataType= getString(new Resource(NS,"data-type"));
-			if(dataType!=null)
+			StringBuilder b= new StringBuilder();
+			b.append("<"+getQName());
+			if(isLiteral())
 				{
-				if(node.asLiteral().getDatatypeURI()==null) throw new RDFException(getURI()+" must be typed");
-				boolean found=false;
-				for(String s: dataType.split("[ ,;]+"))
-					{
-					if(s.equals(node.asLiteral().getDatatypeURI()))
-						{
-						found=true;
-						break;
-						}
-					}
-				if(!found) throw new RDFException(getURI()+" must be typed");
+				b.append(">");
+				b.append("fix-me");
+				b.append("</"+getQName()+">");
 				}
-			
-			validate(content);
+			else
+				{
+				b.append("/>");
+				}
+			return b.toString();
 			}
 		}
-	private class ObjectProperty extends OntProperty
+	
+
+	/**
+	 * ObjectProperty
+	 */
+	class OntObjectProperty
+		extends OntProperty
 		{
-		ObjectProperty(Resource e)
+		private static final long serialVersionUID = 1L;
+		private OntClass range;
+		OntObjectProperty(Resource rsrc)
 			{
-			super(e);
-			}
-		@Override
-		public boolean isLiteral()
-			{
-			return false;
+			super(rsrc);
 			}
 		
+		public OntClass getOntClassInRange()
+			{
+			if(range!=null) return range;
+			for(Statement stmt:Schema.this.getCurrentRDFStore().filter(this, new Resource(RDFS.NS,"range"), null))
+				{
+				if(!stmt.isResource()) continue;
+				this.range= Schema.this.uri2class.get(stmt.getValue().asResource().getURI());
+				if(this.range!=null)
+					{
+					return this.range;
+					}
+				}
+			return null;
+			}
+		
+		@Override
 		public void validate(RDFNode node) throws RDFException
 			{
-			if(!node.isResource()) throw new RDFException(getURI()+" should be a resource");
+			if(!node.isResource()) throw new RDFException(getQName()+" should be a resource");
 			String content=node.asResource().getURI();
 			
 			String anonymous=getString(new Resource(NS,"anonymous"),"").toLowerCase();
@@ -363,30 +436,105 @@ public class Schema
 				throw new RDFException(getURI()+" shouldn't be an anonymous resource");
 				}
 			
-			String range= getString(new Resource(NS,"range"));
-			if(range!=null)
+			
+			OntClass classInRange= getOntClassInRange();
+			if(classInRange!=null && classInRange.isAbstract())
 				{
-				OntClass classInRange= Schema.this.uri2class.get(range);
-				if(classInRange!=null)
+				if(!Schema.this.getCurrentRDFStore().contains(
+					node.asResource(),
+					RDF_TYPE,
+					classInRange.asResource())
+					)
 					{
-					if(classInRange.isAbstract())
-						{
-						//TODO subClass range
-						if(!Schema.this.getCurrentRDFStore().contains(
-							node.asResource(),
-							RDF_TYPE,
-							classInRange.asResource())
-							)
-							{
-							throw new RDFException(getURI()+" range is anonymous resource: missing");
-							}
-						}
+					throw new RDFException(getQName()+" (rdfs:range) "+classInRange.getQName()+" range is anonymous resource: missing");
 					}
+				}				
+			
+			validateTextContent(content);
+			}
+		
+		}
+	
+	/**
+	 * OntDataTypeProperty
+	 */
+	class OntDataTypeProperty
+		extends OntProperty
+		{
+		private static final long serialVersionUID = 1L;
+		private Constructor<?> constructor=null;
+		OntDataTypeProperty(Resource rsrc)
+			{
+			super(rsrc);
+			}
+		
+		
+		public boolean isLocalized()
+			{
+			Boolean b= Cast.Boolean.cast(getString(new Resource(NS,"locale"), "false"));
+			if(b==null) b=false;
+			return b;
+			}
+		
+		public Constructor<?> getJavaClassInRange()throws RDFException
+			{
+			if(this.constructor!=null) return constructor;
+			StmtSet ranges=Schema.this.getCurrentRDFStore().filter(this, new Resource(RDFS.NS,"range"), null);
+			System.err.println(ranges);
+			for(Statement stmt:ranges)
+				{
+				System.err.println(stmt);
+				if(!stmt.isResource()) continue;
+				try {
+					String ttype=stmt.getValue().asResource().getURI();
+					XSD<?> xsdType= XSD.findTypeByURI(ttype);
+					Class<?> range= null;
+					if(xsdType!=null)
+						{
+						range= xsdType.getJavaClass();
+						}
+					else if(ttype.startsWith("java:"))
+						{
+						range=Class.forName(ttype.substring(5));
+						}
+					else
+						{
+						range=String.class;
+						}
+					this.constructor= range.getConstructor(String.class);
+					return constructor;
+				} catch (Exception e)
+					{
+					e.printStackTrace();
+					}
+			
+				}
+			throw new RDFException("Cannot find java class for "+getQName());
+			}
+		
+		
+		@Override
+		public void validate(RDFNode node) throws RDFException
+			{
+			if(!node.isLiteral()) throw new RDFException(getURI()+" shoudl be a literal");
+			String content=node.asLiteral().getLexicalForm();
+	
+			if(isLocalized() && node.asLiteral().getLanguage()==null) throw new RDFException(getURI()+" must be localized");
+			
+			Constructor<?> cstor= getJavaClassInRange();
+			try {
+				cstor.newInstance(content);
+				} 
+			catch (Exception e)
+				{
+				throw new RDFException(getQName()+" should be a "+cstor.getDeclaringClass().getName());
 				}
 			
-			validate(content);
+			validateTextContent(content);
 			}
+		
 		}
+	
 	
 	/** schema model */
 	//private Document dom;
@@ -396,42 +544,65 @@ public class Schema
 	private StmtSet currentStore=null;
 	private StmtSet processed=new StmtSet();
 	private StmtSet ontology=new StmtSet();
-	
+	private Set<String> categories=new TreeSet<String>();
 	public StmtSet getOntology()
 		{
 		return this.ontology;
 		}
 	
-	public Schema(final StmtSet stmts)
+	
+	public PrefixMapping getPrefixMapping() {
+		return prefixMapping;
+		}
+	
+	public Schema(final StmtSet stmts,PrefixMapping prefixMapping)
 		{
 		this.ontology=new StmtSet(stmts);
-		final Resource rdfsClass= new Resource(RDFS.NS,"Class");
-		final Resource rdfProperty = new Resource(RDF.NS,"Class");
-		for(Statement stmt: this.ontology)
+		this.prefixMapping=prefixMapping;
+		
+		final Resource owlClass= new Resource(OWL.NS,"Class");
+		final Resource objectProperty = new Resource(OWL.NS,"ObjectProperty");
+		final Resource dataTypeProperty = new Resource(OWL.NS,"DataTypeProperty");
+		
+		for(int i=0;i< 2;++i)
 			{
-			if(!stmt.getValue().isResource()) continue;
-			if(!stmt.getPredicate().equals(RDF_TYPE)) continue;
-			if(rdfsClass.equals(stmt.getValue().asResource()))
+			//collect i=0 classes i=1 properties
+			for(Statement stmt: this.ontology)
 				{
-				this.uri2class.put(stmt.getSubject().getURI(),new OntClass(stmt.getSubject()));
-				}
-			else if(rdfProperty.equals(stmt.getValue().asResource()))
-				{
-				this.uri2property.put(stmt.getSubject().getURI(),new DataTypeProperty(stmt.getSubject()));
+				if(!stmt.isResource()) continue;
+				if(!stmt.getPredicate().equals(RDF_TYPE)) continue;
+				if(i==0 && owlClass.equals(stmt.getValue().asResource()))
+					{
+					this.uri2class.put(stmt.getSubject().getURI(),new OntClass(stmt.getSubject()));
+					}
+				else if(i==1)
+					{
+					if(objectProperty.equals(stmt.getValue().asResource()))
+						{
+						this.uri2property.put(stmt.getSubject().getURI(),new OntObjectProperty(stmt.getSubject()));
+						}
+					else if(dataTypeProperty.equals(stmt.getValue().asResource()))
+						{
+						this.uri2property.put(stmt.getSubject().getURI(),new OntDataTypeProperty(stmt.getSubject()));
+						}
+					}
 				}
 			}
-		//collect classes
+		
 		
 		}
 	
+	public Collection<OntClass> getOntClasses()
+		{
+		return this.uri2class.values();
+		}
 	
 	public String createEmptyRDFDocument()
 		{
-		PrefixMapping prefixMapping= new PrefixMapping();
 		StringBuilder b= new StringBuilder("<?xml version=\"1.0\" encoding=\"iso-8859-1\"?>\n");
-		b.append(prefixMapping.createDocType());
+		b.append(getPrefixMapping().createDocType());
 		b.append("<rdf:RDF\n");
-		for(String p:prefixMapping.getPrefixes())
+		for(String p:getPrefixMapping().getPrefixes())
 			{
 			b.append("  xmlns:"+p+"=\"&"+p+";\"\n");
 			}
@@ -446,21 +617,27 @@ public class Schema
 		return this.currentStore;
 		}
 	
+
 	
 	public void validate(StmtSet stmts) throws RDFException
 		{
 		this.currentStore=stmts;
 		this.processed= new StmtSet();
+		this.categories.clear();
 		//check all rdf:type
 		StmtSet types=stmts.filter(null, RDF_TYPE, null);
 		if(types.isEmpty()) throw new RDFException("Document is missing a rdf:type");
 		for(Statement stmt: types)
 			{
+			
 			if(!stmt.isResource()) throw new RDFException("rdf:type is not a resource");
+			
 			OntClass clazz= uri2class.get(stmt.getValue().asResource().getURI());
 			if(clazz==null) throw new RDFException("Unknown type :"+stmt);
-			clazz.validate(stmt.getSubject());
 			
+			clazz.validate(stmt.getSubject());
+			this.categories.addAll(clazz.getCategories());
+
 			this.processed.add(stmt);
 			}
 		//check if there is no unprocessed statement
@@ -468,9 +645,19 @@ public class Schema
 		copy.removeAll(this.processed);
 		if(!copy.isEmpty())
 			{
-			throw new RDFException("Unprocessed statement :  "+copy.iterator().next());
+			//TODO
+			//throw new RDFException("Unprocessed statement :  "+copy.iterator().next());
 			}
+		this.processed=null;
+		this.currentStore=null;
 		}
+	
+	
+	public Set<String> getCategories()
+		{
+		return this.categories;
+		}
+	
 	
 	/** recursive call to check that an abstract class was implemented */
 	private  boolean validateAbstraction(Resource subject,OntClass clazz)

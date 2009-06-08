@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE rdf:RDF [
+<!ENTITY rdf "http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+<!ENTITY rdfs "http://www.w3.org/2000/01/rdf-schema#">
+<!ENTITY dc "http://purl.org/dc/elements/1.1/">
+<!ENTITY xsd "http://www.w3.org/2001/XMLSchema#">
+<!ENTITY ont "http://mwrdf.lindenb.org/">
+<!ENTITY owl "http://www.w3.org/2002/07/owl#" >
+]>
+<rdf:RDF
+	xmlns:rdf="&rdf;"
+	xmlns:rdfs="&rdfs;"
+	xmlns:dc="&dc;"
+	xmlns:xsd="&xsd;"
+	xmlns:owl="&owl;"
+	xmlns:ont="&ont;"
+	>
+
+ <owl:Class rdf:about="&ont;TitledResource">
+   <rdf:type rdf:resource="&ont;AbstractClass"/>
+ </owl:Class>
+
+ <owl:Class rdf:about="&ont;Date">
+   <ont:anonymous>always</ont:anonymous>
+ </owl:Class>
+
+<owl:Class rdf:about="&ont;Person">
+ <rdfs:subClassOf rdf:resource="&ont;TitledResource"/>
+ <ont:category>Person</ont:category>
+</owl:Class>
+
+<owl:DataTypeProperty rdf:about="&dc;title">
+	<rdfs:domain rdf:resource="&ont;TitledResource"/>
+	<rdfs:range rdf:resource="java:java.lang.String"/>
+</owl:DataTypeProperty>
+
+
+<owl:DataTypeProperty rdf:about="&ont;year">
+	<rdfs:domain rdf:resource="&ont;Date"/>
+	<rdfs:range rdf:resource="java:java.lang.Long"/>
+	<owl:minCardinality>1</owl:minCardinality>
+</owl:DataTypeProperty>
+
+<owl:DataTypeProperty rdf:about="&ont;month">
+	<rdfs:domain rdf:resource="&ont;Date"/>
+	<rdfs:range rdf:resource="java:java.lang.Short"/>
+	<owl:maxCardinality>1</owl:maxCardinality>
+</owl:DataTypeProperty>
+
+<owl:DataTypeProperty rdf:about="&ont;day">
+	<rdfs:domain rdf:resource="&ont;Date"/>
+	<rdfs:range rdf:resource="java:java.lang.Short"/>
+	<owl:maxCardinality>1</owl:maxCardinality>
+</owl:DataTypeProperty>
+
+
+<owl:DataTypeProperty rdf:about="&ont;birthDate">
+	<rdfs:domain rdf:resource="&ont;Person"/>
+	<rdfs:range rdf:resource="&ont;Date"/>
+	<owl:maxCardinality>1</owl:maxCardinality>
+</owl:DataTypeProperty>
+
+
+</rdf:RDF>
