@@ -424,8 +424,16 @@ public class DOM4RDF
 			Attr rsrc= property.getAttributeNodeNS(RDF.NS, "resource");
 			if(!property.hasChildNodes())
 				{
-				if(rsrc==null) throw new InvalidXMLException(property,"missing rdf:resource");
-				foundStatement(subject, predicate, createResource(rsrc.getValue()));
+				if(rsrc==null)
+					{
+					//strange behavior of DOM parser. &lt;tag&gt;&lt;/tag&gt; is same as &lt;tag/&gt; ??!
+					foundStatement(subject, predicate,new Literal(""));
+					//throw new InvalidXMLException(property,"missing rdf:resource");
+					}
+				else
+					{
+					foundStatement(subject, predicate, createResource(rsrc.getValue()));
+					}
 				}
 			else
 				{

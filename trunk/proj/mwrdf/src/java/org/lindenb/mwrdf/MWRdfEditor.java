@@ -312,22 +312,24 @@ public class MWRdfEditor extends JApplet
 		{
 		try
 			{
+			//create HttpClient
 			this.httpClient= new HttpClient();
 			this.httpClient.getHttpConnectionManager().getParams().setConnectionTimeout(10000);
 			
-			
+			//create SAX parser
 			SAXParserFactory saxParserFactory= SAXParserFactory.newInstance();
             saxParserFactory.setNamespaceAware(false);
             saxParserFactory.setValidating(false);
             this.saxParser= saxParserFactory.newSAXParser();
             
+            //create DOM parser
 			DocumentBuilderFactory domFactory= DocumentBuilderFactory.newInstance();
 			domFactory.setCoalescing(true);
 			domFactory.setExpandEntityReferences(true);
 			domFactory.setIgnoringComments(true);
 			domFactory.setNamespaceAware(true);
 			domFactory.setValidating(false);
-			domFactory.setNamespaceAware(true);
+			domFactory.setIgnoringElementContentWhitespace(false);
 			this.docBuilder = domFactory.newDocumentBuilder();
 			this.docBuilder.setErrorHandler(new ErrorHandler()
 				{
@@ -523,12 +525,7 @@ public class MWRdfEditor extends JApplet
 				menu.add(new NSInsertAction(p,this.getSchema().getPrefixMapping().getNsPrefixURI(p)));
 				}
 			
-			menu= new JMenu("Instances");
-			bar.add(menu);
-			for(Schema.OntClass clazz: this.getSchema().getOntClasses())
-				{
-				//create default
-				}
+			
 			
 			doc.addDocumentListener(new DocumentAdapter()
 				{
