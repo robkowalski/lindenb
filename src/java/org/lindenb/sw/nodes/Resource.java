@@ -21,7 +21,7 @@ public class Resource
 	public Resource()
 		{
 		this("_:"+TimeUtils.toYYYYMMDDHHMMSS()+"-"+
-				(++ID_GENERATOR)+"-"+RANDOM.nextInt()
+				(++ID_GENERATOR)+"-"+Math.abs(RANDOM.nextInt())
 			,true);
 		}
 	
