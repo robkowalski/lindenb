@@ -260,7 +260,9 @@ public class DOM4RDF
 				else if(att.getLocalName().equals("ID"))
 					{
 					if(subject!=null) throw new InvalidXMLException(root,"subject id defined twice");
-					subject= createResource(getBase(root)+att.getValue());
+					String val= att.getValue();
+					if(!val.startsWith("#")) val="#"+val;
+					subject= createResource(getBase(root)+val);
 					}
 				else if(att.getLocalName().equals("nodeID"))
 					{
