@@ -2,42 +2,55 @@ package org.lindenb.tinytools;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.math.BigInteger;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.Vector;
 import java.util.regex.Pattern;
+import java.util.zip.GZIPInputStream;
 
 import org.lindenb.io.IOUtils;
 import org.lindenb.lang.IllegalInputException;
+
+
 import org.lindenb.util.Compilation;
 
 import com.sleepycat.bind.tuple.LongBinding;
 import com.sleepycat.bind.tuple.TupleBinding;
 import com.sleepycat.bind.tuple.TupleInput;
 import com.sleepycat.bind.tuple.TupleOutput;
+import com.sleepycat.je.Cursor;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.DatabaseException;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
+import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
-import com.sleepycat.je.SecondaryConfig;
-import com.sleepycat.je.SecondaryDatabase;
 
+
+/**
+ * BigPivot
+ *
+ */
 public class BigPivot
 	{
-	static final byte IGNORE=0;
-	static final byte STRING=1;
-	static final byte INTEGER=2;
-	static final byte BOOLEAN=3;
-	static final byte DOUBLE=4;
+	static enum DataType { IGNORE,STRING,ISTRING,INTEGER,BOOLEAN,DOUBLE};
 	
 	private long rowCount=0L;
 	private Environment environment=null;
@@ -46,15 +59,273 @@ public class BigPivot
 	private Pattern delim= Pattern.compile("[\t]");
 	private boolean firstLineIsHeader=true;
 	private String NULL_VALUE="NULL";
-	private SecondaryDatabase leftColumns;
-	private SecondaryDatabase topColumns;
-	private SecondaryDatabase dataColumns;
-	private List<Integer> leftDefinitions=new ArrayList<Integer>();
-	private List<Integer> topDefinitions=new ArrayList<Integer>();
-	private List<Integer> dataDefinitions=new ArrayList<Integer>();
-	private HashMap<Integer,Byte> column2type= new HashMap<Integer, Byte>();
+	private Database leftColumns;
+	private Database topColumns;
+	private Database dataColumns;
+	private ColumnModel leftDefinitions=new ColumnModel();
+	private ColumnModel topDefinitions=new ColumnModel();
+	private ColumnModel dataDefinitions=new ColumnModel();
+	private HashMap<Integer,DataType> column2type= new HashMap<Integer, DataType>();
+	private boolean trimColumns=true;
+	private boolean casesensible =true;
+	private static final RowBinding ROW_BINDING = new RowBinding();
+	private HashMap<Choice, Boolean> choices= new HashMap<Choice, Boolean>();
 	
+	private enum Choice
+	{
+	DEFAULT,
+	MIN,MAX,
+	SUM,MEAN,
+	COUNT_DISTINCT,
+	STDEV,
+	COUNT,
+	HW_FREQ_A1,HW_FREQ_A2,HW_CHI2
+	}
+	
+	/***********************************
+	*
+	*  class Data
+	*
+	*/
+	private class Data
+	    {
+	    TreeMap<DataScalarList,Integer> data2count=new TreeMap<DataScalarList,Integer>();
+	    
+	    Data()
+	        {
+	        }
+	        
 
+	    
+	    void  add(DataScalarList val)
+	        {
+	        Integer i= data2count.get(val);
+	        if(i==null) i=0;
+	        data2count.put(val, i+1);
+	        }
+	    
+	    public String getValue(Choice choice)
+	    	{
+	    	switch(choice)
+	    		{
+	    		case HW_CHI2:
+	    		case HW_FREQ_A1:
+	    		case HW_FREQ_A2:
+	    			{
+	    			if(Pivot.this.dataColumnIndex.size()!=1)
+	    				{
+	    				return Pivot.this.valueForNull();
+	    				}
+	    			
+	    			HashMap<String, Integer> genotype2count=new HashMap<String, Integer>();
+	    			TreeSet<String> alleleSet= new TreeSet<String>();
+	    			int total=0;
+	    			for(DataScalarList d:this.data2count.keySet())
+	 			 		{
+	    				int n =this.data2count.get(d);
+	    				String genotype= d.at(0);
+	    				
+	    				if(genotype.length()==0 || genotype.equals(EMPTY_VALUE)) continue;
+	    				genotype= genotype.toUpperCase().replaceAll("[\\[\\]]", "").trim();
+	    				String genotypes[]=genotype.split("[ ,\\-\t]+");
+	    				if(genotypes.length==1 && genotype.length()==2)
+	    					{
+	    					genotypes= new String[]{
+	    							""+genotype.charAt(0),
+	    							""+genotype.charAt(1)};
+	    					}
+	    					
+	    				if(genotypes.length!=2) continue;
+	    				
+	    				if(genotypes[0].compareTo(genotypes[1])> 0)
+	    					{
+	    					String stock= genotypes[0];
+	    					genotypes[0]=genotypes[1];
+	    					genotypes[1]=stock;
+	    					}
+	    				genotype= genotypes[0]+genotypes[1];
+	    				
+	    				alleleSet.add(genotypes[0]);
+	    				alleleSet.add(genotypes[1]);
+	    				if(alleleSet.size()>2) return Pivot.this.valueForNull();
+	    				
+	    				Integer count= genotype2count.get(genotype);
+	    				if(count==null) count=0;
+	    				genotype2count.put(genotype,count+n);
+	    				total+=n;
+	 			 		}
+	    			
+	    			if(total==0) return Pivot.this.valueForNull();
+	    			if(alleleSet.size()==1) alleleSet.add("");
+	    			String alleles[]=alleleSet.toArray(new String[alleleSet.size()]);
+	    			
+	    			Integer oAA= genotype2count.get(alleles[0]+alleles[0]);
+	    			if(oAA==null) oAA=0;
+	    			Integer oAB= genotype2count.get(alleles[0]+alleles[1]);
+	    			if(oAB==null) oAB=0;
+	    			Integer oBB= genotype2count.get(alleles[1]+alleles[1]);
+	    			if(oBB==null) oBB=0;
+	    			double freqA=   (2.0*oAA+oAB)/(2.0*total);
+	    			
+	    			switch(choice)
+	    				{
+	    				case HW_FREQ_A1:
+	    					{
+	    					return String.valueOf(alleles[0]+" : "+freqA);
+	    					}
+	    	    		case HW_FREQ_A2:
+	    	    			{
+	        				return String.valueOf(alleles[1]+" : "+(1.0-freqA));
+	    	    			}
+	    	    		default:case HW_CHI2:
+	    	    			{
+	    	    			if(freqA==1.0) return valueForNull();
+	    	    			double eAA=  Math.pow(freqA,2)*total;
+	    	    			double eAB=  2.0*freqA*(1.0-freqA)*total;
+	    	    			double eBB=  Math.pow((1.0-freqA),2)*total;
+	    	    				
+	    	    			return String.valueOf(Math.sqrt(
+	    	    					Math.pow((oAA-eAA),2)/eAA+
+	    	    					Math.pow((oAB-eAB),2)/eAB+
+	    	    					Math.pow((oBB-eBB),2)/eBB
+	    	    					));
+	    	    			}
+	    				}
+	    			
+	    			//break;
+	    			}
+	    		case COUNT:
+	    			{
+	    			int n=0;
+	    			for(DataScalarList d:this.data2count.keySet()) n+=this.data2count.get(d);
+	    			return String.valueOf(n);
+	    			}
+	    		case COUNT_DISTINCT:
+	    			{
+	    			return String.valueOf(this.data2count.size());
+	    			}
+			case STDEV:
+	    		case MIN:
+	    		case MAX:
+	    		case SUM:
+	    		case MEAN:
+	    			{
+	    			if(Pivot.this.dataColumnIndex.size()!=1)
+	    				{
+	    				return Pivot.this.valueForNull();
+	    				}
+	    			double min= Double.MAX_VALUE;
+	    			double max=-Double.MAX_VALUE;
+	    			double total=0.0;
+	    			int count=0;
+	    			 for(DataScalarList d:this.data2count.keySet())
+	    			 	{
+	    				try {
+							Double val= new Double(d.at(0));
+							min=Math.min(min, val);
+							max=Math.max(max, val);
+							int c= data2count.get(d);
+							total+= val.doubleValue()*c;
+							count+=c;
+	    					} 
+	    				catch (Exception e)
+	    					{
+						//ignore
+						}
+	    			 	}
+	    			if(count==0) return valueForNull();
+	    			double mean=total/count;
+	    			switch(choice)
+	    				{
+	    				case MIN: return String.valueOf(min);
+	    				case MAX: return String.valueOf(max);
+	    				case SUM: return String.valueOf(total);
+	    				case MEAN:return String.valueOf(mean);
+	    				case STDEV:
+	    					{
+	    					if(count==1) return valueForNull();
+	    					double stdev=0;
+	    					 for(DataScalarList d:this.data2count.keySet())
+	    	    			 	{
+	    	    				try {
+	    							Double val= new Double(d.at(0));
+	    							int c= data2count.get(d);
+	    							stdev+=(c*Math.pow(mean-val,2));
+	    	    					}
+	    	    				catch (Exception e)
+	    	    					{
+	    	    					//ignore
+	    	    					}
+	    	    			 	}
+	    	    				return String.valueOf(Math.sqrt(stdev/(count-1)));
+	    					}
+	    				}
+	    			return valueForNull();
+	    			}
+	    		case DEFAULT:
+	    			{
+			        int i=data2count.size();
+			        if(i==0)
+			            {
+			            return valueForNull().toString();
+			            }
+			        StringBuilder b= new StringBuilder();
+			        if(i>1) b.append("{");
+			        boolean found=false;
+			        for(DataScalarList d:this.data2count.keySet())
+			            {
+			            if(found) b.append(";");
+			            found=true;
+			            int c= data2count.get(d);
+			            b.append(d.toString());
+			            if(!(i==1 && c==1)) b.append(":"+c);
+			            }
+			            
+			        if(i>1) b.append("}");
+			        return b.toString();
+	    			}
+	    		default:return valueForNull();
+	    		}
+	    	}
+	    
+	    
+	    @Override
+	    public String toString()
+	        {
+	    	return getValue(Choice.DEFAULT);
+	        }
+	    }
+	
+	
+	/**
+	* ColumnModel
+	* a vector of indexes of the table columns
+	*/
+	private static class ColumnModel implements Iterable<Integer>
+	    {
+	    private List<Integer> indexes= new ArrayList<Integer>();
+	    private int maxCol=-1;
+	    
+	    ColumnModel()
+	        {
+	        
+	        }
+	    
+	    public void add(int columnIndex)
+	        {
+	        if(columnIndex<0) throw new IllegalArgumentException("Bad index :"+columnIndex);
+	        if(this.indexes.contains(columnIndex)) throw new IllegalArgumentException("Index defined twice :"+(columnIndex+1));
+	        this.indexes.add(columnIndex);
+	        this.maxCol=Math.max(this.maxCol, columnIndex);
+	        }
+	    
+	    public long size() { return this.indexes.size();}
+	    public boolean isEmpty() { return this.indexes.isEmpty();}
+	    public int at(int index) { return this.indexes.get(index);}
+	    
+	    @Override
+	    public Iterator<Integer> iterator() { return indexes.iterator();}
+	    }
 	
 	/**
 	 * RowBinding
@@ -70,14 +341,14 @@ public class BigPivot
 			List<Object> list= new ArrayList<Object>(listSize);
 			for(int i=0;i< listSize;++i)
 				{
-				switch(input.readByte())
+				switch(DataType.values()[input.readByte()])
 					{
 					case IGNORE: list.add(null); break;
-					case STRING: list.add(input.readString()); break;
+					case STRING:case ISTRING: list.add(input.readString()); break;
 					case BOOLEAN: list.add(input.readBoolean()); break;
 					case DOUBLE: list.add(input.readDouble()); break;
 					case INTEGER:list.add(input.readBigInteger()); break;
-					default: throw new IllegalStateException("Unknown opcode");
+					default: throw new IllegalStateException("Unknown data type");
 					}
 				}
 			return list;
@@ -91,26 +362,26 @@ public class BigPivot
 				Object o= list.get(i);
 				if(o==null)
 					{
-					output.writeByte(IGNORE);
+					output.writeByte((byte)DataType.IGNORE.ordinal());
 					}
 				else if(o.getClass()==String.class)
 					{
-					output.writeByte(STRING);
+					output.writeByte((byte)DataType.STRING.ordinal());
 					output.writeString(String.class.cast(o));
 					}
 				else if(o.getClass()==Boolean.class)
 					{
-					output.writeByte(BOOLEAN);
+					output.writeByte((byte)DataType.BOOLEAN.ordinal());
 					output.writeBoolean(Boolean.class.cast(o));
 					}
 				else if(o.getClass()==BigInteger.class)
 					{
-					output.writeByte(INTEGER);
+					output.writeByte((byte)DataType.INTEGER.ordinal());
 					output.writeBigInteger(BigInteger.class.cast(o));
 					}
 				else if(o.getClass()==Double.class)
 					{
-					output.writeByte(DOUBLE);
+					output.writeByte((byte)DataType.DOUBLE.ordinal());
 					output.writeDouble(Double.class.cast(o));
 					}
 				else
@@ -120,11 +391,12 @@ public class BigPivot
 				}
 			}
 		}
-	/*
+	
 	public static class RowComparator
 		implements Comparator<byte[]>
 		{
 	
+		@SuppressWarnings("unchecked")
 		@Override
 		public int compare(byte[] array1, byte[] array2)
 			{
@@ -148,16 +420,255 @@ public class BigPivot
 				}
 			return 0;
 			}
-		}*/
+		}
+	
+private abstract class AbstractPrinter
+		{
+		protected PrintStream out;
+		protected AbstractPrinter(PrintStream out)
+			{
+			this.out=out;
+			}
+
+		protected abstract void oTable();
+		protected abstract void cTable();
+		protected abstract void oTR();
+		protected abstract void cTR();
+		protected abstract void TH(Object s);
+		protected abstract void TD(Object s);
+		protected BigPivot getPivot() { return BigPivot.this;}
+		
+		private void print() throws DatabaseException
+		    {
+			if(getPivot().header==null) return;
+		  
+		    Vector<Choice> display=new Vector<Choice>();
+		    for(Choice c: Choice.values())
+		    	{
+		    	if(getPivot().choices.get(c))
+		    		{
+		    		display.addElement(c);
+		    		}
+		    	}
+		   
+		    
+		    
+		    /**********************************************
+		     *
+		     * Titles TOP
+		     *
+		     **********************************************/
+		
+		    oTable();
+		    
+		    DatabaseEntry keyEntry1= new DatabaseEntry();
+		    DatabaseEntry dataEntry1= new DatabaseEntry();
+		    DatabaseEntry keyEntry2= new DatabaseEntry();
+		    DatabaseEntry dataEntry2= new DatabaseEntry();
+		    DatabaseEntry dataEntry3= new DatabaseEntry();
+		    long topColumnCount= getPivot().topColumns.count();
+		    long leftColumnCount= getPivot().leftColumns.count();
+		    Cursor topCursor=getPivot().topColumns.openCursor(null, null);
+		    Cursor leftCursor=getPivot().leftColumns.openCursor(null, null);
+		    
+		    for(int x=0;x< getPivot().topDefinitions.size();++x)
+		        {
+		    	oTR();
+		        //add empty columns for left_labels
+		        for(int i=0;i< getPivot().leftDefinitions.size();++i)
+		            {
+		            TH("");
+		            }
+		
+		        //offset of left header min/max/mean...
+		        TH(getPivot().header.get(getPivot().topDefinitions.at(x)));
+		        
+		        
+		        
+		        //reload
+		        keyEntry1= new DatabaseEntry();
+		        if(topCursor.getFirst(keyEntry1, dataEntry1, LockMode.DEFAULT)!=OperationStatus.SUCCESS)
+		        	{
+		        	throw new DatabaseException("Cannot go first");
+		        	}
+		        while(topCursor.getNext(keyEntry1, dataEntry1, LockMode.DEFAULT)==OperationStatus.SUCCESS)
+		            {
+		        	List<Object> rtop = ROW_BINDING.entryToObject(dataEntry1);
+		            TH(rtop.get(x));
+		            }
+		       
+		        TH("");//add an extra column will be used for 'Total' on the right, fill with col name
+		        cTR();
+		        }
+		    
+		    
+		    /**********************************************
+		     *
+		     * add one extra line that will contains left header labels
+		     *
+		     **********************************************/    
+		    oTR();
+		    for(Integer j: getPivot().leftDefinitions)
+		        {
+		        TH(getPivot().header.get(j));
+		        }
+		    TH("Data");
+		    for(long i=0;i< topColumnCount;++i)
+		        {
+		        TH(String.valueOf(i+1));
+		        }
+		    if(Pivot.this.print_horizontal_total)
+				{
+				TH("Total");
+				}
+		    cTR();
+		    
+		    
+		    
+		    keyEntry1= new DatabaseEntry();
+		    topCursor=getPivot().topColumns.openCursor(null, null);
+		    //loop over the distinct rows
+		    while(leftCursor.getNextNoDup(keyEntry1, dataEntry1, LockMode.DEFAULT)==OperationStatus.SUCCESS)
+		        {
+		    	if(getPivot().index2row.get(null, dataEntry1, dataEntry3, LockMode.DEFAULT)!=OperationStatus.SUCCESS)
+		    		{
+		    		throw new DatabaseException("Cannot get row");
+		    		}
+		    	List<Object> rleft = ROW_BINDING.entryToObject(dataEntry3);
+		        for(int displayIndex=0;displayIndex<display.size();++displayIndex)
+			        {
+		        	oTR();
+			        for(int i=0;i< rleft.size();++i)
+			            {
+			            TH(rleft.get(i));
+			            }
+			        keyEntry2= new DatabaseEntry();
+			        if(topCursor.getFirst(keyEntry2, dataEntry2, LockMode.DEFAULT)!=OperationStatus.SUCCESS)
+			        	{
+			        	throw new DatabaseException("Cannot go first");
+			        	}
+			        
+			        TH(getLabel(display.elementAt(displayIndex)));
+			        while(topCursor.getNextNoDup(keyEntry2, dataEntry2, LockMode.DEFAULT)==OperationStatus.SUCCESS)
+			            {
+			        	List<Object> rtop= ROW_BINDING.entryToObject(dataEntry2);
+			            Data data =getData(
+			                    leftValues.get(rleft),
+			                    topValues.get(rtop)
+			                    );
+			            TD(data.getValue(display.elementAt(displayIndex)));
+			            }
+			        
+			        if(Pivot.this.print_horizontal_total)
+				        {
+				        Data dataTotal=getData(leftValues.get(rleft),null);
+				        TD(dataTotal.getValue(display.elementAt(displayIndex)));
+				        }
+			        
+			        cTR();
+			        }
+		        }
+		   
+		    
+		    //bottom total
+		    if(Pivot.this.print_vertical_total)
+			    {
+			    for(int displayIndex=0;displayIndex<display.size();++displayIndex)
+			        {
+			    	oTR();
+			        for(int i=0;i< leftColumnIndex.size();++i)
+			            {
+			            TH("");
+			            }
+			        
+			        TH(getLabel(display.elementAt(displayIndex)));
+			        for(TopScalarList rtop: topValues.keySet())
+			            {
+			            Data data =getData(null,
+			                    topValues.get(rtop)
+			                    );
+			            TD(data.getValue(display.elementAt(displayIndex)));
+			            }
+			        
+			        Data dataTotal=getData(null,null);
+			        TD(dataTotal.getValue(display.elementAt(displayIndex)));
+			        
+			        
+			        cTR();
+			        }
+			    }
+		    
+		   
+		    
+		    cTable();
+		    leftCursor.close();
+		    topCursor.close();
+		    }
+		
+		}	
+		
 	
 	
-	private static final RowBinding ROW_BINDING = new RowBinding();
 	
 	
-	private BigPivot(File dir) throws DatabaseException,IOException
+	private BigPivot() 
+		{
+		}
+	
+	private Data getData(DatabaseEntry leftKey,DatabaseEntry topKey)
+		throws DatabaseException
+	    {
+	    Data data=new Data();
+	    HashSet<Integer> set= null;
+	    
+	    
+	    
+	    if(left!=null)
+		    {
+		    set=new HashSet<Integer>(left);
+		    if(top!=null) set.retainAll(top);
+		    }
+	    else if(top!=null)
+	    	{
+	    	set= new HashSet<Integer>(top);
+	    	}
+	    else
+	    	{
+	    	set= new HashSet<Integer>(this.table.size());
+	    	for(int i=0;i< this.table.size();++i) set.add(i);
+	    	}
+	    
+	    for(int row:set)
+	        {
+	        if(!this.dataColumnIndex.isEmpty())
+	            {
+	            data.add(new DataScalarList(row));
+	            }
+	        else
+	            {
+	            data.add(null);
+	            }
+	        }
+	    return data;
+	    }
+	
+	
+	
+	private static String getLabel(Choice c)
+		{
+		switch(c)
+			{
+			default:
+				return c.toString().toLowerCase().replace('_', '-');
+			}
+		//return c.toString();
+		}	
+	
+	private void open(File dir) throws DatabaseException,IOException
 		{
 		if(!dir.exists()) throw new IOException(dir.toString()+" does not exist");
 		if(!dir.isDirectory()) throw new IOException(dir.toString()+" is not a directory");
+		close();
 		EnvironmentConfig envCfg= new EnvironmentConfig();
 		envCfg.setAllowCreate(true);
 		envCfg.setReadOnly(false);
@@ -168,15 +679,15 @@ public class BigPivot
 		dbCfg.setTemporary(true);
 		Random rand= new Random();
 		this.index2row= this.environment.openDatabase(null, "index2row"+rand.nextLong(), dbCfg);
-		SecondaryConfig config2= new SecondaryConfig();
-		config2.setAllowCreate(true);
-		config2.setReadOnly(false);
-		config2.setTemporary(true);
+		dbCfg= new DatabaseConfig();
+		dbCfg.setAllowCreate(true);
+		dbCfg.setReadOnly(false);
+		dbCfg.setTemporary(true);
 		//config2.setDuplicateComparator(RowComparator.class);
-		config2.setSortedDuplicates(true);
-		this.leftColumns= this.environment.openSecondaryDatabase(null, "left"+rand.nextLong(), this.index2row, config2);
-		this.topColumns= this.environment.openSecondaryDatabase(null, "top"+rand.nextLong(), this.index2row, config2);
-		this.dataColumns= this.environment.openSecondaryDatabase(null, "data"+rand.nextLong(), this.index2row, config2);
+		dbCfg.setSortedDuplicates(true);
+		this.leftColumns= this.environment.openDatabase(null, "left"+rand.nextLong(),  dbCfg);
+		this.topColumns= this.environment.openDatabase(null, "top"+rand.nextLong(),dbCfg);
+		this.dataColumns= this.environment.openDatabase(null, "data"+rand.nextLong(),  dbCfg);
 		}
 	
 	@Override
@@ -221,6 +732,12 @@ public class BigPivot
 		{
 		return rowCount;
 		}
+	
+	public void print()
+		{
+		
+		}
+	
 	
 	public void read(BufferedReader in) throws IOException,DatabaseException
 		{
@@ -293,6 +810,8 @@ public class BigPivot
 			List<Object> list= new ArrayList<Object>(tokens.length);
 			for(String s:tokens)
 				{
+				if(trimColumns) s=s.trim();
+				if(!casesensible) s=s.toLowerCase();
 				list.add(s);
 				}
 			while(list.size() < header.size())
@@ -318,13 +837,14 @@ public class BigPivot
 				
 				try
 					{
-					Byte b=column2type.get(i);
+					DataType b=column2type.get(i);
 					if(b==null) continue;
 					switch(b)
 						{
 						case INTEGER: list.set(i, new BigInteger(s)); break;
 						case DOUBLE: list.set(i, new Double(s)); break;
 						case BOOLEAN: list.set(i, new Boolean(s)); break;
+						case ISTRING: list.set(i, s.toLowerCase());break;
 						case STRING: break;
 						case IGNORE: list.set(i, null); break;
 						default: throw new IllegalStateException("Bad column type "+b);
@@ -347,7 +867,7 @@ public class BigPivot
 			List<Object> list2= new ArrayList<Object>(this.leftDefinitions.size());
 			for(int i=0;i< leftDefinitions.size();++i)
 				{
-				list2.add(list.get(leftDefinitions.get(i)));
+				list2.add(list.get(leftDefinitions.at(i)));
 				}
 			ROW_BINDING.objectToEntry(list2, dataEntry);
 			if(this.leftColumns.put(null, dataEntry, keyEntry)!= OperationStatus.SUCCESS)//yes data and then key
@@ -355,83 +875,206 @@ public class BigPivot
 				throw new DatabaseException("Cannot insert "+line);
 				}
 			
-			
-			//top definitions
-			list2= new ArrayList<Object>(this.topDefinitions.size());
-			for(int i=0;i< topDefinitions.size();++i)
+			if(this.topDefinitions.size()>0)
 				{
-				list2.add(list.get(topDefinitions.get(i)));
-				}
-			ROW_BINDING.objectToEntry(list2, dataEntry);
-			if(this.topColumns.put(null, dataEntry, keyEntry)!= OperationStatus.SUCCESS)//yes data and then key
-				{
-				throw new DatabaseException("Cannot insert "+line);
-				}
-			
-			//data definitions
-			list2= new ArrayList<Object>(this.dataDefinitions.size());
-			for(int i=0;i< dataDefinitions.size();++i)
-				{
-				list2.add(list.get(dataDefinitions.get(i)));
-				}
-			ROW_BINDING.objectToEntry(list2, dataEntry);
-			if(this.dataColumns.put(null, dataEntry, keyEntry)!= OperationStatus.SUCCESS)//yes data and then key
-				{
-				throw new DatabaseException("Cannot insert "+line);
+				//top definitions
+				list2= new ArrayList<Object>(this.topDefinitions.size());
+				for(int i=0;i< topDefinitions.size();++i)
+					{
+					list2.add(list.get(topDefinitions.at(i)));
+					}
+				ROW_BINDING.objectToEntry(list2, dataEntry);
+				if(this.topColumns.put(null, dataEntry, keyEntry)!= OperationStatus.SUCCESS)//yes data and then key
+					{
+					throw new DatabaseException("Cannot insert "+line);
+					}
 				}
 			
+			if(this.dataDefinitions.size()>0)
+				{
+				//data definitions
+				list2= new ArrayList<Object>(this.dataDefinitions.size());
+				for(int i=0;i< dataDefinitions.size();++i)
+					{
+					list2.add(list.get(dataDefinitions.at(i)));
+					}
+				ROW_BINDING.objectToEntry(list2, dataEntry);
+				if(this.dataColumns.put(null, dataEntry, keyEntry)!= OperationStatus.SUCCESS)//yes data and then key
+					{
+					throw new DatabaseException("Cannot insert "+line);
+					}
+				}
 			
 			rowCount++;
-				
 			}
 		}
 	
 	
-	public static void main(String[] args) {
-	try
+	
+	static private void assignColumnModel(String arg,ColumnModel columnModel,String option)
 		{
-		int optind=0;
-		while(optind< args.length)
+		if(columnModel.size()!=0)
 			{
-			if(args[optind].equals("-h"))
-				{
-				System.err.println(Compilation.getLabel());
-				}
-			else if(args[optind].equals("--"))
-				{
-				optind++;
-				break;
-				}
-			else if(args[optind].startsWith("-"))
-				{
-				System.err.println("Unknown option "+args[optind]);
-				}
-			else 
-				{
-				break;
-				}
-			++optind;
-			}
-		if(optind==args.length)
-                {
-                //TODO
-                }
-        else
-                {
-                while(optind< args.length)
-                        {
-                      	java.io.BufferedReader r= IOUtils.openReader(args[optind++]);
-                        
-                        r.close();
-                        }
-                }
+		    throw new IllegalArgumentException("-"+option+" defined twice");
+		    }
+		String tokens[]=arg.split("[,]");
 		
-		} 
+		for(String s:tokens)
+		    {
+		    s=s.trim();
+		    if(s.length()==0) continue;
+		    try {
+		        Integer i= new Integer(s);
+		        if(i<1) throw new IllegalArgumentException("in option -"+option+" bad index"+arg+" <1 ");
+		        columnModel.add(i-1);
+		        }
+		    catch (NumberFormatException e)
+		        {
+		        throw new IllegalArgumentException("Bad Column in "+arg,e);
+		        }
+		    }
+		}
+	
+	public static void main(String[] args)
+		{
+		BigPivot pivot= new BigPivot();
+		try
+			{
+			String directory="/tmp/pivot";
+			
+			int optind=0;
+			while(optind< args.length)
+				{
+				if(args[optind].equals("-h"))
+					{
+					System.out.println("Pivot [options] (<File>|<file.gz>|<url>|stdin)");
+					System.err.println(Compilation.getLabel());
+	                System.out.println("Author: Pierre Lindenbaum PhD. 2009");
+	                System.out.println(" -h help (this screen)");
+	                System.out.println(" -L \'column1,column2,column3,...\' columns for left. (required)");
+	                System.out.println(" -T \'column1,column2,column3,...\' columns for top. (optional)");
+	                System.out.println(" -D \'column1,column3,column3,...\' columns for data.(required)");
+	                System.out.println(" -C columns types: \'column1:type1,column2:type2,column3:type3,...\' with type in:");
+	                for(DataType dt: DataType.values())
+	                		{
+	                		if(dt!=DataType.IGNORE)
+	                		System.out.println("\n"+dt);
+	                		}
+	                System.out.println(" -p <regex> pattern used to break the input into tokens default:TAB");
+	                System.out.println(" -i case insensitive");
+	                System.out.println(" -t trim each column");
+	                System.out.println(" -null <string> value for null");
+	                System.out.println(" -f first line is NOT the header");
+	                //System.out.println(" -html html output");
+	                //System.out.println(" -no-vt disable vertical summary");
+	                //System.out.println(" -no-ht disable horizontal summary");
+	                //System.out.println(" -hw (Hardy Weinberg display option)");
+					}
+				else if(args[optind].equals("-C"))
+					{
+					String tokens[]=args[++optind].split("[,]");
+					
+					for(String s:tokens)
+					    {
+					    s=s.trim();
+					    if(s.length()==0) continue;
+					    int loc= s.indexOf(":");
+					    if(loc==-1)  throw new IllegalArgumentException("Bad column type "+s);
+					    
+					    try {
+					    	int column= Integer.parseInt(s.substring(0,loc).trim());
+					    	if(column<1) throw new IllegalArgumentException("in option -C bad index:"+column+" <1 ");
+					    
+					    	DataType t=  DataType.valueOf(s.substring(loc+1).trim());
+					        if(pivot.column2type.containsKey(column-1))
+					        	{
+					        	throw new IllegalArgumentException("Column Def "+ (column)+" defined twice");
+					        	}
+					        pivot.column2type.put(column-1, t);
+					        }
+					    catch (NumberFormatException e)
+					        {
+					        throw new IllegalArgumentException("Bad Column index in "+s,e);
+					        }
+					    catch (EnumConstantNotPresentException e)
+					        {
+					        throw new IllegalArgumentException("Bad Column type in "+s,e);
+					        }
+					    }
+					}
+				else if(args[optind].equals("-L"))
+					{
+					assignColumnModel(args[++optind],pivot.leftDefinitions,"L");
+					}
+				else if(args[optind].equals("-T"))
+	                {
+	            	assignColumnModel(args[++optind],pivot.topDefinitions,"T");
+	                }
+	            else if(args[optind].equals("-D"))
+	                {
+	            	assignColumnModel(args[++optind],pivot.dataDefinitions,"D");
+	                }
+	            else if(args[optind].equals("-p"))
+	                {
+	                pivot.delim= Pattern.compile(args[++optind]);
+	                }
+	            else if(args[optind].equals("-i"))
+		            {
+	            	pivot.casesensible=false;
+		            }
+	            else if(args[optind].equals("-t"))
+		            {
+		            pivot.trimColumns=true;
+		            }
+	            else if(args[optind].equals("-null"))
+		            {
+		            pivot.NULL_VALUE=args[++optind];
+		            }
+	            else if(args[optind].equals("-f"))
+		            {
+		            pivot.firstLineIsHeader=false;
+		            }
+				else if(args[optind].equals("--"))
+					{
+					optind++;
+					break;
+					}
+				else if(args[optind].startsWith("-"))
+					{
+					System.err.println("Unknown option "+args[optind]);
+					}
+				else 
+					{
+					break;
+					}
+				++optind;
+				}
+			
+			pivot.open(new File(directory));
+			if(optind==args.length)
+		        {
+		        pivot.read(new BufferedReader(new InputStreamReader(System.in)));
+		        }
+			else if(optind+1==args.length)
+		        {
+		    	BufferedReader in=IOUtils.openReader(args[optind]);
+		        pivot.read(in);
+		        in.close();
+		        }
+		    else
+		        {
+		        throw new IllegalArgumentException("Too many arguments");
+		        }
+			
+			} 
 	catch(Throwable err)
 		{
 		err.printStackTrace();
 		}
-	
+	finally
+		{
+		pivot.close();
+		}
 	
 	
 	}
