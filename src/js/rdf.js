@@ -1,3 +1,14 @@
+/**************************
+ * 
+ * RDF library in Javascript
+ * Author: Pierre Lindenbaum
+ * plindenbaum@yahoo.fr
+ * http://plindenbaum.blogspot.com
+ */
+
+/**
+ * A RDF Resource
+ */
 function Resource(uri)
 	{
 	this.uri=uri;
@@ -30,11 +41,13 @@ Resource.prototype.isAnonId=function()
 	return this.uri.substr(0,2)=="_:";
 	};
 
-
+/**
+ * A RDF Literal
+ */
 function Literal(content,type,lang)
 	{
 	this.content=content;
-	this.type=null;
+	this.dataType=null;
 	this.lang=null;
 	}
 
@@ -50,7 +63,7 @@ Literal.prototype.isResource=function()
 
 Literal.prototype.toString=function()
 	{
-	return "\""+this.content+"\"";
+	return "\""+this.content+"\"";//TODO escape this !
 	};
 
 Literal.prototype.compareTo=function(other)
@@ -62,7 +75,9 @@ Literal.prototype.compareTo=function(other)
 	};
 
 
-
+/**
+ * A RDF Statement (S,P,V)
+ */
 function Statement( subject, predicate,value)
 	{
 	this.subject=subject;
@@ -94,6 +109,10 @@ Statement.prototype.toString=function()
 	return ""+this.subject+" "+this.predicate+" "+this.value+" .";
 	};
 
+/**
+ * A RDF store
+ * statements are stored in a sorted array
+ */
 function RDFStore()
 	{
 	this.statements= new Array();	
@@ -145,9 +164,10 @@ RDFStore.prototype.add= function(stmt)
 	var i= this.lowerBound(stmt);
 	if(i<this.size())
 		{
-		if( this.at(i).compareTo(stmt) == 0) return;
+		if( this.at(i).compareTo(stmt) == 0) return false;
 		}
 	this.statements.splice(i,0,stmt);
+	return true;
 	}
 
 RDFStore.prototype.contains= function(stmt)
@@ -166,6 +186,11 @@ RDFStore.prototype.remove= function(stmt)
 	this.statements.splice(i,1);
 	};
 
+/**
+ * find a given statement, arguments can be null to allow all the nodes
+ * this method should be improved as all statements are sorted, access
+ * should be straightforward
+ */
 RDFStore.prototype.filter= function(s,p,v)
 	{
 	var store= new RDFStore();
@@ -186,9 +211,10 @@ RDFStore.prototype.parse=function(dom)
 	}
 
 
-
-
-
+/**
+ * parse a DOM document and extract the Statements
+ * parseType="Literal" not implemented
+ */
 function DOM4RDF()
 	{
 	
