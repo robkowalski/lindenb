@@ -346,6 +346,18 @@ public static int getLevel(Node n)
 	return L;
 	}
 
+/** remove all children under n
+ * @returns the number of node removed */
+public static int removeChildren(Node n)
+	{
+	int L=0;
+	while(n.hasChildNodes())
+		{
+		++L;
+		n.removeChild( n.getFirstChild());
+		}
+	return L;
+	}
 
 
 /** returns wether is document is Data Oriented
