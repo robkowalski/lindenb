@@ -9,11 +9,13 @@ package org.lindenb.giraf;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -28,12 +30,21 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import java.util.zip.ZipOutputStream;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+
 import org.lindenb.io.IOUtils;
 import org.lindenb.io.TmpWriter;
 import org.lindenb.util.Cast;
 import org.lindenb.util.Compilation;
 import org.lindenb.util.SmartComparator;
 import org.lindenb.util.TimeUtils;
+import org.lindenb.xml.NodeWrapper;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
 import com.sleepycat.bind.tuple.IntegerBinding;
 import com.sleepycat.bind.tuple.StringBinding;
@@ -52,6 +63,71 @@ import com.sleepycat.je.OperationStatus;
 import com.sleepycat.je.SecondaryConfig;
 import com.sleepycat.je.SecondaryDatabase;
 import com.sleepycat.je.SecondaryKeyCreator;
+
+
+
+
+
+/**
+ * A config File
+ * @author lindenb
+ *
+ */
+class Config
+	{
+	class ConfigNode
+	extends NodeWrapper<Element>
+		{
+		ConfigNode(Element e)
+			{
+			super(e);
+			}
+		}
+	/**
+	 * A mysql DataSource
+	 */
+	class DataSource
+		extends ConfigNode
+		{
+		DataSource(Element e)
+			{
+			super(e);
+			}
+		public String getId()
+			{
+			return getAttribute("id");
+			}
+		public String getDriver() { return getAttribute("driver");}
+		public String getUser() { return getAttribute("user","");}
+		public String getPassword() { return getAttribute("password","");}
+		public String getURI() { return getAttribute("uri","");}
+		}
+	
+	class ActionNode
+	extends ConfigNode
+		{
+		ActionNode(Element e)
+			{
+			super(e);
+			}
+		}
+	
+	
+	
+	private Document dom;
+	Config(File file) throws IOException,ParserConfigurationException,SAXException
+		{
+		DocumentBuilderFactory domFactory= DocumentBuilderFactory.newInstance();
+		domFactory.setCoalescing(true);
+		domFactory.setExpandEntityReferences(true);
+		domFactory.setIgnoringComments(true);
+		domFactory.setNamespaceAware(true);
+		domFactory.setValidating(false);
+		domFactory.setNamespaceAware(true);
+		DocumentBuilder domBuilder= domFactory.newDocumentBuilder();
+		this.dom =domBuilder.parse(new InputSource(new FileReader(file)));
+		}
+	}
 
 /**
  * Position
@@ -393,7 +469,7 @@ class PositionKeyCreator
 class Name
 	implements Comparable<Name>
 	{
-	private static final NameBinding BINDING_NAME= new NameBinding();
+	public static final NameBinding BINDING_NAME= new NameBinding();
 	private String family;
 	private int firstName;
 	
@@ -632,21 +708,40 @@ class Genotype
 		}
 	}
 
+class DistinctGenotype extends HashSet<Genotype>
+	{
+	DistinctGenotype()
+		{
+		
+		}
+	DistinctGenotype(int capacity)
+		{
+		super(capacity);
+		}
+	Genotype first()
+		{
+		Iterator<Genotype> iter= iterator();
+		return iter.hasNext()?iter.next():null;
+		}
+	
+	}
+
+
 /**
  * 
  * GenotypesBinding
  *
  */
 class GenotypesBinding
-	extends TupleBinding<List<Genotype[]>>
+	extends TupleBinding<List<DistinctGenotype>>
 	{
 	static public final GenotypesBinding INSTANCE=new GenotypesBinding();
 	
 	@Override
-	public List<Genotype[]> entryToObject(TupleInput tuple)
+	public List<DistinctGenotype> entryToObject(TupleInput tuple)
 		{
 		int n= tuple.readInt();
-		List<Genotype[]> list= new ArrayList<Genotype[]>(n);
+		List<DistinctGenotype> list= new ArrayList<DistinctGenotype>(n);
 		for(int i=0;i< n;++i)
 			{
 			boolean b= tuple.readBoolean();
@@ -656,10 +751,11 @@ class GenotypesBinding
 				}
 			else
 				{
-				Genotype array[]=new Genotype[tuple.readInt()];
-				for(int k=0;k< array.length;++k)
+				int len=tuple.readInt();
+				DistinctGenotype array=new DistinctGenotype(len);
+				for(int k=0;k< len;++k)
 					{
-					array[k] = new Genotype(tuple.readString(),tuple.readString());
+					array.add( new Genotype(tuple.readString(),tuple.readString()) );
 					}
 				list.add(array);
 				}
@@ -667,19 +763,19 @@ class GenotypesBinding
 		return list;
 		}
 	@Override
-	public void objectToEntry(List<Genotype[]> list, TupleOutput tuple)
+	public void objectToEntry(List<DistinctGenotype> list, TupleOutput tuple)
 		{
 		tuple.writeInt(list.size());
 		for(int i=0;i< list.size();++i)
 			{
-			if(list.get(i)==null || list.get(i).length==0)
+			if(list.get(i)==null || list.get(i).isEmpty())
 				{
 				tuple.writeBoolean(false);
 				}
 			else
 				{
 				tuple.writeBoolean(true);
-				tuple.writeInt(list.get(i).length);
+				tuple.writeInt(list.get(i).size());
 				for(Genotype g: list.get(i))
 					{
 					tuple.writeString(g.A1());
@@ -785,91 +881,436 @@ class ConfigShuttle
 	}
 
 /**
- * @author pierre
+ * 
+ * LineIterator
+ * 
+ */
+class LineIterator
+	implements Iterator<List<String>>
+	{
+	BufferedReader in=null;
+	List<String> current=null;
+	Pattern pattern;
+	
+	LineIterator(BufferedReader r,Pattern pattern)
+		{
+		this.in=r;
+		this.pattern=pattern;
+		}
+	
+	@Override
+	public boolean hasNext()
+		{
+		if(current!=null) return true;
+		if(in==null) return false;
+		String line=null;
+		String token[];
+		while(true)
+			{
+			try { line= in.readLine(); } catch(IOException err) { throw new RuntimeException(err);}
+			if(line==null)
+				{
+				in=null;
+				current=null;
+				return false;
+				}
+			token= this.pattern.split(line);
+			this.current= new ArrayList<String>(token.length);
+			for(String s:token) this.current.add(s.trim());
+			break;
+			}
+		return current!=null;
+		}
+	
+	public List<String> next()
+		{
+		if(current==null)
+			{
+			hasNext();
+			if(current==null) throw new IllegalStateException("no next");
+			}
+		List<String> x= this.current;
+		this.current=null;
+		return x;
+		}
+	
+	
+	
+	@Override
+	public void remove() {
+		throw new UnsupportedOperationException("cannot remove");
+		}
+	
+	}
+
+/**
+ * Linkage
+ * @author lindenb
  *
  */
-public class Giraf
+class Linkage
 	{
-	/** tab delimiter */
-	private static final Pattern TAB= Pattern.compile("[\t]");
-	/** logging */
-	private static final Logger _LOG= Logger.getLogger("org.lindenb.giraf.Giraf");
+	private static long ID=System.currentTimeMillis();
 	/** number of individual */
 	private int individualCount=0;
 	/** number of markers */
 	private int markerCount=0;
-	/** files of markers */
-	private Set<String> markerFiles= new HashSet<String>();
-	/** files of pedigrees */
-	private Set<String> individualsFiles= new HashSet<String>();
-	/** files of genotypes */
-	private Set<String> genotypesFiles= new HashSet<String>();
-	/** files of markers to be excluded */
-	private Set<String> eXcludedMarkerFiles= new HashSet<String>();
-	/** files of individuals to be excluded */
-	private Set<String> eXcludedIndividualFiles= new HashSet<String>();
-	
-	
-	/** limit by position */
-	private List<Range> limitByPosition= new ArrayList<Range>();
-	
-	private Set<String> allPhenotypes= new TreeSet<String>();
-	private Set<String> allMarkerFeatures= new TreeSet<String>();
-	
-	
-	private Environment berkeleyEnv=null;
+	/** table RS to Marker */
 	private Database markerDB = null;
 	private SecondaryDatabase pos2markerDB= null;
 	private Database individualDB = null;
-	private SecondaryDatabase index2individual= null;
+	private Database index2indiviualName = null;
 	private Database mkr2genotypesDB = null;
-	private TmpWriter errorLog=null;
-	private TmpWriter logLog=null;
-	private File envHome;
+    private Giraf giraf;
+    private Set<String> allPhenotypes= new TreeSet<String>();
+	private Set<String> allMarkerFeatures= new TreeSet<String>();
+	 final String zipPrefix= "GIRAF"+TimeUtils.toYYYYMMDDHHMMSS()+"/";
 	
-	private final String zipPrefix= "GIRAF"+TimeUtils.toYYYYMMDDHHMMSS()+"/";
-	private Giraf()
+	Linkage(Giraf giraf) throws DatabaseException
 		{
-		this.envHome= new File(System.getProperty("java.io.tmpdir"));
+		String random = "_"+(++ID);
+		this.giraf=giraf;
+		
+		/* create marker database: map<rs,marker> */
+		DatabaseConfig cfg= new DatabaseConfig();
+		cfg.setAllowCreate(true);
+		cfg.setTemporary(true);
+		cfg.setSortedDuplicates(false);
+		this.markerDB= giraf.berkeleyEnv.openDatabase(null, "markers"+random, cfg);
+		
+		/* create position-to-marker 2nd-database: map<position,marker> */
+		SecondaryConfig secondCfg= new SecondaryConfig();
+		secondCfg.setAllowCreate(true);
+		secondCfg.setSortedDuplicates(true);
+		secondCfg.setTemporary(true);
+		secondCfg.setKeyCreator(new PositionKeyCreator());
+		this.pos2markerDB= giraf.berkeleyEnv.openSecondaryDatabase(null, "pos"+random, this.markerDB, secondCfg);
+		
+		/* create marker database: map<name,individual> */
+		cfg= new DatabaseConfig();
+		cfg.setAllowCreate(true);
+		cfg.setTemporary(true);
+		cfg.setSortedDuplicates(false);
+		this.individualDB= giraf.berkeleyEnv.openDatabase(null, "individuals"+random, cfg);
+		
+		/* create genotypes database: map<rs,list<genotype[]> > */
+		cfg= new DatabaseConfig();
+		cfg.setAllowCreate(true);
+		cfg.setTemporary(true);
+		cfg.setSortedDuplicates(false);
+		mkr2genotypesDB= giraf.berkeleyEnv.openDatabase(null, "genotypes"+random, cfg);
+
+		cfg= new DatabaseConfig();
+		cfg.setAllowCreate(true);
+		cfg.setTemporary(true);
+		
+		this.index2indiviualName = giraf.berkeleyEnv.openDatabase(null, "id2individualName"+random, secondCfg);
 		}
 	
-	private static void trim(String token[])
+	void merge(Linkage left,Linkage right) throws DatabaseException
 		{
-		for(int i=0;i< token.length;++i) token[i]=token[i].trim();
-		}
+		//merge sort 
+		DatabaseEntry key1=new DatabaseEntry();
+		DatabaseEntry data1 =new DatabaseEntry();
+		DatabaseEntry key2=new DatabaseEntry();
+		DatabaseEntry data2 =new DatabaseEntry();
+		Cursor cursor = left.individualDB.openCursor(null, null);
+		
+		//merge individuals
+		this.allPhenotypes.addAll(left.allPhenotypes);
+		this.allPhenotypes.addAll(right.allPhenotypes);
 	
-	private static void assertToken(String token[],int index,String ... labels)
-	throws IOException
-		{
-		token[index]=token[index].trim();
-		if(token[index].startsWith("#"))
+		while(cursor.getNext(key1, data1, LockMode.DEFAULT)==OperationStatus.SUCCESS)
 			{
-			token[index]=token[index].substring(1).trim();
+			Individual indi1= Individual.BINDING.entryToObject(data1);
+			
+			if(right.individualDB.get(null, key1, data2,LockMode.DEFAULT)==OperationStatus.SUCCESS)
+				{
+				Individual indi2= Individual.BINDING.entryToObject(data2);
+				//TODO check same and merge
+				}
+			Individual.BINDING.objectToEntry(indi1,data1);
+			this.individualDB.put(null, key1, data1);
 			}
-		for(String L:labels)
+		cursor.close();
+		
+		key2=new DatabaseEntry();
+		data2 =new DatabaseEntry();
+		cursor = right.individualDB.openCursor(null, null);
+		while(cursor.getNext(key2, data2, LockMode.DEFAULT)==OperationStatus.SUCCESS)
 			{
-			if(token[index].equalsIgnoreCase(L)) return;
+			if(left.individualDB.get(null, key2, data1,LockMode.DEFAULT)==OperationStatus.SUCCESS)
+				{
+				//already done
+				continue;
+				}
+			this.individualDB.put(null, key2, data2);
 			}
+		cursor.close();
+		
+		validatePedigree();
+		
+		//merge marker
+		this.allMarkerFeatures.addAll(left.allMarkerFeatures);
+		this.allMarkerFeatures.addAll(right.allMarkerFeatures);
+		cursor = left.markerDB.openCursor(null, null);
+		key1=new DatabaseEntry();
+		data1 =new DatabaseEntry();
+		while(cursor.getNext(key1, data1, LockMode.DEFAULT)==OperationStatus.SUCCESS)
+			{
+			Marker marker1= Marker.BINDING.entryToObject(data1);
+			
+			if(right.markerDB.get(null, key1, data2,LockMode.DEFAULT)==OperationStatus.SUCCESS)
+				{
+				Marker marker2= Marker.BINDING.entryToObject(data2);
+				//TODO check fatures and merge in marker1
+				}
+			Marker.BINDING.objectToEntry(marker1,data1);
+			this.markerDB.put(null, key1, data1);
+			}
+		cursor.close();
+		
+		key2=new DatabaseEntry();
+		data2 =new DatabaseEntry();
+		cursor = right.markerDB.openCursor(null, null);
+		while(cursor.getNext(key2, data2, LockMode.DEFAULT)==OperationStatus.SUCCESS)
+			{
+			if(left.markerDB.get(null, key2, data1,LockMode.DEFAULT)==OperationStatus.SUCCESS)
+				{
+				//already done
+				continue;
+				}
+			this.markerDB.put(null, key2, data2);
+			}
+		cursor.close();
 		
 		
-		throw new IOException("Error in header: expected "+labels[0]+
-				" at column "+(index+1)+" but found "+token[index]);	
+		
+		
+		
+		for(int side=0;side< 2;++side)
+			{
+			
+			Database prevDB = (side==0?left.index2indiviualName:right.index2indiviualName);
+			HashMap<Integer, Integer> old2newIndex= new HashMap<Integer, Integer>();
+			key1=new DatabaseEntry();
+			data1 =new DatabaseEntry();
+			cursor= prevDB.openCursor(null, null);
+			while(cursor.getNext(key1, data1, LockMode.DEFAULT)==OperationStatus.SUCCESS)
+				{
+				int oldIndex= IntegerBinding.entryToInt(key1);
+				if(this.individualDB.get(null, data1, data2, LockMode.DEFAULT)!=OperationStatus.SUCCESS)
+					{
+					throw new DatabaseException("Cannot retrieve old individual");
+					}
+				Individual newIndi= Individual.BINDING.entryToObject(data2);
+				old2newIndex.put(oldIndex,newIndi.getColumn());
+				}
+
+			cursor.close();
+			
+			
+			key1=new DatabaseEntry();
+			data1 =new DatabaseEntry();
+			 prevDB = (side==0?left.mkr2genotypesDB:right.mkr2genotypesDB);
+			cursor= prevDB.openCursor(null, null);
+			while(cursor.getNext(key1, data1, LockMode.DEFAULT)==OperationStatus.SUCCESS)
+				{
+				List<DistinctGenotype> oldGenotypes  = GenotypesBinding.INSTANCE.entryToObject(data1);
+				//genotypes
+				List<DistinctGenotype> genotypes =new ArrayList<DistinctGenotype>(this.individualCount);
+				while(genotypes.size()< this.individualCount)
+					{
+					genotypes.add(null);
+					}
+				for(int i=0;i< oldGenotypes.size();++i)
+					{
+					int newIndex= old2newIndex.get(i);
+					
+					DistinctGenotype prevGenotype = oldGenotypes.get(newIndex);
+					
+					DistinctGenotype g= genotypes.get(newIndex);
+					if(prevGenotype!=null)
+						{
+						if(g==null)
+							{
+							g=prevGenotype;
+							}
+						else
+							{
+							g.addAll(prevGenotype);
+							}
+						}
+					genotypes.set(newIndex, g);
+					}
+				
+				
+				GenotypesBinding.INSTANCE.objectToEntry(genotypes,data1);
+				this.mkr2genotypesDB.put(null, key1, data1);
+				}
+			cursor.close();
+			}
 		}
+	
+	void close() throws DatabaseException
+		{
+		this.index2indiviualName.close();
+		this.pos2markerDB.close();
+		this.markerDB.close();
+		this.individualDB.close();
+		this.mkr2genotypesDB.close();
+		}
+	/**
+	 * Read a genotype file
+	 * @param genFile
+	 * @throws IOException
+	 * @throws DatabaseException
+	 */
+	  void readGenotypes(Iterator<List<String> > lines)
+		throws IOException, DatabaseException
+		{
+		List<String> header=null;
+		DatabaseEntry key=new DatabaseEntry();
+		DatabaseEntry markerValue =new DatabaseEntry();
+		DatabaseEntry indiValue =new DatabaseEntry();
+		DatabaseEntry genotypesValue =new DatabaseEntry();
+		String prevMarker=null;
+		List<DistinctGenotype> genotypes= null;
+		
+		while(lines.hasNext())
+			{
+			List<String> token = lines.next();
+			
+			
+			if(header==null)
+				{
+				if(token.size() <5) throw new IOException("Expected 5 columns but found "+token.size()+" in "+token);
+				header= token;
+				assertToken(header,0,"Marker","rs","snp","rs#");
+				assertToken(header,1,"Family","fam");
+				assertToken(header,2,"Individual","indi","name");
+				assertToken(header,3,"Allele-1","A1");
+				assertToken(header,4,"Allele-2","A2");
+				continue;
+				}
+			
+			if(token.size()!=3 && token.size()!=5) throw new IOException("expected 5 columns but found "+token.size()+" in "+token);
+			
+			if(token.size()==3 ||
+			   token.get(0).length()==0 ||
+			   token.get(1).length()==0 ||
+			   token.get(2).length()==0 ||
+			   token.get(3).length()==0 ||
+			   token.get(4).length()==0 ||
+			   token.get(3).equalsIgnoreCase("N") ||
+			   token.get(3).equals("-") ||
+			   token.get(3).equals("?") ||
+			   token.get(3).equals("0") ||
+			   token.get(4).equalsIgnoreCase("N") ||
+			   token.get(4).equals("-") ||
+			   token.get(4).equals("?") ||
+			   token.get(4).equals("0")
+			 	)
+				{
+				prevMarker=null;
+				genotypes=null;
+				//System.err.println("In "+genFile+" ignoring "+line);
+				continue;
+				}
+			
+			
+			if(!Cast.Integer.isA(token.get(2)))
+				{
+				throw new IOException("Bad family (not name=integer) in "+token+" in ");
+				}
+			
+			if(prevMarker!=null &&
+				prevMarker.equals(token.get(0)) &&
+				genotypes==null)
+				{
+				//marker is the same but it is not in our listing
+				continue;
+				}
+			
+			new Name(token.get(1),Cast.Integer.cast(token.get(2))).copyToEntry(key);
+			if(this.individualDB.get(null,key,indiValue,null )!= OperationStatus.SUCCESS)
+				{
+				//individual is not in our collection
+				continue;
+				}
+			
+			Individual individual= Individual.BINDING.entryToObject(indiValue);
+			
+			//now key is for marker, need this to save AND load the genotypes
+			StringBinding.stringToEntry(token.get(0), key);
+			
+			/* if marker is same as previous no need to retrieve the array */
+			if(prevMarker==null || !prevMarker.equals(token.get(0)))
+				{
+				prevMarker=token.get(0);
+				if(this.markerDB.get(null,key,markerValue,null )!= OperationStatus.SUCCESS)
+					{
+					//marker is noty in out listing
+					genotypes=null;
+					continue;
+					}
+
+				if(this.mkr2genotypesDB.get(null,key,genotypesValue,null )!= OperationStatus.SUCCESS)
+					{
+					genotypes = new ArrayList<DistinctGenotype>(individualCount);
+					while(genotypes.size()< individualCount) genotypes.add(null);
+					}
+				else
+					{
+					genotypes= GenotypesBinding.INSTANCE.entryToObject(genotypesValue);
+					}
+				}
+			else
+				{
+				prevMarker=token.get(0);
+				assert(genotypes!=null);
+				}
+			
+			Genotype genotype=new Genotype(token.get(3),token.get(4));
+			DistinctGenotype gen_array= genotypes.get(individual.getColumn());
+			if(gen_array==null || gen_array.isEmpty())
+				{
+				gen_array=new DistinctGenotype();
+				gen_array.add(genotype);
+				}
+			else
+				{
+				if(gen_array.contains(genotype)) continue;
+				
+				gen_array.add(genotype);
+				}
+			genotypes.set(individual.getColumn(),gen_array);
+			GenotypesBinding.INSTANCE.objectToEntry(genotypes, genotypesValue);
+			if(this.mkr2genotypesDB.put(null,key,genotypesValue )!= OperationStatus.SUCCESS)
+				{
+				throw new DatabaseException("Cannot put genotypes for "+token.get(0));
+				}
+			}
+		
+		if(header==null)
+			{
+			System.err.println("Empty data in");
+			}
+		}
+	
 	
 	/** read pedigrees to be excluded */
-	private void readXPedigreeDB(String pedFile)
+	 void readXPedigreeDB(Iterator<List<String>> iter)
 	throws IOException, DatabaseException
 		{
-		BufferedReader r= IOUtils.openReader(pedFile);
-		String line;
-		String header[]=null;
+		List<String> token;
+		List<String> header=null;
 		DatabaseEntry key=new DatabaseEntry();
-		while((line=r.readLine())!=null)
+		while(iter.hasNext())
 			{
-			if(line.trim().length()==0) continue;
-			String token[] = TAB.split(line);
-			if(header!=null && line.startsWith("#")) continue;
-			if(token.length<2) throw new IOException("In "+pedFile+" expected 5 columns but found "+token.length+" in "+line);
+			token= iter.next();
+			
+			if(token.size()<2) throw new IOException("Expected 2 columns but found "+token.size());
 			if(header==null)
 				{
 				header= token;
@@ -877,40 +1318,163 @@ public class Giraf
 				assertToken(header,1,"Individual","indi");
 				continue;
 				}
-			trim(token);
-			if(token[0].length()==0 || token[1].length()==0 || !Cast.Integer.isA(token[1])) continue;
+			
+			if(token.get(0).length()==0 || token.get(1).length()==0 ||
+				!Cast.Integer.isA(token.get(1))) continue;
 			
 			
-			Name name=new Name(token[0],Cast.Integer.cast(token[1]));
+			Name name=new Name(token.get(0),Cast.Integer.cast(token.get(1)));
 			if(this.individualDB.delete(null,name.copyToEntry(key))== OperationStatus.SUCCESS)
 				{
-				_LOG.info("removing "+name);
+				Giraf._LOG.info("removing "+name);
 				this.individualCount--;
 				assert(this.individualCount>=0);
 				continue;
 				}
 			}
-		r.close();
 		if(header==null)
 			{
-			System.err.println("Nothing found in "+pedFile);
+			System.err.println("Nothing found");
 			}
 		}
 	
-	private void readPedigreeDB(String pedFile)
+	/**
+	 * readMarkerDB
+	 * read a file of marker
+	 * @param markerSrcURI
+	 * @throws IOException
+	 * @throws DatabaseException
+	 */
+	void readMarkerDB(Iterator<List<String>> lines)
 	throws IOException, DatabaseException
 		{
-		BufferedReader r= IOUtils.openReader(pedFile);
-		String line;
-		String header[]=null;
+		List<String> header=null;
 		DatabaseEntry key=new DatabaseEntry();
 		DatabaseEntry value=new DatabaseEntry();
-		while((line=r.readLine())!=null)
+		while(lines.hasNext())
 			{
-			if(line.trim().length()==0) continue;
-			String token[] = TAB.split(line);
-			if(header!=null && line.startsWith("#")) continue;
-			if(token.length<5) throw new IOException("In "+pedFile+" expected 5 columns but found "+token.length+" in "+line);
+		
+			List<String> token = lines.next();
+			if(token.size()<3) throw new IOException("expected 3 columns but found "+token.size()+" in "+token);
+			
+			if(header==null)
+				{
+				header= token;
+				assertToken(header,0,"Name","rs","snp","rs#","marker");
+				assertToken(header,1,"Chromosome","k","chr","chrom");
+				assertToken(header,2,"Position","pos","loc","location");
+				for(int i=3;i<token.size() && i< header.size();++i)
+					{
+					Giraf._LOG.info("adding current snp feature "+header.get(i));
+					this.allMarkerFeatures.add(header.get(i));
+					}
+				continue;
+				}
+			
+			
+			if(token.get(0).trim().length()==0) throw new IOException("bad marker name in "+token);
+			
+			if(token.get(1).trim().length()==0 ||
+			   token.get(2).trim().length()==0)
+				{
+				token.set(2,"-1");
+				}
+			if(!Cast.Integer.isA(token.get(2))) throw new IOException("bad position in "+token);
+			Marker marker = new Marker(token.get(0).trim(),token.get(1),Cast.Integer.cast(token.get(2)));
+			
+			if(!this.giraf.limitByPosition.isEmpty())
+				{
+				boolean ok=false;
+				for(Range range: this.giraf.limitByPosition)
+					{
+					if(range.contains(marker.getPosition()))
+						{
+						ok=true;
+						break;
+						}
+					}
+				if(!ok) continue;
+				}
+			
+			for(int i=3;i<token.size() && i< header.size();++i)
+				{
+				marker.getFeatures().put(header.get(i), token.get(i));
+				}
+				
+			
+			StringBinding.stringToEntry(marker.getName(), key);
+			if(this.markerDB.get(null,key,value,null )== OperationStatus.SUCCESS)
+				{
+				Marker other = Marker.BINDING.entryToObject(value);
+				if(!other.equals(marker))
+					{
+					System.err.println("Marker "+other+" was previously defined as "+marker);
+					}
+				continue;
+				}
+			Marker.BINDING.objectToEntry(marker, value);
+			if(this.markerDB.put(null, key,value)!= OperationStatus.SUCCESS)
+				{
+				throw new DatabaseException("Cannot insert "+marker);
+				}
+			this.markerCount++;
+			}
+		
+		if(header==null)
+			{
+			System.err.println("Empty data in marker file");
+			}
+		}
+	
+	
+	void readExclusedMarkerDB(Iterator<List<String>> lines)
+	throws IOException, DatabaseException
+		{
+		List<String> token=null;
+		List<String> header=null;
+		DatabaseEntry key=new DatabaseEntry();
+		DatabaseEntry value=new DatabaseEntry();
+		while(lines.hasNext())
+			{
+			token=lines.next();
+			
+			if(header==null)
+				{
+				header= token;
+				assertToken(header,0,"Name");
+				continue;
+				}
+			
+			
+			StringBinding.stringToEntry(token.get(0).trim(), key);
+			if(this.markerDB.get(null,key,value,null )!= OperationStatus.SUCCESS)
+				{
+				continue;
+				}
+			
+			Giraf._LOG.fine("removing "+header.get(0));
+			if(this.markerDB.delete(null, key)!= OperationStatus.SUCCESS)
+				{
+				throw new DatabaseException("Cannot remove "+token.get(0));
+				}
+			this.markerCount--;
+			}
+		}
+	
+	
+	void readPedigreeDB(Iterator<List<String>> lines)
+		throws IOException, DatabaseException
+		{
+		List<String> header=null;
+		DatabaseEntry key=new DatabaseEntry();
+		DatabaseEntry value=new DatabaseEntry();
+		while(lines.hasNext())
+			{
+			List<String> token= lines.next();
+			
+			if(token.isEmpty()) continue;
+			
+			if(token.size() <5) throw new IOException("In "+token+" expected 5 columns but found "+token.size());
 			if(header==null)
 				{
 				header= token;
@@ -919,34 +1483,34 @@ public class Giraf
 				assertToken(header,2,"Father","f");
 				assertToken(header,3,"Mother","m");
 				assertToken(header,4,"Gender","sex");
-				for(int i=5;i<token.length && i< header.length;++i)
+				for(int i=5;i<token.size() && i< header.size();++i)
 					{
-					_LOG.info("add phenotype "+header[i]);
-					this.allPhenotypes.add(header[i]);
+					Giraf._LOG.info("add phenotype "+header.get(i));
+					this.allPhenotypes.add(header.get(i));
 					}
 				continue;
 				}
 			
-			if(token[0].trim().length()==0) throw new IOException("In "+pedFile+" bad family name in "+line);
-			if(!Cast.Integer.isA(token[1])) throw new IOException("In "+pedFile+" bad name in "+line);
-			if(token[2].trim().length()==0) token[2]="0";
-			if(!Cast.Integer.isA(token[2])) throw new IOException("In "+pedFile+" bad father in "+line);
-			if(token[3].trim().length()==0) token[3]="0";
-			if(!Cast.Integer.isA(token[3])) throw new IOException("In "+pedFile+" bad mother in "+line);
-			if(token[4].trim().length()==0) token[4]="0";
-			int gender= Cast.Integer.cast(token[4]);
-			if(gender<0 || gender>2) throw new IOException("In "+pedFile+" bad gender in "+line);
+			if(token.get(0).trim().length()==0) throw new IOException("bad family name in "+token);
+			if(!Cast.Integer.isA(token.get(1))) throw new IOException("bad name in "+token);
+			if(token.get(2).trim().length()==0) token.set(2,"0");
+			if(!Cast.Integer.isA(token.get(2))) throw new IOException("bad father in "+token);
+			if(token.get(3).trim().length()==0) token.set(3,"0");
+			if(!Cast.Integer.isA(token.get(3))) throw new IOException("bad mother in "+token);
+			if(token.get(4).trim().length()==0) token.set(4,"0");
+			int gender= Cast.Integer.cast(token.get(4));
+			if(gender<0 || gender>2) throw new IOException("bad gender in "+token);
 			Individual indi= new Individual(
-					token[0],
-					Cast.Integer.cast(token[1]),
-					Cast.Integer.cast(token[2]),
-					Cast.Integer.cast(token[3]),
+					token.get(0),
+					Cast.Integer.cast(token.get(1)),
+					Cast.Integer.cast(token.get(2)),
+					Cast.Integer.cast(token.get(3)),
 					gender
 					);
 			
-			for(int i=5;i<token.length && i< header.length;++i)
+			for(int i=5;i<token.size() && i< header.size();++i)
 				{
-				indi.getPhenotypes().put(header[i], token[i]);
+				indi.getPhenotypes().put(header.get(i), token.get(i));
 				}
 			
 			indi.getName().copyToEntry(key);
@@ -966,22 +1530,59 @@ public class Giraf
 				}
 			this.individualCount++;
 			}
-		r.close();
+	
 		if(header==null)
 			{
-			System.err.println("Nothing found in "+pedFile);
+			System.err.println("Nothing found in input");
 			}
 		}
-	
-	private void validatePedigree()
+	 void updateMakerAlleleCount()
 	throws IOException, DatabaseException
+		{
+		Cursor cursor= markerDB.openCursor(null, null);
+		DatabaseEntry markerKey=new DatabaseEntry();
+		DatabaseEntry markerValue=new DatabaseEntry();
+		DatabaseEntry genotypesEntry=new DatabaseEntry();
+		while((cursor.getNext(markerKey, markerValue, null))==OperationStatus.SUCCESS)
+			{
+			Marker marker= Marker.BINDING.entryToObject(markerValue);
+			if(this.mkr2genotypesDB.get(null, markerKey, genotypesEntry, null)!=OperationStatus.SUCCESS)
+				{
+				Giraf._LOG.info("marker is not in database");
+				continue;
+				}
+			List<DistinctGenotype> genotypes= GenotypesBinding.INSTANCE.entryToObject(genotypesEntry);
+			assert(genotypes.size()==this.individualCount);
+			for(int i=0;i< genotypes.size();++i)
+				{
+				DistinctGenotype array=genotypes.get(i);
+				if(array==null || array.size()!=1) continue;
+				Genotype g=array.first();
+				for(int j=0;j< 2;++j)
+					{
+					String a= (j==0?g.A1():g.A2());
+					Integer count = marker.getAllele2Count().get(a);
+					if(count==null) count=0;
+					marker.getAllele2Count().put(a,count+1);
+					}
+				}
+			Giraf._LOG.info("marker alleles "+marker.getAllele2Count());
+			Marker.BINDING.objectToEntry(marker,markerValue);
+			cursor.putCurrent(markerValue);
+			}
+		cursor.close();
+		}
+	
+	 void validatePedigree()
+	throws  DatabaseException
 		{
 		DatabaseEntry key = new DatabaseEntry();
 	    DatabaseEntry value = new DatabaseEntry();
 	    
 	    DatabaseEntry pKey = new DatabaseEntry();
 	    DatabaseEntry pValue = new DatabaseEntry();
-	    
+	   
+	    DatabaseEntry indexOfEntry= new DatabaseEntry();
 	    int column=0;
 		Cursor cursor= null;
 		try
@@ -991,6 +1592,9 @@ public class Giraf
 				{
 				Individual indi= Individual.BINDING.entryToObject(value);
 				//UPDATE THE COLUMN
+				
+				IntegerBinding.intToEntry(column, indexOfEntry);
+				this.index2indiviualName.put(null, indexOfEntry, key);
 				indi.setColumn(column++);
 				
 				
@@ -1034,330 +1638,91 @@ public class Giraf
 		}
 	
 	
-	/**
-	 * readMarkerDB
-	 * read a file of marker
-	 * @param markerSrcURI
-	 * @throws IOException
-	 * @throws DatabaseException
-	 */
-	private void readMarkerDB(String markerSrcURI)
-	throws IOException, DatabaseException
-		{
-		BufferedReader r= IOUtils.openReader(markerSrcURI);
-		String line;
-		String header[]=null;
-		DatabaseEntry key=new DatabaseEntry();
-		DatabaseEntry value=new DatabaseEntry();
-		while((line=r.readLine())!=null)
+		 void makeIndividualStats(ZipOutputStream zout)
+		throws IOException, DatabaseException
 			{
-			if( line.trim().length()==0 ||
-				(header!=null && line.startsWith("#"))) continue;
+			DatabaseEntry markerKey= new DatabaseEntry();
+			DatabaseEntry genotypesValue= new DatabaseEntry();
+			DatabaseEntry indiKey= new DatabaseEntry();
+			DatabaseEntry indiValue= new DatabaseEntry();
 			
-			String token[] = TAB.split(line);
-			if(token.length<3) throw new IOException("In "+markerSrcURI+" expected 3 columns but found "+token.length+" in "+line);
-			
-			if(header==null)
+			Stat stats[]=new Stat[this.individualCount];
+			for(int i=0;i< this.individualCount;++i)
 				{
-				header= token;
-				assertToken(header,0,"Name","rs","snp","rs#","marker");
-				assertToken(header,1,"Chromosome","k","chr","chrom");
-				assertToken(header,2,"Position","pos","loc","location");
-				for(int i=3;i<token.length && i< header.length;++i)
-					{
-					_LOG.info("adding current snp feature "+header[i]);
-					this.allMarkerFeatures.add(header[i]);
-					}
-				continue;
+				stats[i]=new Stat();
+				stats[i].total=this.markerCount;
 				}
-			
-			
-			if(token[0].trim().length()==0) throw new IOException("In "+markerSrcURI+" bad marker name in "+line);
-			
-			if(token[1].trim().length()==0 ||
-			   token[2].trim().length()==0)
+			Cursor cursor= mkr2genotypesDB.openCursor(null, null);
+			while((cursor.getNext(markerKey, genotypesValue, null))==OperationStatus.SUCCESS)
 				{
-				token[2]="-1";
-				}
-			if(!Cast.Integer.isA(token[2])) throw new IOException("In "+markerSrcURI+" bad position in "+line);
-			Marker marker = new Marker(token[0].trim(),token[1],Cast.Integer.cast(token[2]));
-			
-			if(!this.limitByPosition.isEmpty())
-				{
-				boolean ok=false;
-				for(Range range: this.limitByPosition)
+				List<DistinctGenotype> genotypes=GenotypesBinding.INSTANCE.entryToObject(genotypesValue);
+				for(int i=0;i< stats.length;++i)
 					{
-					if(range.contains(marker.getPosition()))
+					DistinctGenotype array= genotypes.get(i);
+					if(array==null)
 						{
-						ok=true;
-						break;
+						//ignore
+						}
+					else if(array.size()==1)
+						{
+						stats[i].genotyped++;
+						}
+					else
+						{
+						stats[i].errors++;
 						}
 					}
-				if(!ok) continue;
 				}
+			cursor.close();
 			
-			for(int i=3;i<token.length && i< header.length;++i)
+			TmpWriter out= new TmpWriter(this.giraf.envHome);
+			out.println("Family\tName\tTotal\tGenotyped\t%\tErrors");
+			cursor= individualDB.openCursor(null, null);
+			while((cursor.getNext(indiKey, indiValue, null))==OperationStatus.SUCCESS)
 				{
-				marker.getFeatures().put(header[i], token[i]);
+				Individual indi= Individual.BINDING.entryToObject(indiValue);
+				Stat stat= stats[indi.getColumn()];
+				out.print(indi.getFamily());
+				out.print("\t");
+				out.print(indi.getFirstName());
+				out.print("\t");
+				out.print(stat.total);
+				out.print("\t");
+				out.print(stat.genotyped);
+				out.print("\t");
+				out.print(stat.success());
+				out.print("\t");
+				out.print(stat.errors);
+				out.println();
 				}
-				
-			
-			StringBinding.stringToEntry(marker.getName(), key);
-			if(this.markerDB.get(null,key,value,null )== OperationStatus.SUCCESS)
-				{
-				Marker other = Marker.BINDING.entryToObject(value);
-				if(!other.equals(marker))
-					{
-					System.err.println("Marker "+other+" was previously defined as "+marker);
-					}
-				continue;
-				}
-			Marker.BINDING.objectToEntry(marker, value);
-			if(this.markerDB.put(null, key,value)!= OperationStatus.SUCCESS)
-				{
-				throw new DatabaseException("Cannot insert "+marker);
-				}
-			this.markerCount++;
+			cursor.close();
+			out.copyToZip(zout, this.zipPrefix+"individuals.txt");
+			out.delete();
 			}
-		r.close();
-		if(header==null)
-			{
-			System.err.println("Empty data in "+markerSrcURI);
-			}
-		}
-	
-	
-	private void readExclusedMarkerDB(String markerFile)
-		throws IOException, DatabaseException
-		{
-		_LOG.fine("readExclusedMarkerDB:" + markerFile);
-		BufferedReader r= IOUtils.openReader(markerFile);
-		String line=null;
-		String header[]=null;
-		DatabaseEntry key=new DatabaseEntry();
-		DatabaseEntry value=new DatabaseEntry();
-		while((line=r.readLine())!=null)
-			{
-			if(line.trim().length()==0) continue;
-			String token[] = TAB.split(line);
-			if(header!=null && line.startsWith("#")) continue;
-			
-			if(header==null)
-				{
-				header= token;
-				assertToken(header,0,"Name");
-				continue;
-				}
-			
-			
-			StringBinding.stringToEntry(token[0].trim(), key);
-			if(this.markerDB.get(null,key,value,null )!= OperationStatus.SUCCESS)
-				{
-				continue;
-				}
-			
-			_LOG.fine("removing "+header[0]);
-			if(this.markerDB.delete(null, key)!= OperationStatus.SUCCESS)
-				{
-				throw new DatabaseException("Cannot remove "+token[0]);
-				}
-			this.markerCount--;
-			}
-		r.close();
-		}
-	/**
-	 * Read a genotype file
-	 * @param genFile
-	 * @throws IOException
-	 * @throws DatabaseException
-	 */
-	private  void readGenotypes(String genFile)
-		throws IOException, DatabaseException
-		{
-		BufferedReader r= IOUtils.openReader(genFile);
-		String line;
-		String header[]=null;
-		DatabaseEntry key=new DatabaseEntry();
-		DatabaseEntry markerValue =new DatabaseEntry();
-		DatabaseEntry indiValue =new DatabaseEntry();
-		DatabaseEntry genotypesValue =new DatabaseEntry();
-		String prevMarker=null;
-		List<Genotype[]> genotypes= null;
 		
-		while((line=r.readLine())!=null)
+	
+	void assertToken(List<String> token,int index,String ... labels)
+	throws IOException
+		{
+		token.set(index, token.get(index).trim());
+		if(token.get(index).startsWith("#"))
 			{
-			if(line.trim().length()==0 ) continue;
-			if(header!=null && line.startsWith("#")) continue;
-			
-			String token[] = TAB.split(line);
-			
-			trim(token);
-			if(header==null)
-				{
-				if(token.length<5) throw new IOException("In "+genFile+" expected 5 columns but found "+token.length+" in "+line);
-				header= token;
-				assertToken(header,0,"Marker","rs","snp","rs#");
-				assertToken(header,1,"Family","fam");
-				assertToken(header,2,"Individual","indi","name");
-				assertToken(header,3,"Allele-1","A1");
-				assertToken(header,4,"Allele-2","A2");
-				continue;
-				}
-			
-			if(token.length!=3 && token.length!=5) throw new IOException("In "+genFile+" expected 5 columns but found "+token.length+" in "+line);
-			
-			if(token.length==3 ||
-			   token[0].length()==0 ||
-			   token[1].length()==0 ||
-			   token[2].length()==0 ||
-			   token[3].length()==0 ||
-			   token[4].length()==0 ||
-			   token[3].equalsIgnoreCase("N") ||
-			   token[3].equals("-") ||
-			   token[3].equals("?") ||
-			   token[3].equals("0") ||
-			   token[4].equalsIgnoreCase("N") ||
-			   token[4].equals("-") ||
-			   token[4].equals("?") ||
-			   token[4].equals("0")
-			 	)
-				{
-				prevMarker=null;
-				genotypes=null;
-				//System.err.println("In "+genFile+" ignoring "+line);
-				continue;
-				}
-			
-			
-			if(!Cast.Integer.isA(token[2]))
-				{
-				throw new IOException("Bad family (not name=integer) in "+line+" in "+genFile);
-				}
-			
-			if(prevMarker!=null &&
-				prevMarker.equals(token[0]) &&
-				genotypes==null)
-				{
-				//marker is the same but it is not in our listing
-				continue;
-				}
-			
-			new Name(token[1],Cast.Integer.cast(token[2])).copyToEntry(key);
-			if(this.individualDB.get(null,key,indiValue,null )!= OperationStatus.SUCCESS)
-				{
-				//individual is not in our collection
-				continue;
-				}
-			
-			Individual individual= Individual.BINDING.entryToObject(indiValue);
-			
-			//now key is for marker, need this to save AND load the genotypes
-			StringBinding.stringToEntry(token[0], key);
-			
-			/* if marker is same as previous no need to retrieve the array */
-			if(prevMarker==null || !prevMarker.equals(token[0]))
-				{
-				prevMarker=token[0];
-				if(this.markerDB.get(null,key,markerValue,null )!= OperationStatus.SUCCESS)
-					{
-					//marker is noty in out listing
-					genotypes=null;
-					continue;
-					}
+			token.set(index, token.get(index).substring(1).trim());
+			}
+		for(String L:labels)
+			{
+			if(token.get(index).equalsIgnoreCase(L)) return;
+			}
+		
+		
+		throw new IOException("Error in header: expected "+labels[0]+
+				" at column "+(index+1)+" but found "+token.get(index));	
+		}
+	
+	
 
-				if(this.mkr2genotypesDB.get(null,key,genotypesValue,null )!= OperationStatus.SUCCESS)
-					{
-					genotypes = new ArrayList<Genotype[]>(individualCount);
-					while(genotypes.size()< individualCount) genotypes.add(null);
-					}
-				else
-					{
-					genotypes= GenotypesBinding.INSTANCE.entryToObject(genotypesValue);
-					}
-				}
-			else
-				{
-				prevMarker=token[0];
-				assert(genotypes!=null);
-				}
-			
-			Genotype genotype=new Genotype(token[3],token[4]);
-			Genotype gen_array[]= genotypes.get(individual.getColumn());
-			if(gen_array==null || gen_array.length==0)
-				{
-				gen_array=new Genotype[]{genotype};
-				}
-			else
-				{
-				boolean found=false;
-				for(Genotype other:gen_array)
-					{	
-					if(other.equals(genotype))
-						{
-						found=true;
-						break;
-						}
-					}
-				if(found) continue;
-				Genotype copy[]=new  Genotype[gen_array.length+1];
-				System.arraycopy( gen_array, 0, copy, 0,gen_array.length);
-				copy[gen_array.length]=genotype;
-				gen_array=copy;
-				}
-			genotypes.set(individual.getColumn(),gen_array);
-			GenotypesBinding.INSTANCE.objectToEntry(genotypes, genotypesValue);
-			if(this.mkr2genotypesDB.put(null,key,genotypesValue )!= OperationStatus.SUCCESS)
-				{
-				throw new DatabaseException("Cannot put genotypes for "+token[0]);
-				}
-			}
-		r.close();
-		
-		
-		if(header==null)
-			{
-			System.err.println("Empty data in "+genFile);
-			}
-		}
 	
-	private void updateMakerAlleleCount()
-		throws IOException, DatabaseException
-		{
-		Cursor cursor= markerDB.openCursor(null, null);
-		DatabaseEntry markerKey=new DatabaseEntry();
-		DatabaseEntry markerValue=new DatabaseEntry();
-		DatabaseEntry genotypesEntry=new DatabaseEntry();
-		while((cursor.getNext(markerKey, markerValue, null))==OperationStatus.SUCCESS)
-			{
-			Marker marker= Marker.BINDING.entryToObject(markerValue);
-			if(this.mkr2genotypesDB.get(null, markerKey, genotypesEntry, null)!=OperationStatus.SUCCESS)
-				{
-				_LOG.info("marker is not in database");
-				continue;
-				}
-			List<Genotype[]> genotypes= GenotypesBinding.INSTANCE.entryToObject(genotypesEntry);
-			assert(genotypes.size()==this.individualCount);
-			for(int i=0;i< genotypes.size();++i)
-				{
-				Genotype array[]=genotypes.get(i);
-				if(array==null || array.length!=1) continue;
-				Genotype g=array[0];
-				for(int j=0;j< 2;++j)
-					{
-					String a= (j==0?g.A1():g.A2());
-					Integer count = marker.getAllele2Count().get(a);
-					if(count==null) count=0;
-					marker.getAllele2Count().put(a,count+1);
-					}
-				}
-			_LOG.info("marker alleles "+marker.getAllele2Count());
-			Marker.BINDING.objectToEntry(marker,markerValue);
-			cursor.putCurrent(markerValue);
-			}
-		cursor.close();
-		}
-	
-	private void makeLinkage(ZipOutputStream zout)
+	 void makeLinkage(ZipOutputStream zout)
 		throws IOException, DatabaseException
 		{
 		
@@ -1368,6 +1733,7 @@ public class Giraf
 		DatabaseEntry index4indiKey=new DatabaseEntry();
 		DatabaseEntry indiValue=new DatabaseEntry();
 		DatabaseEntry indiKey=new DatabaseEntry();
+		DatabaseEntry indiNameEntry= new DatabaseEntry();
 		
 		Individual individualArray[]=new Individual[this.individualCount];
 		Map<Name,Integer> name2column = new HashMap<Name, Integer>(this.individualCount);
@@ -1401,14 +1767,14 @@ public class Giraf
 				}
 			cursor.close();
 			
-			_LOG.info(all_chrom.toString());
+			Giraf._LOG.info(all_chrom.toString());
 			
 			for(String chromosome:all_chrom)
 				{
-				_LOG.info(chromosome);
-				TmpWriter linkage = new TmpWriter(this.envHome);
-				TmpWriter markers= new TmpWriter(this.envHome);
-				TmpWriter incompats= new TmpWriter(this.envHome);
+				Giraf._LOG.info(chromosome);
+				TmpWriter linkage = new TmpWriter(giraf.envHome);
+				TmpWriter markers= new TmpWriter(giraf.envHome);
+				TmpWriter incompats= new TmpWriter(giraf.envHome);
 				TmpWriter multiple= null;
 				Stat statistics= new Stat();
 				statistics.total= this.individualCount;
@@ -1431,11 +1797,11 @@ public class Giraf
 					Marker marker= Marker.BINDING.entryToObject(markerValue);
 					HardyWeinberg hw=(marker.getAllele2Count().size()==2?new HardyWeinberg(marker):null);
 					StringBinding.stringToEntry(marker.getName(), markerKey);
-					List<Genotype[]> genotypes= null;
+					List<DistinctGenotype> genotypes= null;
 					//create the list if we don't have any genotype
 					if(this.mkr2genotypesDB.get(null, markerKey, genotypesEntry, null)!=OperationStatus.SUCCESS)
 						{
-						genotypes= new ArrayList<Genotype[]>(individualCount);
+						genotypes= new ArrayList<DistinctGenotype>(individualCount);
 						while(genotypes.size()< individualCount)
 							{
 							genotypes.add(null);
@@ -1466,23 +1832,30 @@ public class Giraf
 					for(int i=0;i< genotypes.size();++i)
 						{
 						linkage.print("\t");
-						Genotype array[]= genotypes.get(i);
+						DistinctGenotype array= genotypes.get(i);
 						if(array==null)
 							{
 							linkage.print("0 0");
 							}
-						else if(array.length!=1)
+						else if(array.size()!=1)
 							{
 							if(multiple==null)
 								{
-								multiple=new TmpWriter(this.envHome);
+								multiple=new TmpWriter(giraf.envHome);
 								}
-							//retrieve individual
+							
+							//retrieve individual's name from index
 							IntegerBinding.intToEntry(i,index4indiKey);
-							if(this.index2individual.get(null, index4indiKey, indiValue, null)!=OperationStatus.SUCCESS)
+							if(this.index2indiviualName.get(null, index4indiKey, indiNameEntry, null)!=OperationStatus.SUCCESS)
 								{
 								throw new DatabaseException("Cannot retrieve "+i+"th individual");
 								}
+							//retrieve individual from name
+							if(this.individualDB.get(null, indiNameEntry, indiValue, null)!=OperationStatus.SUCCESS)
+								{
+								throw new DatabaseException("Cannot retrieve "+i+"th individual");
+								}
+							
 							Individual indi= Individual.BINDING.entryToObject(indiValue);
 							multiple.print(marker.getName()+"\t"+ indi.getName()+"\tmultiple_genotypes:");
 							for(Genotype g: array) multiple.print(" ("+g+")");
@@ -1494,7 +1867,7 @@ public class Giraf
 						else
 							{
 							statistics.genotyped++;
-							Genotype g=array[0];
+							Genotype g=array.first();
 							hw.see(g);
 							linkage.print(marker.allele2index(g.A1()));
 							linkage.print(" ");
@@ -1542,13 +1915,13 @@ public class Giraf
 						/* for this marker, loop over all the individuals */
 						for(int i=0;i< genotypes.size();++i)
 							{
-							Genotype array[]= genotypes.get(i);
-							if(array==null || array.length!=1) continue;
+							DistinctGenotype array= genotypes.get(i);
+							if(array==null || array.size()!=1) continue;
 							
 							if(individualArray[i]==null) throw new DatabaseException("individual missing");
 							
 							Individual child= individualArray[i];
-							Genotype gChild=array[0];
+							Genotype gChild=array.first();
 							Individual parents[]=new Individual[]{null,null};
 							Genotype gParents[]=new Genotype[]{null,null};
 							
@@ -1561,8 +1934,8 @@ public class Giraf
 								
 								parents[side] = individualArray[x];
 								array= genotypes.get(parents[side].getColumn());
-								if(array==null || array.length!=1) continue;
-								gParents[side]=array[0];
+								if(array==null || array.size()!=1) continue;
+								gParents[side]=array.first();
 								if(FamilyIncompat.childIsNotCompatibleWithOneParent(
 										gParents[side].A1(),
 										gParents[side].A2(),
@@ -1619,75 +1992,63 @@ public class Giraf
 			} 
 		catch (Exception e)
 			{
-			errorLog.printStackTrace(e);	
+			giraf.errorLog.printStackTrace(e);	
 			}
 		}
 	
-	private void makeIndividualStats(ZipOutputStream zout)
-	throws IOException, DatabaseException
+
+	
+	
+	}
+
+/**
+ * Giraf
+ *
+ */
+public class Giraf
+	{
+	/** tab delimiter */
+	private static final Pattern TAB= Pattern.compile("[\t]");
+	/** logging */
+	static final Logger _LOG= Logger.getLogger("org.lindenb.giraf.Giraf");
+	/** number of individual */
+	private int individualCount=0;
+	/** number of markers */
+	private int markerCount=0;
+	/** files of markers */
+	private Set<String> markerFiles= new HashSet<String>();
+	/** files of pedigrees */
+	private Set<String> individualsFiles= new HashSet<String>();
+	/** files of genotypes */
+	private Set<String> genotypesFiles= new HashSet<String>();
+	/** files of markers to be excluded */
+	private Set<String> eXcludedMarkerFiles= new HashSet<String>();
+	/** files of individuals to be excluded */
+	private Set<String> eXcludedIndividualFiles= new HashSet<String>();
+	
+	
+	/** limit by position */
+	 List<Range> limitByPosition= new ArrayList<Range>();
+	
+	
+	
+	
+	Environment berkeleyEnv=null;
+	TmpWriter errorLog=null;
+	TmpWriter logLog=null;
+	File envHome;
+	
+	
+	private Giraf()
 		{
-		DatabaseEntry markerKey= new DatabaseEntry();
-		DatabaseEntry genotypesValue= new DatabaseEntry();
-		DatabaseEntry indiKey= new DatabaseEntry();
-		DatabaseEntry indiValue= new DatabaseEntry();
-		
-		Stat stats[]=new Stat[this.individualCount];
-		for(int i=0;i< this.individualCount;++i)
-			{
-			stats[i]=new Stat();
-			stats[i].total=this.markerCount;
-			}
-		Cursor cursor= mkr2genotypesDB.openCursor(null, null);
-		while((cursor.getNext(markerKey, genotypesValue, null))==OperationStatus.SUCCESS)
-			{
-			List<Genotype[]> genotypes=GenotypesBinding.INSTANCE.entryToObject(genotypesValue);
-			for(int i=0;i< stats.length;++i)
-				{
-				Genotype array[]= genotypes.get(i);
-				if(array==null)
-					{
-					//ignore
-					}
-				else if(array.length==1)
-					{
-					stats[i].genotyped++;
-					}
-				else
-					{
-					stats[i].errors++;
-					}
-				}
-			}
-		cursor.close();
-		
-		TmpWriter out= new TmpWriter(this.envHome);
-		out.println("Family\tName\tTotal\tGenotyped\t%\tErrors");
-		cursor= individualDB.openCursor(null, null);
-		while((cursor.getNext(indiKey, indiValue, null))==OperationStatus.SUCCESS)
-			{
-			Individual indi= Individual.BINDING.entryToObject(indiValue);
-			Stat stat= stats[indi.getColumn()];
-			out.print(indi.getFamily());
-			out.print("\t");
-			out.print(indi.getFirstName());
-			out.print("\t");
-			out.print(stat.total);
-			out.print("\t");
-			out.print(stat.genotyped);
-			out.print("\t");
-			out.print(stat.success());
-			out.print("\t");
-			out.print(stat.errors);
-			out.println();
-			}
-		cursor.close();
-		out.copyToZip(zout, this.zipPrefix+"individuals.txt");
-		out.delete();
+		this.envHome= new File(System.getProperty("java.io.tmpdir"));
 		}
+
 	
+
+
 	
-	
-	private void build(File fileout)
+	private void build(Config config,File fileout)
 		throws IOException, DatabaseException
 		{
 		ZipOutputStream zout=null;
@@ -1721,60 +2082,17 @@ public class Giraf
 			envCfg.setAllowCreate(true);
 			this.berkeleyEnv= new Environment(this.envHome,envCfg);
 			
-			/* create marker database: map<rs,marker> */
-			DatabaseConfig cfg= new DatabaseConfig();
-			cfg.setAllowCreate(true);
-			cfg.setTemporary(true);
-			cfg.setSortedDuplicates(false);
-			this.markerDB= this.berkeleyEnv.openDatabase(null, "markers"+random, cfg);
+		
 			
-			/* create position-to-marker 2nd-database: map<position,marker> */
-			SecondaryConfig secondCfg= new SecondaryConfig();
-			secondCfg.setAllowCreate(true);
-			secondCfg.setSortedDuplicates(true);
-			secondCfg.setTemporary(true);
-			secondCfg.setKeyCreator(new PositionKeyCreator());
-			this.pos2markerDB= this.berkeleyEnv.openSecondaryDatabase(null, "pos"+random, this.markerDB, secondCfg);
-			
-			/* create marker database: map<name,individual> */
-			cfg= new DatabaseConfig();
-			cfg.setAllowCreate(true);
-			cfg.setTemporary(true);
-			cfg.setSortedDuplicates(false);
-			this.individualDB= this.berkeleyEnv.openDatabase(null, "individuals"+random, cfg);
-			
-			/* create marker database: map<rs,list<genotype[]> > */
-			cfg= new DatabaseConfig();
-			cfg.setAllowCreate(true);
-			cfg.setTemporary(true);
-			cfg.setSortedDuplicates(false);
-			mkr2genotypesDB= this.berkeleyEnv.openDatabase(null, "genotypes"+random, cfg);
-
-			secondCfg= new SecondaryConfig();
-			secondCfg.setAllowCreate(true);
-			secondCfg.setSortedDuplicates(true);
-			secondCfg.setTemporary(true);
-			secondCfg.setKeyCreator(new SecondaryKeyCreator()
-				{
-				@Override
-				public boolean createSecondaryKey(SecondaryDatabase arg0,
-						DatabaseEntry keyEntry, DatabaseEntry dataEntry, DatabaseEntry resultEntry)
-						throws DatabaseException
-					{
-					Individual indi = Individual.BINDING.entryToObject(dataEntry);
-					IntegerBinding.intToEntry(indi.getColumn(),  resultEntry);
-					return true;
-					}
-				});
-			this.index2individual= this.berkeleyEnv.openSecondaryDatabase(null, "id2individual"+random, this.individualDB, secondCfg);
-			
-			
+			Linkage linkage= new Linkage(this);
 			
 			_LOG.info("read markers");
 			for(String f: this.markerFiles)
 				{
 				_LOG.info("read marker file "+f);
-				readMarkerDB(f);
+				BufferedReader r= IOUtils.openReader(f);
+				linkage.readMarkerDB(new LineIterator(r,TAB));
+				r.close();
 				}
 			_LOG.info("markers.size="+this.markerCount);
 			
@@ -1782,7 +2100,9 @@ public class Giraf
 			for(String f: this.eXcludedMarkerFiles)
 				{
 				_LOG.info("read excluded marker file "+f);
-				readExclusedMarkerDB(f);
+				BufferedReader r= IOUtils.openReader(f);
+				linkage.readExclusedMarkerDB(new LineIterator(r,TAB));
+				r.close();
 				}
 			_LOG.info("markers.size="+this.markerCount);
 			
@@ -1790,7 +2110,9 @@ public class Giraf
 			for(String f: this.individualsFiles)
 				{
 				_LOG.info("read individual file "+f);
-				readPedigreeDB(f);
+				BufferedReader r= IOUtils.openReader(f);
+				linkage.readPedigreeDB(new LineIterator(r,TAB));
+				r.close();
 				}
 			_LOG.info("individuals.size="+this.individualCount);
 			
@@ -1798,31 +2120,35 @@ public class Giraf
 			for(String f: this.eXcludedIndividualFiles)
 				{
 				_LOG.info("read individuals exclusion file "+f);
-				readXPedigreeDB(f);
+				BufferedReader r= IOUtils.openReader(f);
+				linkage.readXPedigreeDB(new LineIterator(r,TAB));
+				r.close();
 				}
 			_LOG.info("individuals.size="+this.individualCount);
 			
-			validatePedigree();
+			linkage.validatePedigree();
 			
 			//read genotypes"
 			for(String f: this.genotypesFiles)
 				{
 				_LOG.info("read genotype file "+f);
-				readGenotypes(f);
+				BufferedReader r= IOUtils.openReader(f);
+				linkage.readGenotypes(new LineIterator(r,TAB));
+				r.close();
 				}
 			
-			updateMakerAlleleCount();
+			linkage.updateMakerAlleleCount();
 			
 			zout= new ZipOutputStream(new FileOutputStream(fileout));
-			makeLinkage(zout);
-			makeIndividualStats(zout);
+			linkage.makeLinkage(zout);
+			linkage.makeIndividualStats(zout);
 			if(this.errorLog!=null && !this.errorLog.isEmpty()) 
 				{
-				this.errorLog.copyToZip(zout, this.zipPrefix+"errors.txt");
+				this.errorLog.copyToZip(zout, linkage.zipPrefix+"errors.txt");
 				}
 			if(this.logLog!=null && !this.logLog.isEmpty()) 
 				{
-				this.logLog.copyToZip(zout, this.zipPrefix+"logs.txt");
+				this.logLog.copyToZip(zout, linkage.zipPrefix+"logs.txt");
 				}
 			zout.flush();
 			zout.close();
@@ -1844,14 +2170,6 @@ public class Giraf
 			if(logHandler!=null) _LOG.removeHandler(logHandler);
 			if(this.errorLog!=null) this.errorLog.delete();
 			if(this.logLog!=null) this.logLog.delete();
-			if(this.mkr2genotypesDB!=null) this.mkr2genotypesDB.close();
-			
-			if(this.pos2markerDB!=null) this.pos2markerDB.close();
-			if(this.markerDB!=null) this.markerDB.close();
-			
-			
-			if(this.index2individual!=null) this.index2individual.close();
-			if(this.individualDB!=null) this.individualDB.close();
 			if(this.berkeleyEnv!=null) this.berkeleyEnv.close();
 			}
 		}
@@ -1944,10 +2262,12 @@ public class Giraf
 		try
 			{
 			Giraf._LOG.setLevel(Level.ALL);
+			Config configuration= null;
 			ConfigShuttle config=new ConfigShuttle();
 			File fileout=null;
 			Giraf app= new Giraf();
 			int optind=0;
+			
 			while(optind< args.length)
 				{
 				if(args[optind].equals("-h"))
@@ -2091,7 +2411,7 @@ public class Giraf
 					}
 				}
 			_LOG.info("start building");
-			app.build(fileout);
+			app.build(configuration,fileout);
 			_LOG.info("Done."+fileout);
 			} 
 		catch(Throwable err)

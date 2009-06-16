@@ -238,7 +238,7 @@ public class MWQuery
 				Attributes attributes) throws SAXException
 			{
 			if(this.content==null && name.equals("rev") &&
-				this.revId.equals(attributes.getValue("revid")))
+				(this.revId==null || this.revId.equals(attributes.getValue("revid"))))
 				{
 				this.sb= new StringBuilder();
 				}
@@ -368,6 +368,33 @@ public class MWQuery
 				}
 		}
 	
+	
+	public String getContent(Entry entry) throws IOException
+		{
+		String url=getBaseApi()+"?action=query" +
+			"&format=xml" +
+			"&prop=revisions" +
+			"&titles="+escape(entry)+
+			"&rvprop=content"
+			;
+		
+		try {
+			GetRevisionHandler h= new GetRevisionHandler(null);
+			InputStream in= openStream(url);
+			this.saxParser.parse(in, h);
+			in.close();
+			if(h.getContent()==null)
+				{
+				System.err.println("(no content for "+url+ ")");
+				}
+			return h.getContent();
+			} 
+		catch (SAXException e1)
+			{
+			throw new IOException(e1);
+			}
+		}
+	
 	public Collection<Revision> listRevisions(Entry entry) throws IOException
 		{
 		return listRevisions(entry,null);
@@ -483,6 +510,68 @@ public class MWQuery
 			throw new IOException(err);
 			}
 		}
+	
+	public Collection<Page> listTemplatesIn(Entry entry) throws IOException
+		{
+		Set<Page> pages = new TreeSet<Page>();
+		String eicontinue=null;
+		boolean dirty=true;
+		try
+			{
+			while(dirty)
+				{
+				dirty=false;
+				String url= getBaseApi()+"?action=query" +
+					"&format=xml" +
+					"&prop=templates" +
+					"&titles="+escape(entry)+"" +
+					(eicontinue==null?"":"&tlcontinue="+eicontinue)+
+					"&tllimit="+getLimit()
+					;
+				
+				XMLEventReader reader = open(url);
+				
+				while(reader.hasNext())
+					{
+					XMLEvent event = reader.nextEvent();
+					if(event.isStartElement())
+						{
+						StartElement e=event.asStartElement();
+						String name=e.getName().getLocalPart();
+						if(name.equals("tl"))
+							{
+							Attribute att=e.getAttributeByName(AttTitle);
+							if(att!=null)
+								{
+								Page page= new Page(att.getValue());
+								
+								if(pages.add(page))
+									{
+									dirty=true;
+									}
+								}
+							}
+						else if(name.equals("templates"))
+							{
+							Attribute att=e.getAttributeByName(new QName("tlcontinue"));
+							if(att!=null)
+								{
+								eicontinue=att.getValue();
+								}
+							}
+						}
+					}
+				reader.close();
+				if(eicontinue==null) break;
+				}
+			return pages;
+			}
+		catch(XMLStreamException err)
+			{
+			throw new IOException(err);
+			}
+		}
+	
 	
 	public Collection<Page> listPagesEmbedding(Entry entry) throws IOException
 		{

@@ -33,10 +33,7 @@ public class Sax2Dom
 	@Override
 	public void endDocument() throws SAXException {
 		this.currentNode=null;
-		while(this.dom.hasChildNodes())
-			{
-			this.dom.removeChild(this.dom.getFirstChild());
-			}
+		XMLUtilities.removeChildren(this.dom);
 		}
 	
 	@Override
@@ -83,11 +80,11 @@ public class Sax2Dom
 			String ns = nsMapping.get(i+1);
 			 if (StringUtils.isEmpty(prefix))
 			 	{
-				e.setAttributeNS(XMLConstants.XML_NS_URI, "xmlns",ns);
+				e.setAttribute("xmlns",ns);
 				}
 			else
 				{
-				e.setAttributeNS(XMLConstants.XML_NS_URI, "xmlns:"+prefix,ns);
+				e.setAttribute("xmlns:"+prefix,ns);
 				}
 			}
 		
@@ -112,5 +109,10 @@ public class Sax2Dom
 			throws SAXException
 		{
 		this.currentNode=this.currentNode.getParentNode();
+		}
+	
+	public Node getCurrentNode()
+		{
+		return this.currentNode;
 		}
 	}
