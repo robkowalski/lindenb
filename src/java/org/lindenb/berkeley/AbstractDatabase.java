@@ -1,14 +1,10 @@
 package org.lindenb.berkeley;
 
-import java.util.ArrayList;
-import java.util.HashSet;
+
 import java.util.List;
 import java.util.Set;
-
+import org.lindenb.util.AbstractWalker;
 import org.lindenb.util.Pair;
-import org.lindenb.util.iterator.CloseableIterator;
-
-import com.sleepycat.bind.tuple.TupleBinding;
 import com.sleepycat.je.Cursor;
 import com.sleepycat.je.CursorConfig;
 import com.sleepycat.je.Database;
@@ -16,6 +12,7 @@ import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.DatabaseException;
 import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
+import com.sleepycat.je.SecondaryDatabase;
 import com.sleepycat.je.Transaction;
 
 /**
@@ -29,85 +26,37 @@ public abstract class AbstractDatabase<K, V>
 	{
 	/** berkeleyDB database */
 	private Database database;
-	/** binding for key */
-	private TupleBinding<K> keyBinding;
-	/** binding for value */
-	private TupleBinding<V> valueBinding;
 	
-	/**
-	 * AbstractIterator
-	 *
-	 */
-	protected abstract class AbstractIterator<X>
-	implements CloseableIterator<X>
+	public static abstract class SecondaryDB<K2,K1,V1>
+		extends AbstractDatabase<K2,V1>
 		{
+		SecondaryDB(SecondaryDatabase second, AbstractDatabase<K1,V1> primary)
+			{
+			super(second);
+			}
+		
+		public SecondaryDatabase getSecondaryDatabase()
+			{
+			return SecondaryDatabase.class.cast(getDatabase());
+			}
+		
 		@Override
-		public void remove() {
-			close();
-			throw new UnsupportedOperationException("Cannot remove");
-			}
-		/** transforms this iterator as a Set */
-		public Set<X> asSet()
+		public Cursor cursor(Transaction txn) throws DatabaseException
 			{
-			Set<X> set= new HashSet<X>();
-			while(hasNext()) set.add(next());
-			close();
-			return set;
-			}
-		
-		/** transforms this iterator as a List */
-		public List<X> asList(int start,int count)
-			{
-			int index=-1;
-			List<X> set= new ArrayList<X>();
-			while(hasNext())
-				{
-				++index;
-				if(index >= (start+count)) break;
-				if(index >= start)
-					{
-					set.add(next());
-					}
-				}
-			close();
-			return set;
-			}
-		
-		/** transforms this iterator as a List */
-		public List<X> asList()
-			{
-			List<X> set= new ArrayList<X>();
-			while(hasNext()) set.add(next());
-			close();
-			return set;
-			}
-		
-		/** count number of items */
-		public int count()
-			{
-			int i=0;
-			while(hasNext()) { next(); ++i;}
-			close();
-			return i;
-			}
-		
-		/** close this iterator */
-		public void close()
-			{
-			
+			CursorConfig cfg= new CursorConfig();
+			return getSecondaryDatabase().openSecondaryCursor(txn, cfg);
 			}
 		}
+	
+
 	
 	
 	
 	public class KeyValueIterator
-		extends AbstractIterator<Pair<K, V>>
+		extends AbstractWalker<Pair<K, V>>
 	    {
-		private boolean _eofMet=false;
-		private boolean _hasNextTested=false;
-		private boolean _hasNext=false;
-	    private Cursor cursor=null;
-	    
+		protected Cursor cursor=null;
+	    protected boolean firstCall=true;
 	    protected Pair<DatabaseEntry, DatabaseEntry> _nextValue=new Pair<DatabaseEntry, DatabaseEntry>(
             	new DatabaseEntry(),
             	new DatabaseEntry()
@@ -119,20 +68,6 @@ public abstract class AbstractDatabase<K, V>
 	            }
 	    
 	    
-	  
-	    
-	    @Override
-	    public void remove()
-	            {
-	            try {
-	                getCursor().delete();
-	                }
-	            catch (DatabaseException e)
-	            	{
-	                throw new RuntimeException(e);
-	                }
-	            }
-	    
 	    public void close()
 	            {
 	            BerkeleyUtils.safeClose(this.cursor);
@@ -140,65 +75,41 @@ public abstract class AbstractDatabase<K, V>
 	            }
 	    
 
-	    public boolean hasNext()
+	    public  Pair<K, V> next()
 	    		{
-	            if(this._eofMet) return false;
-	            if(this._hasNextTested) return this._hasNext;
-	            this._hasNextTested=true;
-	            this._hasNext=false;
+	    		if(cursor==null) return null;
 	            try {
-                    //move the cursor to the next position
-                    OperationStatus status= moveCursor();
-                    //move was a success and we validate this position
-                    if(!(status==OperationStatus.SUCCESS &&
-                            validateCursor()))
-                            {
-                            this._hasNext=false;
-                            this._eofMet=true;
-                            close();
-                            }
-                    else
-                            {
-                            this._hasNext=true;
-                            }
-	                    } 
+	            	while(true)
+		            	{
+	                    //move the cursor to the next position
+	                    OperationStatus status= moveCursor();
+	                    firstCall=false;
+	                    if(status!=OperationStatus.SUCCESS)
+	                    	{
+	                    	close();
+	                    	return null;
+	                    	}
+	                    if(validateCursor())
+	                    	{
+	                    	return new Pair<K, V>(
+                    	    		entryToKey(_nextValue.first()),
+                    	    		entryToValue(_nextValue.second())
+                    	    		);
+	                    	}
+		            	 }
+	                   } 
 	            catch (DatabaseException e)
 	                    {
 	                    this.close();
-	                    this._eofMet=true;
 	                    throw new RuntimeException(e);
 	                    }
-	            return this._hasNext;
 	            }
 	    
-	    @Override
-	    public Pair<K, V> next()
-	    	{
-	    	if(_eofMet) throw new IllegalStateException("EOF-MET");
-	    	if(!_hasNextTested)
-	    		{
-	    		hasNext();
-	    		}
-	    	if(!_hasNext)  throw new IllegalStateException();
-	    	this._hasNextTested=false;
-	    	this._hasNext=false;
-	    	Pair<K, V> p= new Pair<K, V>(
-	    		entryToKey(_nextValue.first()),
-	    		entryToValue(_nextValue.second())
-	    		);
-	    	
-	    	return p;
-	    	}
-	
-	    protected Cursor getCursor()
-            {
-            return this.cursor;
-            }
 	    
 	    /** move the cursor to its next position */
 	    protected OperationStatus moveCursor() throws DatabaseException
 	            {
-	            return getCursor().getNext(
+	            return this.cursor.getNext(
 	                            _nextValue.first(),
 	                            _nextValue.second(),
 	                            LockMode.DEFAULT
@@ -215,31 +126,34 @@ public abstract class AbstractDatabase<K, V>
 	            return true;
 	            }
 	    
+	    public Cursor getCursor() {
+			return cursor;
+			}
+	    
 	    }
 	
-	protected abstract class DelegateIterator<X>
-		extends AbstractIterator<X>
+	protected abstract class DelegateWalker<X>
+		extends AbstractWalker<X>
 		{
 		private KeyValueIterator delegate;
-		protected DelegateIterator(KeyValueIterator delegate )
+		protected DelegateWalker(KeyValueIterator delegate )
 			{
 			this.delegate = delegate;
 			}
-		
-		@Override
-		public boolean hasNext() {
-			return getDelegate().hasNext();
-			}
-		
+
 		protected KeyValueIterator getDelegate() {
 			return delegate;
 			}
+		@Override
+		public void close() {
+			getDelegate().close();
+			}
 		}
 	
-	public class KeyIterator
-		extends DelegateIterator<K>
+	public class KeyWalker
+		extends DelegateWalker<K>
 		{
-		protected KeyIterator(KeyValueIterator delegate )
+		protected KeyWalker(KeyValueIterator delegate )
 			{
 			super(delegate);
 			}
@@ -249,10 +163,10 @@ public abstract class AbstractDatabase<K, V>
 			}
 		}
 	
-	public class ValueIterator
-	extends DelegateIterator<V>
+	public class ValueWalker
+	extends DelegateWalker<V>
 		{
-		protected ValueIterator(KeyValueIterator delegate )
+		protected ValueWalker(KeyValueIterator delegate )
 			{
 			super(delegate);
 			}
@@ -264,53 +178,27 @@ public abstract class AbstractDatabase<K, V>
 		}
 	
 	protected AbstractDatabase(
-		Database database,
-		TupleBinding<K> keyBinding,
-		TupleBinding<V> valueBinding
+		Database database
 		)
 		{
 		this.database=database;
-		this.keyBinding=keyBinding;
-		this.valueBinding=valueBinding;
+		}
+	
+	public Cursor cursor(Transaction txn) throws DatabaseException
+		{
+		CursorConfig cfg= new CursorConfig();
+		return getDatabase().openCursor(txn,cfg );
 		}
 	
 	public Cursor cursor() throws DatabaseException
 		{
-		CursorConfig cfg= new CursorConfig();
-		return getDatabase().openCursor(null,cfg );
+		return cursor(null );
 		}
 	
-	public TupleBinding<K> getKeyBinding() {
-		return keyBinding;
-		}
-	
-	public TupleBinding<V> getValueBinding() {
-		return valueBinding;
-		}
-	
-	public DatabaseEntry keyToEntry(K key)
-		{
-		DatabaseEntry entry= new DatabaseEntry();
-		getKeyBinding().objectToEntry(key, entry);
-		return entry;
-		}
-	
-	public DatabaseEntry valueToEntry(V value)
-		{
-		DatabaseEntry entry= new DatabaseEntry();
-		getValueBinding().objectToEntry(value, entry);
-		return entry;
-		}
-
-	public K entryToKey(DatabaseEntry entry)
-		{
-		return getKeyBinding().entryToObject(entry);
-		}
-	
-	public V entryToValue(DatabaseEntry entry)
-		{
-		return getValueBinding().entryToObject(entry);
-		}
+	public abstract DatabaseEntry keyToEntry(K key);
+	public abstract DatabaseEntry valueToEntry(V value);
+	public abstract K entryToKey(DatabaseEntry entry);
+	public abstract V entryToValue(DatabaseEntry entry);
 	
 	public OperationStatus delete(K key) throws DatabaseException
 		{
@@ -333,10 +221,17 @@ public abstract class AbstractDatabase<K, V>
 		}
 	
 	
-	public void close() throws DatabaseException
+	public void close()
 		{
 		if(this.database==null) return;
-		this.database.close();
+		try
+			{
+			this.database.close();
+			}
+		catch(Exception err)
+			{
+			
+			}
 		this.database=null;
 		}
 	
@@ -357,6 +252,35 @@ public abstract class AbstractDatabase<K, V>
 		}
 	
 	
+	public String getName() throws DatabaseException
+		{
+		return getDatabase().getDatabaseName();
+		}
+	
+	public void clear(Transaction txn)throws DatabaseException
+		{
+		DatabaseEntry key=new DatabaseEntry();
+		DatabaseEntry data=new DatabaseEntry();
+		Cursor c=null;
+		try {
+			c= cursor(txn);
+			while(c.getNext(key, data, LockMode.DEFAULT)==OperationStatus.SUCCESS)
+				{
+				c.delete();
+				}
+		} catch (DatabaseException e) {
+			throw e;
+			}
+		finally
+			{
+			try { if(c!=null) c.close();} catch(DatabaseException err) {} 
+			}
+		}
+	
+	public void clear()throws DatabaseException
+		{
+		clear(null);
+		}
 	
 	
 	public KeyValueIterator listKeyValues() throws DatabaseException
@@ -364,9 +288,9 @@ public abstract class AbstractDatabase<K, V>
 		return new KeyValueIterator(cursor());
 		}
 	
-	public ValueIterator listValues() throws DatabaseException
+	public ValueWalker listValues() throws DatabaseException
 		{
-		return new ValueIterator(listKeyValues());
+		return new ValueWalker(listKeyValues());
 		}
 	
 	public List<V> getValues() throws DatabaseException
@@ -379,11 +303,22 @@ public abstract class AbstractDatabase<K, V>
 		return listKeys().asSet();
 		}
 	
-	public KeyIterator listKeys() throws DatabaseException
+	public KeyWalker listKeys() throws DatabaseException
 		{
-		return new KeyIterator(listKeyValues());
+		return new KeyWalker(listKeyValues());
 		}
 	
+	public boolean contains(Transaction txn,K key)  throws DatabaseException
+		{
+		DatabaseEntry e= keyToEntry(key);
+		DatabaseEntry data= new DatabaseEntry();
+		return(getDatabase().get(txn, e, data, LockMode.DEFAULT)==OperationStatus.SUCCESS);
+		}
+	
+	public boolean contains(K key)  throws DatabaseException
+		{
+		return contains(null,key);
+		}
 	
 	
 	public KeyValueIterator iterator()
@@ -395,5 +330,5 @@ public abstract class AbstractDatabase<K, V>
 			throw new RuntimeException(e);
 			}
 		}
-	
+
 	}

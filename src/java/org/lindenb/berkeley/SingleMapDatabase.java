@@ -4,9 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-import com.sleepycat.bind.tuple.IntegerBinding;
-import com.sleepycat.bind.tuple.LongBinding;
-import com.sleepycat.bind.tuple.StringBinding;
+
 import com.sleepycat.bind.tuple.TupleBinding;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseEntry;
@@ -14,14 +12,13 @@ import com.sleepycat.je.DatabaseException;
 import com.sleepycat.je.OperationStatus;
 import com.sleepycat.je.Transaction;
 
-public class SingleMapDatabase<K,V>
+public abstract class SingleMapDatabase<K,V>
 	extends AbstractDatabase<K,V> {
 
 	public SingleMapDatabase(
-			Database database,
-			TupleBinding<K> keyBinding,
-			TupleBinding<V> valueBinding) {
-		super(database, keyBinding, valueBinding);
+			Database database)
+		{
+		super(database);
 		}
 	
 	
@@ -82,50 +79,61 @@ public class SingleMapDatabase<K,V>
 		return map;
 		}
 	
-	private static class SingleComparableDB<X extends Comparable<X>,Y>
-		extends SingleMapDatabase<X, Y>
+	
+	
+	private static abstract class AbstractTupleBindingDB<X,Y>
+	extends SingleMapDatabase<X, Y>
 		{
-
-		public SingleComparableDB(Database database,
-				TupleBinding<X> keyBinding, TupleBinding<Y> valueBinding)
+		public AbstractTupleBindingDB(Database database)
 			{
-			super(database,keyBinding,valueBinding);
+			super(database);
+			}
+		public abstract TupleBinding<X> getKeyBinding();
+		public abstract TupleBinding<Y> getValueBinding();
+		@Override
+		public X entryToKey(DatabaseEntry entry) {
+			return getKeyBinding().entryToObject(entry);
+			}
+		@Override
+		public Y entryToValue(DatabaseEntry entry) {
+			return getValueBinding().entryToObject(entry);
 			}
 		
+		public DatabaseEntry keyToEntry(X key)
+			{
+			DatabaseEntry e= new DatabaseEntry();
+			getKeyBinding().objectToEntry(key, e);
+			return e;
+			};
+			
+		public DatabaseEntry valueToEntry(Y value)
+			{
+			DatabaseEntry e= new DatabaseEntry();
+			getValueBinding().objectToEntry(value, e);
+			return e;
+			};
+		}
 	
+	static public class DefaultTupleBindingDB<X,Y>
+	extends AbstractTupleBindingDB<X, Y>
+		{
+		private TupleBinding<X> bindingX;
+		private TupleBinding<Y> bindingY;
+		public DefaultTupleBindingDB(Database database,TupleBinding<X> bindingX,TupleBinding<Y> bindingY)
+			{
+			super(database);
+			this.bindingX=bindingX;
+			this.bindingY=bindingY;
+			}
+		public  TupleBinding<X> getKeyBinding()
+			{
+			return this.bindingX;
+			}
+		public  TupleBinding<Y> getValueBinding()
+			{
+			return this.bindingY;
+			}
 		
 		}
-	
-	public static class INTEGER<Y>
-	extends SingleComparableDB<Integer, Y>
-		{
-		public INTEGER(Database database,
-				TupleBinding<Y> valueBinding)
-			{
-			super(database,new IntegerBinding(),valueBinding);
-			}
-		}
-	
-	public static class LONG<Y>
-	extends SingleComparableDB<Long, Y>
-		{
-		public LONG(Database database,
-				TupleBinding<Y> valueBinding)
-			{
-			super(database,new LongBinding(),valueBinding);
-			}
-		}
-	
-	
-	public static class STRING<Y>
-	extends SingleComparableDB<String, Y>
-		{
-		public STRING(Database database,
-				TupleBinding<Y> valueBinding)
-			{
-			super(database,new StringBinding(),valueBinding);
-			}
-		}
-	
 
 	}
