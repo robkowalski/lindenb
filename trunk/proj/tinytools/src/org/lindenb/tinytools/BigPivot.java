@@ -2,13 +2,11 @@ package org.lindenb.tinytools;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileReader;
+
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.math.BigInteger;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -20,12 +18,11 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.Vector;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
-import java.util.zip.GZIPInputStream;
 
 import org.lindenb.io.IOUtils;
 import org.lindenb.lang.IllegalInputException;
-
 
 import org.lindenb.util.Compilation;
 
@@ -40,8 +37,14 @@ import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.DatabaseException;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
+import com.sleepycat.je.JoinConfig;
+import com.sleepycat.je.JoinCursor;
 import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
+import com.sleepycat.je.SecondaryConfig;
+import com.sleepycat.je.SecondaryCursor;
+import com.sleepycat.je.SecondaryDatabase;
+import com.sleepycat.je.SecondaryKeyCreator;
 
 
 /**
@@ -50,6 +53,7 @@ import com.sleepycat.je.OperationStatus;
  */
 public class BigPivot
 	{
+	private static final Logger LOG= Logger.getLogger(BigPivot.class.getName());
 	static enum DataType { IGNORE,STRING,ISTRING,INTEGER,BOOLEAN,DOUBLE};
 	
 	private long rowCount=0L;
@@ -59,9 +63,9 @@ public class BigPivot
 	private Pattern delim= Pattern.compile("[\t]");
 	private boolean firstLineIsHeader=true;
 	private String NULL_VALUE="NULL";
-	private Database leftColumns;
-	private Database topColumns;
-	private Database dataColumns;
+	private SecondaryDatabase leftColumns;
+	private SecondaryDatabase topColumns;
+	//private Database dataColumns;
 	private ColumnModel leftDefinitions=new ColumnModel();
 	private ColumnModel topDefinitions=new ColumnModel();
 	private ColumnModel dataDefinitions=new ColumnModel();
@@ -70,17 +74,19 @@ public class BigPivot
 	private boolean casesensible =true;
 	private static final RowBinding ROW_BINDING = new RowBinding();
 	private HashMap<Choice, Boolean> choices= new HashMap<Choice, Boolean>();
+	private boolean print_vertical_total=true;
+	private boolean print_horizontal_total=true;
 	
 	private enum Choice
-	{
-	DEFAULT,
-	MIN,MAX,
-	SUM,MEAN,
-	COUNT_DISTINCT,
-	STDEV,
-	COUNT,
-	HW_FREQ_A1,HW_FREQ_A2,HW_CHI2
-	}
+		{
+		DEFAULT,
+		MIN,MAX,
+		SUM,MEAN,
+		COUNT_DISTINCT,
+		STDEV,
+		COUNT,
+		HW_FREQ_A1,HW_FREQ_A2,HW_CHI2
+		}
 	
 	/***********************************
 	*
@@ -89,7 +95,7 @@ public class BigPivot
 	*/
 	private class Data
 	    {
-	    TreeMap<DataScalarList,Integer> data2count=new TreeMap<DataScalarList,Integer>();
+	    TreeMap<List<Object>,Integer> data2count=null;//TODO
 	    
 	    Data()
 	        {
@@ -97,9 +103,9 @@ public class BigPivot
 	        
 
 	    
-	    void  add(DataScalarList val)
+	    void  add(List<Object> val)
 	        {
-	        Integer i= data2count.get(val);
+	        Integer i= 0;//TODO dataDefinitions.get(val);
 	        if(i==null) i=0;
 	        data2count.put(val, i+1);
 	        }
@@ -112,20 +118,20 @@ public class BigPivot
 	    		case HW_FREQ_A1:
 	    		case HW_FREQ_A2:
 	    			{
-	    			if(Pivot.this.dataColumnIndex.size()!=1)
+	    			if(BigPivot.this.dataDefinitions.size()!=1)
 	    				{
-	    				return Pivot.this.valueForNull();
+	    				return NULL_VALUE;
 	    				}
 	    			
 	    			HashMap<String, Integer> genotype2count=new HashMap<String, Integer>();
 	    			TreeSet<String> alleleSet= new TreeSet<String>();
 	    			int total=0;
-	    			for(DataScalarList d:this.data2count.keySet())
+	    			for(List<Object> d:this.data2count.keySet())
 	 			 		{
 	    				int n =this.data2count.get(d);
-	    				String genotype= d.at(0);
+	    				String genotype= null;//TODO d.at(0);
 	    				
-	    				if(genotype.length()==0 || genotype.equals(EMPTY_VALUE)) continue;
+	    				if(genotype.length()==0 ) continue;//TODO || genotype.equals(EMPTY_VALUE)) continue;
 	    				genotype= genotype.toUpperCase().replaceAll("[\\[\\]]", "").trim();
 	    				String genotypes[]=genotype.split("[ ,\\-\t]+");
 	    				if(genotypes.length==1 && genotype.length()==2)
@@ -147,7 +153,7 @@ public class BigPivot
 	    				
 	    				alleleSet.add(genotypes[0]);
 	    				alleleSet.add(genotypes[1]);
-	    				if(alleleSet.size()>2) return Pivot.this.valueForNull();
+	    				if(alleleSet.size()>2) return NULL_VALUE;
 	    				
 	    				Integer count= genotype2count.get(genotype);
 	    				if(count==null) count=0;
@@ -155,7 +161,7 @@ public class BigPivot
 	    				total+=n;
 	 			 		}
 	    			
-	    			if(total==0) return Pivot.this.valueForNull();
+	    			if(total==0) return NULL_VALUE;
 	    			if(alleleSet.size()==1) alleleSet.add("");
 	    			String alleles[]=alleleSet.toArray(new String[alleleSet.size()]);
 	    			
@@ -179,7 +185,7 @@ public class BigPivot
 	    	    			}
 	    	    		default:case HW_CHI2:
 	    	    			{
-	    	    			if(freqA==1.0) return valueForNull();
+	    	    			if(freqA==1.0) return NULL_VALUE;
 	    	    			double eAA=  Math.pow(freqA,2)*total;
 	    	    			double eAB=  2.0*freqA*(1.0-freqA)*total;
 	    	    			double eBB=  Math.pow((1.0-freqA),2)*total;
@@ -197,7 +203,7 @@ public class BigPivot
 	    		case COUNT:
 	    			{
 	    			int n=0;
-	    			for(DataScalarList d:this.data2count.keySet()) n+=this.data2count.get(d);
+	    			for(Object d:this.data2count.keySet()) n+=this.data2count.get(d);
 	    			return String.valueOf(n);
 	    			}
 	    		case COUNT_DISTINCT:
@@ -210,18 +216,18 @@ public class BigPivot
 	    		case SUM:
 	    		case MEAN:
 	    			{
-	    			if(Pivot.this.dataColumnIndex.size()!=1)
+	    			if(BigPivot.this.dataDefinitions.size()!=1)
 	    				{
-	    				return Pivot.this.valueForNull();
+	    				return NULL_VALUE;
 	    				}
 	    			double min= Double.MAX_VALUE;
 	    			double max=-Double.MAX_VALUE;
 	    			double total=0.0;
 	    			int count=0;
-	    			 for(DataScalarList d:this.data2count.keySet())
+	    			 for(List<Object> d:this.data2count.keySet())
 	    			 	{
 	    				try {
-							Double val= new Double(d.at(0));
+							Double val= 0.0;//TODO new Double(d.at(0));
 							min=Math.min(min, val);
 							max=Math.max(max, val);
 							int c= data2count.get(d);
@@ -233,7 +239,7 @@ public class BigPivot
 						//ignore
 						}
 	    			 	}
-	    			if(count==0) return valueForNull();
+	    			if(count==0) return NULL_VALUE;
 	    			double mean=total/count;
 	    			switch(choice)
 	    				{
@@ -243,12 +249,12 @@ public class BigPivot
 	    				case MEAN:return String.valueOf(mean);
 	    				case STDEV:
 	    					{
-	    					if(count==1) return valueForNull();
+	    					if(count==1) return NULL_VALUE;
 	    					double stdev=0;
-	    					 for(DataScalarList d:this.data2count.keySet())
+	    					 for(List<Object> d:this.data2count.keySet())
 	    	    			 	{
 	    	    				try {
-	    							Double val= new Double(d.at(0));
+	    							Double val= 0.0;//TODO new Double(d.at(0));
 	    							int c= data2count.get(d);
 	    							stdev+=(c*Math.pow(mean-val,2));
 	    	    					}
@@ -260,19 +266,19 @@ public class BigPivot
 	    	    				return String.valueOf(Math.sqrt(stdev/(count-1)));
 	    					}
 	    				}
-	    			return valueForNull();
+	    			return NULL_VALUE;
 	    			}
 	    		case DEFAULT:
 	    			{
 			        int i=data2count.size();
 			        if(i==0)
 			            {
-			            return valueForNull().toString();
+			            return NULL_VALUE;
 			            }
 			        StringBuilder b= new StringBuilder();
 			        if(i>1) b.append("{");
 			        boolean found=false;
-			        for(DataScalarList d:this.data2count.keySet())
+			        for(Object d:this.data2count.keySet())
 			            {
 			            if(found) b.append(";");
 			            found=true;
@@ -284,7 +290,7 @@ public class BigPivot
 			        if(i>1) b.append("}");
 			        return b.toString();
 	    			}
-	    		default:return valueForNull();
+	    		default:return NULL_VALUE;
 	    		}
 	    	}
 	    
@@ -295,7 +301,12 @@ public class BigPivot
 	    	return getValue(Choice.DEFAULT);
 	        }
 	    }
-	
+
+
+
+
+
+
 	
 	/**
 	* ColumnModel
@@ -319,7 +330,7 @@ public class BigPivot
 	        this.maxCol=Math.max(this.maxCol, columnIndex);
 	        }
 	    
-	    public long size() { return this.indexes.size();}
+	    public int size() { return this.indexes.size();}
 	    public boolean isEmpty() { return this.indexes.isEmpty();}
 	    public int at(int index) { return this.indexes.get(index);}
 	    
@@ -328,7 +339,7 @@ public class BigPivot
 	    }
 	
 	/**
-	 * RowBinding
+	 * RowBinding: TupleBinding for a List<Object> 
 	 *
 	 */
 	static public class RowBinding
@@ -337,8 +348,10 @@ public class BigPivot
 		@Override
 		public List<Object> entryToObject(TupleInput input)
 			{
+			//get the size of the row
 			int listSize = input.readInt();
 			List<Object> list= new ArrayList<Object>(listSize);
+			//loop over the items
 			for(int i=0;i< listSize;++i)
 				{
 				switch(DataType.values()[input.readByte()])
@@ -356,7 +369,9 @@ public class BigPivot
 		@Override
 		public void objectToEntry(List<Object> list, TupleOutput output)
 			{
+			//write the size of the row
 			output.writeInt(list.size());
+			//save each item
 			for(int i=0;i< list.size();++i)
 				{
 				Object o= list.get(i);
@@ -392,10 +407,15 @@ public class BigPivot
 			}
 		}
 	
+	/**
+	 * Row Comparator
+	 * @author lindenb
+	 *
+	 */
 	public static class RowComparator
 		implements Comparator<byte[]>
 		{
-	
+		
 		@SuppressWarnings("unchecked")
 		@Override
 		public int compare(byte[] array1, byte[] array2)
@@ -517,7 +537,7 @@ private abstract class AbstractPrinter
 		        {
 		        TH(String.valueOf(i+1));
 		        }
-		    if(Pivot.this.print_horizontal_total)
+		    if(getPivot().print_horizontal_total)
 				{
 				TH("Total");
 				}
@@ -553,15 +573,15 @@ private abstract class AbstractPrinter
 			            {
 			        	List<Object> rtop= ROW_BINDING.entryToObject(dataEntry2);
 			            Data data =getData(
-			                    leftValues.get(rleft),
-			                    topValues.get(rtop)
+			                    rleft,
+			                    rtop
 			                    );
 			            TD(data.getValue(display.elementAt(displayIndex)));
 			            }
 			        
-			        if(Pivot.this.print_horizontal_total)
+			        if(BigPivot.this.print_horizontal_total)
 				        {
-				        Data dataTotal=getData(leftValues.get(rleft),null);
+				        Data dataTotal=getData(rleft,null);
 				        TD(dataTotal.getValue(display.elementAt(displayIndex)));
 				        }
 			        
@@ -571,21 +591,24 @@ private abstract class AbstractPrinter
 		   
 		    
 		    //bottom total
-		    if(Pivot.this.print_vertical_total)
+		    if(BigPivot.this.print_vertical_total)
 			    {
 			    for(int displayIndex=0;displayIndex<display.size();++displayIndex)
 			        {
 			    	oTR();
-			        for(int i=0;i< leftColumnIndex.size();++i)
+			        for(int i=0;i< leftDefinitions.size();++i)
 			            {
 			            TH("");
 			            }
 			        
-			        TH(getLabel(display.elementAt(displayIndex)));
-			        for(TopScalarList rtop: topValues.keySet())
-			            {
+			      //TODO re-open topCursor
+			        
+			        while(topCursor.getNextNoDup(keyEntry2, dataEntry2, LockMode.DEFAULT)==OperationStatus.SUCCESS)
+			        	{
+			        	List<Object> rtop= ROW_BINDING.entryToObject(dataEntry2);
+			           
 			            Data data =getData(null,
-			                    topValues.get(rtop)
+			            		rtop
 			                    );
 			            TD(data.getValue(display.elementAt(displayIndex)));
 			            }
@@ -615,41 +638,79 @@ private abstract class AbstractPrinter
 		{
 		}
 	
-	private Data getData(DatabaseEntry leftKey,DatabaseEntry topKey)
+	private Data getData(List<Object> rLeft,List<Object> rtop)
 		throws DatabaseException
 	    {
 	    Data data=new Data();
 	    HashSet<Integer> set= null;
-	    
-	    
-	    
-	    if(left!=null)
+	    SecondaryCursor cursorLeft=null;
+	    SecondaryCursor cursorTop=null;
+	    JoinCursor jc=null;
+	    DatabaseEntry keyL=null;
+        DatabaseEntry dataL=null;
+        DatabaseEntry keyT =null;
+        DatabaseEntry dataT=null;
+        List<SecondaryCursor> cursors= new ArrayList<SecondaryCursor>();
+	    try
 		    {
-		    set=new HashSet<Integer>(left);
-		    if(top!=null) set.retainAll(top);
+		    if(rLeft!=null)
+		    	{
+		    	cursorLeft = leftColumns.openSecondaryCursor(null, null);
+		    	keyL= new DatabaseEntry();
+		    	dataL= new DatabaseEntry();
+		    	ROW_BINDING.objectToEntry(rLeft, keyL);
+		    	if(cursorLeft.getSearchKey(keyL, dataL, LockMode.DEFAULT)!=OperationStatus.SUCCESS)
+		    		{
+		    		cursors.add(cursorLeft);
+		    		}
+		    	
+		    	}
+		    if(rtop!=null)
+		    	{
+		    	cursorTop = topColumns.openSecondaryCursor(null, null);
+		    	keyT= new DatabaseEntry();
+		    	dataT= new DatabaseEntry();
+		    	ROW_BINDING.objectToEntry(rtop, keyT);
+		    	cursorTop.getSearchKey(keyT, dataT, LockMode.DEFAULT);
+		    	if(cursorTop.getSearchKey(keyT, dataT, LockMode.DEFAULT)!=OperationStatus.SUCCESS)
+		    		{
+		    		cursors.add(cursorTop);
+		    		}
+		    	}
+		    if(rLeft==null && rtop==null)
+		    	{
+		    	
+		    	}
+		    
+		    JoinConfig jcfg=new JoinConfig();
+		     jc= this.index2row.join(cursors.toArray(new Cursor[cursors.size()]), null);
+		    DatabaseEntry key=new DatabaseEntry();
+	        DatabaseEntry value=new DatabaseEntry();
+		    while( jc.getNext(key, value, null)==OperationStatus.SUCCESS)
+		    	{
+		    	List<Object> row= ROW_BINDING.entryToObject(value);
+		    	 if(!this.dataDefinitions.isEmpty())
+		            {
+		            data.add(row);
+		            }
+		        else
+		            {
+		            data.add(null);
+		            }
+		    	}
+	
+		    return data;
 		    }
-	    else if(top!=null)
+	    catch(DatabaseException err)
 	    	{
-	    	set= new HashSet<Integer>(top);
+	    	throw err;
 	    	}
-	    else
+	    finally
 	    	{
-	    	set= new HashSet<Integer>(this.table.size());
-	    	for(int i=0;i< this.table.size();++i) set.add(i);
+	    	if(cursorLeft!=null) cursorLeft.close();
+	    	if(cursorTop!=null) cursorTop.close();
+	    	if(jc!=null) jc.close();
 	    	}
-	    
-	    for(int row:set)
-	        {
-	        if(!this.dataColumnIndex.isEmpty())
-	            {
-	            data.add(new DataScalarList(row));
-	            }
-	        else
-	            {
-	            data.add(null);
-	            }
-	        }
-	    return data;
 	    }
 	
 	
@@ -679,15 +740,62 @@ private abstract class AbstractPrinter
 		dbCfg.setTemporary(true);
 		Random rand= new Random();
 		this.index2row= this.environment.openDatabase(null, "index2row"+rand.nextLong(), dbCfg);
-		dbCfg= new DatabaseConfig();
-		dbCfg.setAllowCreate(true);
-		dbCfg.setReadOnly(false);
-		dbCfg.setTemporary(true);
-		//config2.setDuplicateComparator(RowComparator.class);
-		dbCfg.setSortedDuplicates(true);
-		this.leftColumns= this.environment.openDatabase(null, "left"+rand.nextLong(),  dbCfg);
-		this.topColumns= this.environment.openDatabase(null, "top"+rand.nextLong(),dbCfg);
-		this.dataColumns= this.environment.openDatabase(null, "data"+rand.nextLong(),  dbCfg);
+		SecondaryConfig cfg2nd= new SecondaryConfig();
+		cfg2nd.setAllowCreate(true);
+		cfg2nd.setReadOnly(false);
+		cfg2nd.setTemporary(true);
+		cfg2nd.setSortedDuplicates(true);
+		cfg2nd.setKeyCreator(new SecondaryKeyCreator()
+			{
+			@Override
+			public boolean createSecondaryKey(SecondaryDatabase secondary,
+					DatabaseEntry key, DatabaseEntry data,
+					DatabaseEntry result) throws DatabaseException
+				{
+				if(leftDefinitions.isEmpty()) return false;
+				//original row
+				List<Object> list = ROW_BINDING.entryToObject(data);
+				
+				//Left definitions
+				List<Object> list2= new ArrayList<Object>(BigPivot.this.leftDefinitions.size());
+				for(int i=0;i< leftDefinitions.size();++i)
+					{
+					list2.add(list.get(leftDefinitions.at(i)));
+					}
+				ROW_BINDING.objectToEntry(list2, result);
+				return true;
+				}
+			});
+		this.leftColumns= this.environment.openSecondaryDatabase(null, "left"+rand.nextLong(), index2row,  cfg2nd);
+	 	
+		
+		cfg2nd= new SecondaryConfig();
+		cfg2nd.setAllowCreate(true);
+		cfg2nd.setReadOnly(false);
+		cfg2nd.setTemporary(true);
+		cfg2nd.setSortedDuplicates(true);
+		cfg2nd.setKeyCreator(new SecondaryKeyCreator()
+			{
+			@Override
+			public boolean createSecondaryKey(SecondaryDatabase secondary,
+					DatabaseEntry key, DatabaseEntry data,
+					DatabaseEntry result) throws DatabaseException
+				{
+				if(topDefinitions.isEmpty()) return false;
+				//original row
+				List<Object> list = ROW_BINDING.entryToObject(data);
+				
+				//Left definitions
+				List<Object> list2= new ArrayList<Object>(BigPivot.this.topDefinitions.size());
+				for(int i=0;i< topDefinitions.size();++i)
+					{
+					list2.add(list.get(topDefinitions.at(i)));
+					}
+				ROW_BINDING.objectToEntry(list2, result);
+				return true;
+				}
+			});
+		this.topColumns= this.environment.openSecondaryDatabase(null, "top"+rand.nextLong(),index2row,  cfg2nd);
 		}
 	
 	@Override
@@ -708,11 +816,7 @@ private abstract class AbstractPrinter
 			try{ topColumns.close();} catch(Throwable err) {}
 			this.topColumns=null;
 			}
-		if(this.dataColumns!=null)
-			{
-			try{ dataColumns.close();} catch(Throwable err) {}
-			this.dataColumns=null;
-			}
+		
 		if(this.index2row!=null)
 			{
 			try{ index2row.close();} catch(Throwable err) {}
@@ -738,21 +842,32 @@ private abstract class AbstractPrinter
 		
 		}
 	
-	
+	/**
+	 * Read input Stream
+	 * @param in
+	 * @throws IOException
+	 * @throws DatabaseException
+	 */
 	public void read(BufferedReader in) throws IOException,DatabaseException
 		{
+		LOG.info("Start Reading");
 		DatabaseEntry keyEntry= new DatabaseEntry();
 		DatabaseEntry dataEntry= new DatabaseEntry();
+		//initialize row Count
 		rowCount=0L;
+		//initialize header
 		header=null;
 		String line;
 		String tokens[];
+		//column we can ignore and replace by NIL
 		Set<Integer> unusedColumns=new HashSet<Integer>();
+		
 		while((line=in.readLine())!=null)
 			{
 			tokens= delim.split(line);
 			if(header==null)
 				{
+				LOG.info("parsing header");
 				if(firstLineIsHeader)
 					{
 					header=new ArrayList<String>(tokens.length);
@@ -772,7 +887,7 @@ private abstract class AbstractPrinter
 						header.add("$"+(i+1));
 						}
 					}
-				
+				//default set all column as unused
 				for(int i=0;i< tokens.length;++i)
 					{
 					unusedColumns.add(i);
@@ -862,49 +977,7 @@ private abstract class AbstractPrinter
 				{
 				throw new DatabaseException("Cannot insert "+line);
 				}
-			
-			//Left definitions
-			List<Object> list2= new ArrayList<Object>(this.leftDefinitions.size());
-			for(int i=0;i< leftDefinitions.size();++i)
-				{
-				list2.add(list.get(leftDefinitions.at(i)));
-				}
-			ROW_BINDING.objectToEntry(list2, dataEntry);
-			if(this.leftColumns.put(null, dataEntry, keyEntry)!= OperationStatus.SUCCESS)//yes data and then key
-				{
-				throw new DatabaseException("Cannot insert "+line);
-				}
-			
-			if(this.topDefinitions.size()>0)
-				{
-				//top definitions
-				list2= new ArrayList<Object>(this.topDefinitions.size());
-				for(int i=0;i< topDefinitions.size();++i)
-					{
-					list2.add(list.get(topDefinitions.at(i)));
-					}
-				ROW_BINDING.objectToEntry(list2, dataEntry);
-				if(this.topColumns.put(null, dataEntry, keyEntry)!= OperationStatus.SUCCESS)//yes data and then key
-					{
-					throw new DatabaseException("Cannot insert "+line);
-					}
-				}
-			
-			if(this.dataDefinitions.size()>0)
-				{
-				//data definitions
-				list2= new ArrayList<Object>(this.dataDefinitions.size());
-				for(int i=0;i< dataDefinitions.size();++i)
-					{
-					list2.add(list.get(dataDefinitions.at(i)));
-					}
-				ROW_BINDING.objectToEntry(list2, dataEntry);
-				if(this.dataColumns.put(null, dataEntry, keyEntry)!= OperationStatus.SUCCESS)//yes data and then key
-					{
-					throw new DatabaseException("Cannot insert "+line);
-					}
-				}
-			
+
 			rowCount++;
 			}
 		}
@@ -935,6 +1008,10 @@ private abstract class AbstractPrinter
 		    }
 		}
 	
+	/**
+	 * Main method
+	 * @param args
+	 */
 	public static void main(String[] args)
 		{
 		BigPivot pivot= new BigPivot();

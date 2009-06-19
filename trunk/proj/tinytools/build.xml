@@ -7,7 +7,7 @@
  <property name="compiledir" value="${builddir}/compile"/>
 
 
- <target name="all" depends="xsltstream,consequences,ffsurvey,sortpubmed,meshfreq,pictools,aboutrslist,java2dot,verticalize,findjar,gamonalisa">
+ <target name="all" depends="xsltstream,consequences,ffsurvey,sortpubmed,meshfreq,pictools,aboutrslist,java2dot,verticalize,findjar,gamonalisa,saxscript">
 </target>
 
  <target name="build-ant-tasks">
@@ -507,6 +507,10 @@
 		<compile appclass="FriendFeedSurvey" appjar="ffsurvey" appname="FriendFeed Survey"/>
 	</target>
 	
+	<target name="saxscript" depends="declare-ant-tasks">
+		<compile appclass="SAXScript" appjar="saxscript" appname="SaxScript"/>
+	</target>
+
 	 <target name="emblstring" depends="declare-ant-tasks">
 		 <mkdir dir="${compiledir}"/>
 		 
