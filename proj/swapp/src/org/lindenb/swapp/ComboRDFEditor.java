@@ -13,9 +13,12 @@ import javax.swing.JComponent;
 import javax.swing.JList;
 import javax.swing.ListCellRenderer;
 
-import com.hp.hpl.jena.rdf.model.NodeIterator;
-import com.hp.hpl.jena.rdf.model.RDFNode;
-import com.hp.hpl.jena.rdf.model.Resource;
+import org.lindenb.sw.RDFException;
+import org.lindenb.sw.nodes.RDFNode;
+import org.lindenb.sw.nodes.Resource;
+import org.lindenb.sw.nodes.Statement;
+
+
 
 /**
  * ComboRDFEditor
@@ -126,7 +129,7 @@ public class ComboRDFEditor extends RDFEditor
 		}
 
 	@Override
-	public void loadFromModel()
+	public void loadFromModel() throws RDFException
 		{
 		Set<Resource> possible = getComboValues();
         getComboBox().setSelectedIndex(-1);
@@ -147,14 +150,14 @@ public class ComboRDFEditor extends RDFEditor
 		}
 
 	@Override
-	public void saveToModel()
+	public void saveToModel() throws RDFException
 			{
 			Resource s= Resource.class.cast(getComboBox(). getSelectedItem());
     		removeAll(getSubject(), getProperty(),null);
-            if(s!=null) getModel().add(
+            if(s!=null) getModel().add( new Statement(
                     getSubject(),
                     getProperty(),
-                    s
+                    s)
                     );
 			}
 

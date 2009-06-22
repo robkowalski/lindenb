@@ -3,21 +3,24 @@ package org.lindenb.swapp;
 
 import javax.swing.JComponent;
 
+import org.lindenb.sw.RDFException;
+import org.lindenb.sw.nodes.RDFNode;
+import org.lindenb.sw.nodes.Resource;
 
-import com.hp.hpl.jena.rdf.model.Model;
-import com.hp.hpl.jena.rdf.model.Property;
-import com.hp.hpl.jena.rdf.model.RDFNode;
-import com.hp.hpl.jena.rdf.model.Resource;
-import com.hp.hpl.jena.rdf.model.StmtIterator;
+
+
+
 
 public abstract class RDFEditor
 	{
     /** subject of this editor  */
     private Resource subject=null;
     /** property of this editor */
-    private Property property=null;
+    private Resource property=null;
     /** schema for this editor */
     private Schema schema=null;
+    /** model */
+    private Model model=null;
     
     protected RDFEditor()
     	{    	
@@ -34,14 +37,14 @@ public abstract class RDFEditor
             }
     
     /** set the property */
-    public void setProperty(Property property)
+    public void setProperty(Resource property)
     	{
         this.property = property;
-        getComponent().setName(getModel().shortForm(property.getURI()));
+        getComponent().setName(getSchema().shortForm(property.getURI()));
         }
     
     /** get the property */
-    public Property getProperty() {
+    public Resource getProperty() {
             return property;
             }
     
@@ -60,30 +63,25 @@ public abstract class RDFEditor
     /** get RDF Model */
     public Model getModel()
     	{
-    	return getSchema().getModel();
+    	return model;
     	}
+    
+    public void setModel(Model model) {
+		this.model = model;
+		}
     
     public abstract JComponent getComponent();
     public abstract boolean isEmpty();
     public boolean isValid() { return getValidationMessage()==null;}
     public abstract String getValidationMessage();
-    public abstract void loadFromModel();
+    public abstract void loadFromModel() throws RDFException;
     /** save the content of this editor to the model */
-    public abstract void saveToModel();
+    public abstract void saveToModel() throws RDFException;
 	
     
-    protected int removeAll(Resource r, Property p,RDFNode s)
+    protected int removeAll(Resource r, Resource p,RDFNode s) throws RDFException
     	{
-    	int n=0;
-    	StmtIterator iter= getModel().listStatements(r,p,s);
-    	while(iter.hasNext())
-    		{
-    		iter.next();
-    		iter.remove();
-    		++n;
-    		}
-    	iter.close();
-    	return n;
+    	return getModel().remove(r, p, s);
     	}
     
 	}
