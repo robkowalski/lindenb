@@ -3,7 +3,9 @@ package org.gnf.interactome;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -69,12 +71,14 @@ private File envHome;
 private Environment berkeleyEnv;
 private SimpleDB<BerkeleyDBKey,Document> biogridDB;
 /** map interactor ID to interaction id */
-private MultipleDB<String, String> interactor2interaction;
+private MultipleDB<BerkeleyDBKey, BerkeleyDBKey> interactor2interaction;
 private SimpleDB<String, String> qName2wikipedia;
+private SimpleDB<String, String> omim2qname;
+private SimpleDB<String, String> entrezGene2qname;
 /** map a QName in wikipedia to its BOX template name  */
 private SimpleDB<String, String> qName2boxtemplate;
-private SimpleDB<String, String> shortName2interactor;
-private SimpleDB<String, String> omim2interactor;
+private SimpleDB<String, BerkeleyDBKey> shortName2interactor;
+private SimpleDB<String, BerkeleyDBKey> omim2interactor;
 private DocumentBuilder documentBuilder;
 private DocumentBinding documentBinding;
 private Transformer transformer;
@@ -200,12 +204,14 @@ abstract class  BerkeleyDB<K,V>
 	public  TupleBinding<V> getValueBinding() { return valueBinding;}
 	public DatabaseEntry keyToEntry(K key)
 		{
+		if(key==null) throw new NullPointerException("key==null");
 		DatabaseEntry e= new DatabaseEntry();
 		getKeyBinding().objectToEntry(key, e);
 		return e;
 		}
 	public DatabaseEntry valueToEntry(V val)
 		{
+		if(val==null) throw new NullPointerException("val==null");
 		DatabaseEntry e= new DatabaseEntry();
 		getValueBinding().objectToEntry(val, e);
 		return e;
@@ -270,6 +276,7 @@ extends BerkeleyDB<K, V>
 			{
 			list.add(entryToValue(value));
 			}
+		c.close();
 		return list;
 		}
 	}
@@ -285,17 +292,6 @@ private class BerkeleyDBKey
 		this.id=id;
 		}
 	
-	BerkeleyDBKey(TupleInput input)
-		{
-		this.type= BioGridKeyType.values()[input.readInt()];
-		this.id= input.readString();
-		}
-	
-	public void write(TupleOutput out)
-		{
-		out.writeInt(this.type.ordinal());
-		out.writeString(this.id);
-		}
 
 	@Override
 	public int hashCode() {
@@ -320,8 +316,28 @@ private class BerkeleyDBKey
 		return Interactome01.this;
 	}
 	
+	@Override
+	public String toString() {
+		return this.type.toString()+" "+id;
+		}
+	
 	}
 
+private class DBKeyBinding extends TupleBinding<BerkeleyDBKey>
+	{
+	public BerkeleyDBKey entryToObject(TupleInput input)
+		{
+		BioGridKeyType type= BioGridKeyType.values()[input.readInt()];
+		 String id= input.readString();
+		 return new BerkeleyDBKey(type,id); 
+		}
+	public void objectToEntry(BerkeleyDBKey object, TupleOutput output)
+		{
+		output.writeInt(object.type.ordinal());
+		output.writeString(object.id);
+		}
+	
+	}
 
 /**
  * A SAX Handler parsing a PSI XML file
@@ -355,13 +371,13 @@ private class BioGridHandler
 					bdbKey = new BerkeleyDBKey(type,id);
 					
 					NodeList list=(NodeList)findParticipantRef.evaluate(currentNode,XPathConstants.NODESET);
-					
+					if(list.getLength()!=2) throw new SAXException("Boum");
 					
 					for(int i=0;i< list.getLength();++i)
 						{
 						interactor2interaction.put(
-							Attr.class.cast(list.item(i)).getValue(),
-							id)
+							new BerkeleyDBKey(BioGridKeyType.proteinInteractor,Attr.class.cast(list.item(i)).getValue()),
+							bdbKey)
 							;
 						}
 					}
@@ -369,17 +385,29 @@ private class BioGridHandler
 					{
 					Attr att=(Attr)this.currentNode.getAttributes().getNamedItem("id");
 					if(att==null) throw new SAXException("Cannot get id in "+name);
-					String shortName=(String)xpathInteractorShortName.evaluate(currentNode, XPathConstants.NODE);
+					bdbKey = new BerkeleyDBKey(BioGridKeyType.proteinInteractor,att.getValue());
+					String shortName=(String)xpathInteractorShortName.evaluate(currentNode, XPathConstants.STRING);
 					if(!(name==null || name.trim().length()==0))
 						{
-						shortName2interactor.put(shortName, att.getValue());
+						shortName2interactor.put(shortName, bdbKey);
+						}
+					else
+						{
+						LOG.info("Cannot get short Name for "+" "+bdbKey);
 						}
 					
-					Attr omimAtt=(Attr)xpathFindOmimId.evaluate(dom, XPathConstants.NODE);
-					if(!(name==null || name.trim().length()==0))
+					Attr omimAtt=(Attr)xpathFindOmimId.evaluate(currentNode, XPathConstants.NODE);
+					if(omimAtt!=null)
 						{
-						omim2interactor.put(omimAtt.getValue(), att.getValue());
+						//LOG.info("OK got OMIM for "+omimAtt+" "+bdbKey);
+						omim2interactor.put(omimAtt.getValue(),bdbKey);
 						}
+					else
+						{
+						//LOG.info("Cannot get OMIM for "+att.getValue()+" "+bdbKey);
+						}
+					
+					
 					}
 				else
 					{
@@ -392,9 +420,14 @@ private class BioGridHandler
 				
 				DOMResult result= new DOMResult(documentBuilder.newDocument());
 				transformer.transform(new DOMSource(this.currentNode),result);
-				
-				
-				biogridDB.put(bdbKey,(Document)result.getNode());
+				if(!biogridDB.put(bdbKey,(Document)result.getNode()))
+					{
+					throw new DatabaseException("Cannot insert new document");
+					}
+				if( biogridDB.get(bdbKey)==null)
+					{
+					throw new DatabaseException("Cannot retrieve "+bdbKey);
+					}
 				}
 			catch(Exception err)
 				{
@@ -470,44 +503,38 @@ private void open() throws DatabaseException,IOException
 	DatabaseConfig cfg= new DatabaseConfig();
 	cfg.setAllowCreate(true);
 	cfg.setReadOnly(false);
+	
 	this.biogridDB= new SimpleDB<BerkeleyDBKey, Document>(
 		this.berkeleyEnv.openDatabase(null, "biogrid", cfg),
-		new TupleBinding<BerkeleyDBKey>()
-			{
-			@Override
-			public BerkeleyDBKey entryToObject(TupleInput input) {
-				return new BerkeleyDBKey(input);
-				}
-			@Override
-				public void objectToEntry(BerkeleyDBKey object,
-						TupleOutput output) {
-					object.write(output);
-					}
-			},
+		new DBKeyBinding(),
 		this.documentBinding
 		);
-	
-	
-	this.omim2interactor= new SimpleDB<String, String>(
+	cfg= new DatabaseConfig();
+	cfg.setAllowCreate(true);
+	cfg.setReadOnly(false);
+	this.omim2interactor= new SimpleDB<String, BerkeleyDBKey>(
 			this.berkeleyEnv.openDatabase(null, "omim2interactor",cfg),
 			new StringBinding(),
-			new StringBinding()
+			new DBKeyBinding()
 			);
 	
-
-	this.shortName2interactor= new SimpleDB<String, String>(
+	cfg= new DatabaseConfig();
+	cfg.setAllowCreate(true);
+	cfg.setReadOnly(false);
+	this.shortName2interactor= new SimpleDB<String, BerkeleyDBKey>(
 			this.berkeleyEnv.openDatabase(null, "shortName2interactor", cfg),
 			new StringBinding(),
-			new StringBinding()
+			new DBKeyBinding()
 			);
+	
 	cfg= new DatabaseConfig();
 	cfg.setAllowCreate(true);
 	cfg.setReadOnly(false);
 	cfg.setSortedDuplicates(true);
-	interactor2interaction= new MultipleDB<String, String>(
+	interactor2interaction= new MultipleDB<BerkeleyDBKey, BerkeleyDBKey>(
 			this.berkeleyEnv.openDatabase(null, "interactor2interaction", cfg),
-			new StringBinding(),
-			new StringBinding()
+			new DBKeyBinding(),
+			new DBKeyBinding()
 			);
 	cfg= new DatabaseConfig();
 	cfg.setAllowCreate(true);
@@ -527,6 +554,24 @@ private void open() throws DatabaseException,IOException
 			new StringBinding(),
 			new StringBinding()
 			);
+	cfg= new DatabaseConfig();
+	cfg.setAllowCreate(true);
+	cfg.setReadOnly(false);
+	cfg.setSortedDuplicates(false);
+	omim2qname= new SimpleDB<String, String>(
+			this.berkeleyEnv.openDatabase(null, "omim2qname", cfg),
+			new StringBinding(),
+			new StringBinding()
+			);
+	cfg= new DatabaseConfig();
+	cfg.setAllowCreate(true);
+	cfg.setReadOnly(false);
+	cfg.setSortedDuplicates(false);
+	entrezGene2qname= new SimpleDB<String, String>(
+			this.berkeleyEnv.openDatabase(null, "entrezgene2qname", cfg),
+			new StringBinding(),
+			new StringBinding()
+			);
 	}
 
 /**
@@ -539,8 +584,10 @@ private void close()throws DatabaseException
 	interactor2interaction.close();
 	qName2boxtemplate.close();
 	shortName2interactor.close();
-	omim2interactor.clear();
-	biogridDB.clear();
+	omim2interactor.close();
+	biogridDB.close();
+	omim2qname.close();
+	entrezGene2qname.close();
 	if(this.berkeleyEnv!=null) { try { this.berkeleyEnv.close();this.berkeleyEnv=null;} catch(Exception err) { }}
 	}
 
@@ -611,7 +658,8 @@ private void loadWikipedia() throws Exception
 	LOG.info("load wikipedia");
 	qName2wikipedia.clear();
 	qName2boxtemplate.clear();
-
+	omim2qname.clear();
+	entrezGene2qname.clear();
 	
 	MWQuery query= new MWQuery();
 	//get all the pages aving a Template:PBB
@@ -633,8 +681,25 @@ private void loadWikipedia() throws Exception
 			
 			//save the content of this template
 			content= query.getContent(template);
+			if(content==null)
+				{
+				LOG.warning("no template for "+page);
+				continue;
+				}
 			this.qName2wikipedia.put(template.getQName(),content);
 			this.qName2boxtemplate.put(page.getQName(), template.getQName());
+			
+			String omimId = simpleFindField(content, "OMIM");
+			if(omimId!=null && Cast.Integer.isA(omimId))
+				{
+				omim2qname.put(omimId, page.getQName());
+				}
+			String Hs_EntrezGene= simpleFindField(content, "Hs_EntrezGene");
+			if(Hs_EntrezGene!=null)
+				{
+				entrezGene2qname.put(Hs_EntrezGene, page.getQName());
+				}
+			
 			found=true;
 			break;
 			}
@@ -647,19 +712,21 @@ private void loadWikipedia() throws Exception
 	LOG.info("load wikipedia END");
 	}
 
-private void loop() throws Exception
+private void loop(File fileout) throws Exception
 	{
+	Set<String> wikipediaPages= qName2wikipedia.getKeySet();
 	LOG.info("Start loop");
 	//loop over wikipedia
-	
-	for(String qName: qName2wikipedia.getKeySet())
+	PrintWriter out= new PrintWriter(new FileWriter(fileout));
+	for(String qName: wikipediaPages)
 		{
-		LOG.info("Loop for "+qName);
 		if(qName.startsWith("Template:")) continue;
+		
 		
 		String templateName= this.qName2boxtemplate.get(qName);
 		if(templateName==null)
 			{
+			LOG.info("No box template for "+qName);
 			continue;
 			}
 		
@@ -671,38 +738,47 @@ private void loop() throws Exception
 		String Hs_EntrezGene = simpleFindField(templateContent, "Hs_EntrezGene");
 		if(Cast.Integer.isA(Hs_EntrezGene))
 			{			
-			String id=shortName2interactor.get("EG"+Hs_EntrezGene);
+			BerkeleyDBKey id=shortName2interactor.get("EG"+Hs_EntrezGene);
+			
 			if(id!=null)
 				{
-				interactor=biogridDB.get(new BerkeleyDBKey(BioGridKeyType.proteinInteractor,id));
+				interactor=biogridDB.get(id);
+				if(interactor==null) throw new DatabaseException("Boum "+id);
 				}
 			}
 		
-		if(interactor==null)
 			{
 			String omimId = simpleFindField(templateContent, "OMIM");
 			if(Cast.Integer.isA(omimId))
 				{
-				String id = omim2interactor.get(omimId);
+				BerkeleyDBKey id = omim2interactor.get(omimId);
 				if(id!=null)
 					{
-					interactor=biogridDB.get(new BerkeleyDBKey(BioGridKeyType.proteinInteractor,id));
+					interactor=biogridDB.get(id);
+					if(interactor==null) throw new DatabaseException("Boum "+id);
 					}
 				}
 			}
 		
 		if(interactor==null)
 			{
-			System.err.println("Cannot find info for "+templateContent);
+			//System.err.println("Cannot find info for "+templateContent);
 			continue;
 			}
+		
 		Attr interactorIdAtt = interactor.getDocumentElement().getAttributeNode("id");
 		if(interactorIdAtt==null) throw new RuntimeException("Boumm");
-		String interactorID= interactorIdAtt.getValue();
+		BerkeleyDBKey interactorID= new BerkeleyDBKey(BioGridKeyType.proteinInteractor,interactorIdAtt.getValue());
 		//loop over all the interaction Ids
-		for(String interactionId : interactor2interaction.get(interactorID))
+		List<BerkeleyDBKey> interactionList=interactor2interaction.get(interactorID);
+		
+		
+		out.println("<h1>"+qName+"</h1>");
+		out.println("<table>");
+		out.println("<tr><th>Partner</th><th>Method</th><th>Reference</th></tr>");
+		for(BerkeleyDBKey interactionId : interactionList)
 			{
-			Document interaction= biogridDB.get(new BerkeleyDBKey(BioGridKeyType.interaction,interactionId));
+			Document interaction= biogridDB.get(interactionId);
 			//get the interactors in this interaction
 			NodeList interactionItemList=(NodeList)findParticipantRef.evaluate(interaction.getDocumentElement(),XPathConstants.NODESET);
 			//loop over all the intectors this interaction
@@ -710,18 +786,40 @@ private void loop() throws Exception
 				{
 				String partnerId=((Attr)interactionItemList.item(i)).getValue();
 				if(partnerId.equals(interactorID)) continue;
-				
+				out.print("<tr>");
+				out.print("<td>"+ proteineId2qName(partnerId)+"</td>");
+				out.print("<td></td>");
+				out.print("<td></td>");
+				out.println("</tr>");
 				}
 			
 			}
-		
+		out.println("</table>");
+		out.flush();
 		}
 	LOG.info("End  loop");
+	out.flush();
+	out.close();
+	}
+
+private String proteineId2qName(String id) throws Exception
+	{
+	Document dom = biogridDB.get(new BerkeleyDBKey(BioGridKeyType.proteinInteractor,id));
+	if(dom==null) return null;
+	String shortName=(String)xpathInteractorShortName.evaluate(dom.getDocumentElement(), XPathConstants.STRING);
+	Attr omimAtt=(Attr)xpathFindOmimId.evaluate(dom.getDocumentElement(), XPathConstants.NODE);
+	String omim= (omimAtt==null?null:omimAtt.getValue());
+	
+	
+	return id;
 	}
 
 public static void main(String[] args) {
 	try {
 		int optind=0;
+		String program=null;
+		File biogridFile=null;
+		File fileout=null;
 		Interactome01 app= new Interactome01();
 	    while(optind<args.length)
 			{
@@ -729,8 +827,25 @@ public static void main(String[] args) {
 				{
 				System.err.println("Pierre Lindenbaum PhD.");
 				System.err.println("-h this screen");
+				System.err.println("-biogrid <biogrid-file>");
+				System.err.println("-o <out-file>");
+				System.err.println("-p <program>");
+				System.err.println("   'wikipedia' load the wikipedia page for GeneWiki");
+				System.err.println("   'biogrid' load the biogrid file");
 				return;
 				}
+			else if (args[optind].equals("-p"))
+			     {
+				 program=args[++optind];
+			     }
+				else if (args[optind].equals("-o"))
+			     {
+				fileout=new File(args[++optind]);
+			     }
+			else if (args[optind].equals("-biogrid"))
+			     {
+				biogridFile=new File(args[++optind]);
+			     }
 			 else if (args[optind].equals("--"))
 			     {
 			     ++optind;
@@ -747,11 +862,48 @@ public static void main(String[] args) {
 			     }
 			++optind;
 			}
-	    app.open();
-	    app.loadWikipedia();
-	    app.parseBiogrid(new File("/home/lindenb/BIOGRID-ALL-SINGLEFILE-2.0.53.psi.xml"));
-	    app.loop();
-	    app.close();
+	    if(program==null)
+	    	{
+	    	System.err.println("program missing");
+	    	return;
+	    	}
+	    if(program.equals("wikipedia"))
+		    {
+		    app.open();
+		    app.loadWikipedia();
+		    app.close();
+		    }
+	    //-p biogrid -biogrid /home/lindenb/BIOGRID-ALL-SINGLEFILE-2.0.53.psi.xml
+	    else if(program.equals("biogrid"))
+		    {
+	    	 if(biogridFile==null)
+		    	{
+		    	System.err.println("biogrid File missing");
+		    	return;
+		    	}
+	    	LOG.info("start parsing "+biogridFile);
+		    app.open();
+		    app.parseBiogrid(biogridFile);
+		    app.close();
+		    LOG.info("end parsing "+biogridFile);
+		    }
+	    else if(program.equals("loop"))
+	    	{
+	    	 if(fileout==null)
+		    	{
+		    	System.err.println("fileout File missing");
+		    	return;
+		    	}
+	    	app.open();
+			app.loop(fileout);
+			app.close();
+	    	}
+	    else
+	    	{
+	    	System.err.println("unknown program "+program);
+	    	return;
+	    	}
+	  
 	} catch (Exception e) {
 		e.printStackTrace();
 	}

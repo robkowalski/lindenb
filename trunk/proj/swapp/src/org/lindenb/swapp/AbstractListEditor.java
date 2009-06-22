@@ -18,12 +18,19 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.border.LineBorder;
 
+import org.lindenb.sw.RDFException;
+import org.lindenb.sw.nodes.RDFNode;
+import org.lindenb.sw.nodes.Statement;
 import org.lindenb.swing.ConstrainedAction;
 import org.lindenb.swing.SwingUtils;
+import org.lindenb.util.Walker;
 
-import com.hp.hpl.jena.rdf.model.NodeIterator;
-import com.hp.hpl.jena.rdf.model.RDFNode;
 
+/**
+ * 
+ * AbstractListEditor
+ *
+ */
 public  abstract class AbstractListEditor extends RDFEditor
 	{
 	private JPanel pane;
@@ -114,19 +121,21 @@ public  abstract class AbstractListEditor extends RDFEditor
 	protected abstract void loadNode(RDFNode node);
 	protected abstract void saveNode(String s);
 	//added this for PersonEditor, then I can save mbox and mbox_sha1 at the same time
-	protected void cleanModel()
+	protected void cleanModel() throws RDFException
 		{
 		removeAll(getSubject(), getProperty(), null);
 		}
 	protected abstract boolean accept(String s);
 	
 	@Override
-	public void loadFromModel() {
+	public void loadFromModel() throws RDFException
+		{
 		DefaultListModel model= DefaultListModel.class.cast(list.getModel());
 		inputField.setText("");
 		model.setSize(0);
-		NodeIterator iter=getModel().listObjectsOfProperty(getSubject(),getProperty());
-		while(iter.hasNext())
+		Walker<Statement> iter=getModel().filter(getSubject(),getProperty(),null);
+		Statement stmt=null;
+		while((stmt=iter.next())!=null)
 			{
 			loadNode(iter.nextNode());
 			}
@@ -136,7 +145,7 @@ public  abstract class AbstractListEditor extends RDFEditor
 	
 	
 	@Override
-	public void saveToModel()
+	public void saveToModel() throws RDFException
 		{
 		if(!this.inputField.isEnabled())
 			{
