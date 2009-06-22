@@ -246,9 +246,11 @@ public class SAXScript extends DefaultHandler
 	    	{
 	    	while(optind< args.length)
 	    		{
-	    		File f= new File(args[optind++]);
-	    		scripEngine.put("__FILENAME__", f.toString());
-	    		parser.parse(f, handler);
+	    		String file= args[optind++];
+	    		java.io.Reader reader= org.lindenb.io.IOUtils.openReader(file);
+	    		scripEngine.put("__FILENAME__", file);
+	    		parser.parse(new org.xml.sax.InputSource(file), handler);
+	    		reader.close();
 	    		}
 	    	}
          
