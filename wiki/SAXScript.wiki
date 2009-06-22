@@ -1,7 +1,5 @@
 #labels sax,xml,parsing,java,tool,pubmed,ncbi,javascript,Featured,script,scripting
-A SaxHandler invoking *javascript* *callbacks*.
-
-SAXScript is a event-based  [http://en.wikipedia.org/wiki/Simple_API_for_XML SAX parser] java program invoking *javascript* *callbacks*
+SAXScript is an event-driven  [http://en.wikipedia.org/wiki/Simple_API_for_XML SAX parser] java program invoking *javascript* *callbacks*
 
 ==Download==
 Download saxscript.jar from [http://code.google.com/p/lindenb/downloads/list]
