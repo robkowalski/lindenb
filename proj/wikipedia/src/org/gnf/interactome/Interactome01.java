@@ -44,6 +44,7 @@ import org.lindenb.xml.Sax2Dom;
 import org.lindenb.xml.XMLUtilities;
 import org.w3c.dom.Attr;
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
@@ -65,6 +66,7 @@ import com.sleepycat.je.OperationStatus;
 
 public class Interactome01
 {
+private static final String PSI_NS="net:sf:psidev:mi";
 private static final Logger LOG=Logger.getLogger(Interactome01.class.getName());
 private static long ID_GENERATOR=System.currentTimeMillis();
 private File envHome;
@@ -88,7 +90,8 @@ private XMLInputFactory xmlInputFactory;
 private XPathExpression xpathFindOmimId=null;
 private XPathExpression xpathInteractorShortName=null;
 private XPathExpression findParticipantRef=null;
-
+private XPathExpression xpathFindMethod=null;
+private XPathExpression xpathFindExperimentRef=null;
 static private enum BioGridKeyType
 	{
 	proteinInteractor,
@@ -269,8 +272,7 @@ extends BerkeleyDB<K, V>
 		DatabaseEntry key= keyToEntry(k);
 		DatabaseEntry value= new DatabaseEntry();
 		Cursor c= cursor();
-		
-		if(c.getNext(key, value, null)!=OperationStatus.SUCCESS) return list;
+		if(c.getSearchKey(key, value, null)!=OperationStatus.SUCCESS) return list;
 		list.add(entryToValue(value));
 		while(c.getNextDup(key, value, null)==OperationStatus.SUCCESS)
 			{
@@ -368,6 +370,7 @@ private class BioGridHandler
 				if(localName.equals("interaction"))
 					{
 					String id="interaction"+(++ID_GENERATOR);
+					Element.class.cast(super.currentNode).setAttribute("id", id);
 					bdbKey = new BerkeleyDBKey(type,id);
 					
 					NodeList list=(NodeList)findParticipantRef.evaluate(currentNode,XPathConstants.NODESET);
@@ -375,10 +378,12 @@ private class BioGridHandler
 					
 					for(int i=0;i< list.getLength();++i)
 						{
+						BerkeleyDBKey partnerId =new BerkeleyDBKey(BioGridKeyType.proteinInteractor,Attr.class.cast(list.item(i)).getValue());
 						interactor2interaction.put(
-							new BerkeleyDBKey(BioGridKeyType.proteinInteractor,Attr.class.cast(list.item(i)).getValue()),
+							partnerId,
 							bdbKey)
 							;
+						//LOG.info(bdbKey+" "+partnerId);
 						}
 					}
 				else if(localName.equals("proteinInteractor"))
@@ -471,11 +476,13 @@ private Interactome01() throws Exception
 	XPathFactory xpathFactory=XPathFactory.newInstance();
 	this.xpath=xpathFactory.newXPath();
 	NamespaceContextImpl ctx=new NamespaceContextImpl();
-	ctx.setPrefixURI("psi","net:sf:psidev:mi");
+	ctx.setPrefixURI("psi",PSI_NS);
 	this.xpath.setNamespaceContext(ctx);
 	this.findParticipantRef=xpath.compile("psi:participantList/psi:proteinParticipant/psi:proteinInteractorRef/@ref");
 	this.xpathFindOmimId =xpath.compile("psi:xref[1]/psi:primaryRef[@db='MIM']/@id");
 	this.xpathInteractorShortName= xpath.compile("psi:names[1]/psi:shortLabel[1]/text()");
+	this.xpathFindMethod = xpath.compile("psi:interactionType[1]/psi:names[1]/psi:shortLabel[1]/text()");
+	this.xpathFindExperimentRef = xpath.compile("psi:experimentList[1]/psi:experimentRef[1]/@ref");
 	
 	this.xmlInputFactory = XMLInputFactory.newInstance();
 	this.xmlInputFactory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, Boolean.FALSE);
@@ -718,6 +725,7 @@ private void loop(File fileout) throws Exception
 	LOG.info("Start loop");
 	//loop over wikipedia
 	PrintWriter out= new PrintWriter(new FileWriter(fileout));
+	out.print("<html><body>");
 	for(String qName: wikipediaPages)
 		{
 		if(qName.startsWith("Template:")) continue;
@@ -774,22 +782,38 @@ private void loop(File fileout) throws Exception
 		
 		
 		out.println("<h1>"+qName+"</h1>");
-		out.println("<table>");
+		out.println("<table border='1'>");
 		out.println("<tr><th>Partner</th><th>Method</th><th>Reference</th></tr>");
+		Set<String> seen= new HashSet<String>();
 		for(BerkeleyDBKey interactionId : interactionList)
 			{
 			Document interaction= biogridDB.get(interactionId);
+			//out.println("<!-- "+ interactorID +"\n "+doc2string(interaction)+" -->");
 			//get the interactors in this interaction
 			NodeList interactionItemList=(NodeList)findParticipantRef.evaluate(interaction.getDocumentElement(),XPathConstants.NODESET);
 			//loop over all the intectors this interaction
 			for(int i=0;i< interactionItemList.getLength();++i)
 				{
 				String partnerId=((Attr)interactionItemList.item(i)).getValue();
-				if(partnerId.equals(interactorID)) continue;
+				if(partnerId.equals(interactorID.id)) continue;
+				if(seen.contains(partnerId)) continue;
+				seen.add(partnerId);
+				
 				out.print("<tr>");
 				out.print("<td>"+ proteineId2qName(partnerId)+"</td>");
-				out.print("<td></td>");
-				out.print("<td></td>");
+				out.print("<td>"+ xpathFindMethod.evaluate(interaction.getDocumentElement(),XPathConstants.STRING)+"</td>");
+				Attr expRef= (Attr)xpathFindExperimentRef.evaluate(interaction.getDocumentElement(),XPathConstants.NODE);
+				out.print("<td>");
+				if(expRef!=null)
+					{
+					Document experiment= this.biogridDB.get(new BerkeleyDBKey(BioGridKeyType.experimentDescription,expRef.getValue()));
+					if(experiment!=null)
+						{
+						out.print(experiment2anchor(experiment));
+						}
+					}
+				
+				out.print("</td>");
 				out.println("</tr>");
 				}
 			
@@ -798,6 +822,7 @@ private void loop(File fileout) throws Exception
 		out.flush();
 		}
 	LOG.info("End  loop");
+	out.print("</body></html>");
 	out.flush();
 	out.close();
 	}
@@ -806,13 +831,45 @@ private String proteineId2qName(String id) throws Exception
 	{
 	Document dom = biogridDB.get(new BerkeleyDBKey(BioGridKeyType.proteinInteractor,id));
 	if(dom==null) return null;
-	String shortName=(String)xpathInteractorShortName.evaluate(dom.getDocumentElement(), XPathConstants.STRING);
+	
 	Attr omimAtt=(Attr)xpathFindOmimId.evaluate(dom.getDocumentElement(), XPathConstants.NODE);
 	String omim= (omimAtt==null?null:omimAtt.getValue());
+	if(omim!=null && Cast.Integer.isA(omim))
+		{
+		String qName= omim2qname.get(omim);
+		if(qName!=null) return "<a href=\"http://en.wikipedia.org/wiki/"+qName+"\">"+qName+"</a>";
+		}
 	
 	
+	String shortName=(String)xpathInteractorShortName.evaluate(dom.getDocumentElement(), XPathConstants.STRING);
+	if(shortName!=null && shortName.startsWith("EG"))
+		{
+		shortName = shortName.substring(2);
+		String qName= entrezGene2qname.get(shortName);
+		if(qName!=null) return "<a href=\"http://en.wikipedia.org/wiki/"+qName+"\">"+qName+"</a>";
+		}
+
 	return id;
 	}
+
+private String experiment2anchor(Document exp)  throws Exception
+	{
+	Element names= XMLUtilities.firstChild(exp.getDocumentElement(), PSI_NS, "names");
+	if(names==null) return "?";
+	Element shortLabel=  XMLUtilities.firstChild(names,PSI_NS,"shortLabel");
+	Element fullName=  XMLUtilities.firstChild(names,PSI_NS,"fullName");
+	if(fullName==null) fullName=shortLabel;
+	Element bibRef= XMLUtilities.firstChild(exp.getDocumentElement(), PSI_NS, "bibref");
+	Element xref= XMLUtilities.firstChild(bibRef, PSI_NS, "xref");
+	Element primaryRef= XMLUtilities.firstChild(xref, PSI_NS, "primaryRef");
+	if(!"pubmed".equals(primaryRef.getAttribute("db"))) return fullName.getTextContent();
+	String url="http://www.ncbi.nlm.nih.gov/pubmed/"+primaryRef.getAttribute("id");
+	return "<a href=\""+url+"\">"+XMLUtilities.escape(shortLabel.getTextContent()) +" : "+ 
+		XMLUtilities.escape(fullName.getTextContent())+
+		"</a>";
+	}
+
+
 
 public static void main(String[] args) {
 	try {
