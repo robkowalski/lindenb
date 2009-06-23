@@ -15,6 +15,13 @@ import java.util.Set;
 public abstract class AbstractWalker<T>
 	implements Walker<T>
 	{
+	@Override
+	protected void finalize() throws Throwable {
+		close();
+		super.finalize();
+		}
+	
+	
 	public boolean contains(T t)
 		{
 		if(t==null) { close();return false;}
