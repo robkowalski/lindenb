@@ -7,6 +7,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -785,10 +786,55 @@ private void loop(File fileout) throws Exception
 		out.println("<table border='1'>");
 		out.println("<tr><th>Partner</th><th>Method</th><th>Reference</th></tr>");
 		Set<String> seen= new HashSet<String>();
+		
+		HashMap<String, Interactor>  partnerId2intractor= new HashMap<String, Interactor>();
 		for(BerkeleyDBKey interactionId : interactionList)
 			{
 			Document interaction= biogridDB.get(interactionId);
-			//out.println("<!-- "+ interactorID +"\n "+doc2string(interaction)+" -->");
+			NodeList interactionItemList=(NodeList)findParticipantRef.evaluate(interaction.getDocumentElement(),XPathConstants.NODESET);
+			for(int i=0;i< interactionItemList.getLength();++i)
+				{
+				String partnerId=((Attr)interactionItemList.item(i)).getValue();
+				if(partnerId.equals(interactorID.id)) continue;
+				Interactor actor= partnerId2intractor.get(partnerId);
+				if(actor==null)
+					{
+					actor= new Interactor();
+					partnerId2intractor.put(partnerId,actor);
+					}
+				actor.interactions.add(interaction);
+				}
+			}
+		for(String partnerId: partnerId2intractor.keySet())
+			{
+			Interactor actor= partnerId2intractor.get(partnerId);
+			if(actor.interactions.size()<2) continue;
+			for(Document interaction:actor.interactions)
+				{
+				out.print("<tr>");
+				out.print("<td>"+ proteineId2qName(partnerId)+"</td>");
+				out.print("<td>"+ xpathFindMethod.evaluate(interaction.getDocumentElement(),XPathConstants.STRING)+"</td>");
+				Attr expRef= (Attr)xpathFindExperimentRef.evaluate(interaction.getDocumentElement(),XPathConstants.NODE);
+				out.print("<td>");
+				if(expRef!=null)
+					{
+					Document experiment= this.biogridDB.get(new BerkeleyDBKey(BioGridKeyType.experimentDescription,expRef.getValue()));
+					if(experiment!=null)
+						{
+						out.print(experiment2anchor(experiment));
+						}
+					}
+				
+				out.print("</td>");
+				out.println("</tr>");
+				}
+			}
+		
+		for(BerkeleyDBKey interactionId : interactionList)
+			{
+			if(1==1) break;
+			Document interaction= biogridDB.get(interactionId);
+			
 			//get the interactors in this interaction
 			NodeList interactionItemList=(NodeList)findParticipantRef.evaluate(interaction.getDocumentElement(),XPathConstants.NODESET);
 			//loop over all the intectors this interaction
@@ -826,6 +872,14 @@ private void loop(File fileout) throws Exception
 	out.flush();
 	out.close();
 	}
+
+private class Interactor
+	{
+	List<Document> interactions=new ArrayList<Document>();
+	
+	}
+
+
 
 private String proteineId2qName(String id) throws Exception
 	{
