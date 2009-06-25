@@ -254,6 +254,11 @@ public class DocumentSerializer
 				writeString(output,entity.getNodeName());
 				break;
 				}
+			case Node.DOCUMENT_TYPE_NODE:
+				{
+				//ignore DTD !!
+				break;
+				}
 			default: throw new IllegalArgumentException("Node Type not handled :"+n.getNodeType());
 			}
 		}
@@ -370,7 +375,10 @@ public class DocumentSerializer
 				{
 				return dom.createEntityReference(readString(in));
 				}
-			
+			case Node.DOCUMENT_TYPE_NODE:
+				{
+				return dom.createComment("skipped Document type Node ");
+				}
 			default: throw new IllegalArgumentException("Node not handled");
 			}
 		}
