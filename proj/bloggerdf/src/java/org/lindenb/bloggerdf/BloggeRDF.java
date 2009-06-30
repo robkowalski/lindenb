@@ -126,7 +126,7 @@ private void post(String title,Document content,Set<String> tags)  throws HttpEx
 {
 	PostMethod method =null;
 	try
-	{
+		{
 		method= new PostMethod("http://www.blogger.com/feeds/"+ this.blogId+"/posts/default");
 		method.addRequestHeader("GData-Version", String.valueOf(GDataVersion));
 		method.addRequestHeader("Authorization", "GoogleLogin auth="+this.AuthToken);
@@ -147,9 +147,6 @@ private void post(String title,Document content,Set<String> tags)  throws HttpEx
 		contentNode.setAttribute("type", "xhtml");
 		contentNode.appendChild(dom.importNode(content.getDocumentElement(), true));
 
-
-
-
 		for(String tag:tags)
 			{
 			Element category =dom.createElementNS(Atom.NS, "category");
@@ -166,27 +163,27 @@ private void post(String title,Document content,Set<String> tags)  throws HttpEx
 			IOUtils.copyTo(method.getResponseBodyAsStream(), System.out);
 			}
 		else
-		{
+			{
 			throw new HttpException("post returned http-code="+status+" expected 201 (CREATE)");
+			}
+		}
+	catch(TransformerException  err)
+		{
+		throw err;
+		}
+	catch(HttpException  err)
+		{
+		throw err;
+		}
+	catch(IOException err)
+		{
+		throw err;
+		}
+	finally
+		{
+		if(method!=null) method.releaseConnection();
 		}
 	}
-	catch(TransformerException  err)
-	{
-		throw err;
-	}
-	catch(HttpException  err)
-	{
-		throw err;
-	}
-	catch(IOException err)
-	{
-		throw err;
-	}
-	finally
-	{
-		if(method!=null) method.releaseConnection();
-	}
-}
 
 private void listBlogs() throws HttpException,IOException
 	  {
@@ -298,9 +295,9 @@ public static void main(String[] args) {
 		char userPassword[]=null;
 		File googleFile= new File(System.getProperty("user.home"),".google.properties");
 		if(!googleFile.exists())
-		{
+			{
 			System.err.println("Default params doesn't exists: "+googleFile);
-		}
+			}
 		else
 		{
 			Properties properties= new Properties();  
@@ -312,32 +309,33 @@ public static void main(String[] args) {
 				userMail= properties.getProperty("user.mail");
 				String s= properties.getProperty("user.password.base64");
 				if(s!=null)
-				{
+					{
 					userPassword= new String(Base64.decode(s)).toCharArray();  
-				}
+					}
 				else
-				{
+					{
 					s= properties.getProperty("user.password");
 					if(s!=null)
-					{
+						{
 						userPassword= s.toCharArray();  
+						}
 					}
-				}
 				s= properties.getProperty("blog.id");
 				if(s!=null)
-				{
+					{
 					blogId= new BigInteger(s);  
+					}
 				}
-			}
 			catch(IOException err)
-			{
+				{
 				System.err.println("Cannot read properties from "+googleFile+" "+err.getMessage());  
-			}
+				}
 			finally
-			{
+				{
 				if(in!=null) in.close();
 				properties.clear();
-			}
+				properties=null;
+				}
 		}
 		int optind=0;
 		String command=null;
@@ -357,33 +355,33 @@ public static void main(String[] args) {
 				return;
 			}
 			else if (args[optind].equals("-i"))
-			{
+				{
 				blogId= new BigInteger(args[++optind].trim()) ;
-			}
+				}
 			else if (args[optind].equals("-m"))
-			{
+				{
 				userMail= args[++optind];
-			}
+				}
 			else if (args[optind].equals("-p"))
-			{
+				{
 				userPassword= args[++optind].toCharArray();
-			}
+				}
 			else if (args[optind].equals("--"))
-			{
+				{
 				++optind;
 				break;
-			}
+				}
 			else if (args[optind].startsWith("-"))
-			{
+				{
 				System.err.println("bad argument " + args[optind]);
 				System.exit(-1);
-			}
+				}
 			else
-			{
+				{
 				break;
-			}
+				}
 			++optind;
-		}
+			}
 		
 		if(command==null)
 			{
