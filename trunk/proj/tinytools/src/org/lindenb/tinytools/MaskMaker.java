@@ -17,6 +17,9 @@ import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,16 +27,24 @@ import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
 import javax.swing.JButton;
 import javax.swing.JDialog;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JToolBar;
+
+import org.lindenb.io.PreferredDirectory;
+import org.lindenb.lang.ThrowablePane;
+import org.lindenb.sw.vocabulary.SVG;
+import org.lindenb.sw.vocabulary.XLINK;
 import org.lindenb.swing.DrawingArea;
 import org.lindenb.swing.SwingUtils;
 import org.lindenb.util.Cast;
 import org.lindenb.util.Compilation;
+import org.lindenb.xml.XMLUtilities;
 
 public class MaskMaker
 extends JFrame
@@ -51,7 +62,7 @@ extends JFrame
 	private int selIndex2=-1;
 	private Point mousePrev=null;
 	private List<Figure> figures=new ArrayList<Figure>();
-	
+	private URL sourceURL;
 	/**
 	 * 
 	 * Figure
@@ -313,10 +324,11 @@ extends JFrame
 	/**
 	 * MaskCreatorDialog
 	 */
-	private MaskMaker(BufferedImage image,String url)
+	private MaskMaker(BufferedImage image,URL url)
 		{
 		super("MaskCreator");
 		this.image=image;
+		this.sourceURL=url;
 		setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 		JPanel contentPane= new JPanel(new BorderLayout());
 		setContentPane(contentPane);
@@ -389,9 +401,83 @@ extends JFrame
 		JMenuBar bar= new JMenuBar();
 		JMenu menu= new JMenu("File");
 		bar.add(menu);
+		menu.add(new AbstractAction("Save as SVG")
+			{
+			private static final long serialVersionUID = 1L;
+
+			@Override
+			public void actionPerformed(ActionEvent e)
+				{
+				JFileChooser fileChooser= new JFileChooser(PreferredDirectory.getPreferredDirectory());
+				if(fileChooser.showSaveDialog(MaskMaker.this)!=JFileChooser.APPROVE_OPTION) return ;
+				File f= fileChooser.getSelectedFile();
+				if(f==null || (f.exists() && JOptionPane.showConfirmDialog(MaskMaker.this, f.toString()+" already exists. Overwrite ?","Warning",JOptionPane.OK_CANCEL_OPTION)!=JOptionPane.OK_OPTION))
+					{
+					return;
+					}
+				PreferredDirectory.setPreferredDirectory(f);
+				try
+				{
+				saveToSVG(f);
+				} catch (Exception err) {
+					ThrowablePane.show(MaskMaker.this,err);
+				}
+				}
+			});
+		
 		setJMenuBar(bar);
 		}
 	
+	private void saveToSVG(File f) throws IOException
+		{
+		double width=1;
+		double height=1;
+		for(Figure fig:this.figures)
+			{
+			for(int i=0;i< fig.size();++i)
+				{
+				width=Math.max(width, fig.getX(i)+1);
+				height=Math.max(height, fig.getY(i)+1);
+				}
+			}
+		PrintWriter out= new PrintWriter(f);
+		out.println("<?xml version=\"1.0\" encoding=\"UTF-8\" ?>");
+		out.println("<svg xmlns=\""+SVG.NS+"\" " +
+				" xmlns:xlink=\""+XLINK.NS+"\" "+
+				" version='1.0' width='"+width+"' height='"+ height+
+				"'>");
+		out.println("<defs>");
+		out.print("<image id='img' " +
+				" width='"+ this.image.getWidth() +"' " +
+				" height='"+ this.image.getHeight() +"' " +
+				" xlink:href='"+XMLUtilities.escape(sourceURL.toString())+"' "+
+				" />");
+		out.println("</defs>");
+		int clipIndex=0;
+		for(Figure fig:this.figures)
+			{
+			out.println("<g clip-rule='nonzero'>");
+			out.println("<clipPath id='clip"+(++clipIndex)+"'>");
+			out.print("<path d='");
+			for(int i=0;i< fig.size();++i)
+				{
+				out.print((i==0?"M ":"L ")+fig.getX(i)+" "+fig.getY(i)+" ");
+				}
+			out.print("z'/>");
+			out.println("</clipPath>");
+			out.print("<use x='0' y='0'  xlink:href='#img' clip-path='url(#clip"+clipIndex+")'  clip-rule='evenodd' />");
+			
+			out.println("</g>");
+			for(int i=0;i< fig.size();++i)
+				{
+				width=Math.max(width, fig.getX(i)+1);
+				height=Math.max(height, fig.getY(i)+1);
+				}
+			}
+		out.println("</svg>");
+		out.flush();
+		out.close();
+		}
 
 	/**
 	 * main
@@ -434,15 +520,19 @@ extends JFrame
                 {
               	String url=args[optind++];
                 BufferedImage img;
+                MaskMaker app=null;
                 if(Cast.URL.isA(url))
                 	{
                 	img= ImageIO.read(Cast.URL.cast(url));
+                	app= new MaskMaker(img,Cast.URL.cast(url));
                 	}
                 else
                 	{
-                	img= ImageIO.read(new File(url));
+                	File f=new File(url);
+                	img= ImageIO.read(f);
+                	app= new MaskMaker(img,f.toURI().toURL());
                 	}
-                MaskMaker app=new MaskMaker(img,url);
+               
     			SwingUtils.center(app,100);
     			SwingUtils.show(app);
                 }

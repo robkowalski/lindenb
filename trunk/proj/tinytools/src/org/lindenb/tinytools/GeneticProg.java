@@ -10,6 +10,7 @@ package org.lindenb.tinytools;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 
 import java.io.PrintWriter;
 
@@ -26,6 +27,7 @@ import java.util.Vector;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
+import org.lindenb.io.IOUtils;
 import org.lindenb.lang.IllegalInputException;
 import org.lindenb.util.Cast;
 import org.lindenb.util.Compilation;
@@ -73,6 +75,7 @@ public class GeneticProg
 	/**
 	 * 
 	 * Spreadsheet
+	 * A table holding the input. The last column is the result
 	 *
 	 */
 	private class Spreadsheet
@@ -144,17 +147,15 @@ public class GeneticProg
 						throw new IllegalInputException("Error in "+line+" \""+tokens[i]+"\" is not a number");
 						}
 					row[i]= Cast.Double.cast(tokens[i]);
+					if(i+1==tokens.length)
+						{
+						this.minmax[0]=Math.min(this.minmax[0],row[i]);
+						this.minmax[1]=Math.max(this.minmax[1],row[i]);
+						}
 					}
 				this.rows.add(row);
 				}
 			if(getRowCount()==0) throw new IOException("Found no data");
-			this.minmax=new double[]{Double.MAX_VALUE,-Double.MAX_VALUE};
-			for(int i=0;i< getRowCount();++i)
-				{
-				double v= getResultAt(i);
-				this.minmax[0]=Math.min(this.minmax[0],v);
-				this.minmax[1]=Math.max(this.minmax[1],v);
-				}
 			}
 	
 		public double getResultAt(int row)
@@ -182,6 +183,11 @@ public class GeneticProg
 		Spreadsheet getSpreadsheet()
 			{
 			return getGeneticProg().getSpreadsheet();
+			}
+		
+		Random getRandom()
+			{
+			return getGeneticProg().getRandom();
 			}
 		
 		public Node getRoot()
@@ -213,12 +219,13 @@ public class GeneticProg
 		   			nodes= getAllNodes();
 		   			}
 	           assert(nodes.size()>0);
-	           choosen = nodes.get(
-	        		   getGeneticProg().getRandom().nextInt(nodes.size() ));
-	           if(getGeneticProg().rnd()>0.05)
+	           choosen = nodes.get(getRandom().nextInt(nodes.size() ));
+	           //random: mute this node
+	           if(getGeneticProg().rnd()>0.5)
 		           {
 		           choosen.muteIt();
 		           }
+	           //else remove this node from its parent and replace it by a random node
 	           else
 	           	  {
 	        	  Node parent=choosen.parent;
@@ -265,7 +272,7 @@ public class GeneticProg
 	/** mute only the content of this node */
 	public abstract void muteIt();
 	
-	public abstract Number calc(int row);
+	public abstract Double calc(int row);
 	public abstract void print(PrintWriter out);
 	public abstract Node clone(Node parent);
 	public abstract NodeType getNodeType();
@@ -289,7 +296,7 @@ public class GeneticProg
 	 */
 	protected abstract class Leaf extends Node
 		{
-		public Leaf()
+		protected Leaf()
 			{
 			}
 		
@@ -326,7 +333,8 @@ public class GeneticProg
 		@Override
 		public void muteIt()
 			{
-			this.columnIndex=getGeneticProg().getRandom().nextInt(getSpreadsheet().getColumnCount());
+			//choose another column
+			this.columnIndex= getRandom().nextInt(getSpreadsheet().getColumnCount());
 			}
 	
 		public void print(PrintWriter out)
@@ -334,9 +342,9 @@ public class GeneticProg
 			out.print("($"+(1+this.columnIndex)+")");
 			}
 	
-		public Number calc(int row)
+		public Double calc(int row)
 			{
-			return getGeneticProg().getSpreadsheet().getValueAt(row,this.columnIndex);
+			return getSpreadsheet().getValueAt(row,this.columnIndex);
 			}
 	
 		public Node clone(Node parent)
@@ -360,7 +368,7 @@ public class GeneticProg
 	/** A Constant */
 	class Constant extends Leaf
 		{
-		private Double value; 
+		private double value=Math.random(); 
 		
 		public Constant()
 			{
@@ -376,13 +384,17 @@ public class GeneticProg
 		@Override
 		public void muteIt()
 			{
-			if(getGeneticProg().rnd()<0.5)
+			int log= 1+getRandom().nextInt(6);
+			if(getRandom().nextFloat()<0.5f) log=-log;
+			int exp=  getGeneticProg().getRandom().nextInt((int)Math.pow(10, log));
+			if(getRandom().nextFloat()<0.5f) exp=-exp;
+			if(getRandom().nextFloat()<0.5)
 				{
-				this.value = new Double( 50.0 - getGeneticProg().getRandom().nextInt(100) );
+				this.value = exp;
 				}
 			else
 				{
-				this.value = new Double( 0.5 - getGeneticProg().getRandom().nextDouble() );	
+				this.value +=exp;
 				}
 			}
 		
@@ -405,19 +417,33 @@ public class GeneticProg
 			if(this==o) return true;
 			if(!(o instanceof Constant)) return false;
 			Constant cp=(Constant)o;
-			return cp.value.equals(this.value);
+			return cp.value==this.value;
 			}
 		
 		@Override
-		public Number calc(int row)
+		public Double calc(int row)
 			{
 			return this.value;
 			}
 		}
 	
-	static class Shuttle
+	static private class MutableInteger
 		{
-		int total_node;
+		private int value=0;
+		MutableInteger()
+			{
+			this(0);
+			}
+		MutableInteger(int value)
+			{
+			this.value=value;
+			}
+		public int getValue() {
+			return value;
+			}
+		public void setValue(int value) {
+			this.value = value;
+			}
 		}
 	
 	/**
@@ -434,13 +460,13 @@ public class GeneticProg
 		 * @param parent
 		 * @param context
 		 */
-		public Function(GeneticProg.Shuttle n)
+		public Function(MutableInteger count)
 			{
 			this.operator= getGeneticProg().choose_operator();
 			this.children= new Node[operator.argc()];
 			for(int i=0;i< this.children.length;++i)
 				{
-				setChildrenAt(getGeneticProg().choose_random_node(n),i);
+				setChildrenAt(getGeneticProg().choose_random_node(count),i);
 				}
 			}
 		
@@ -463,7 +489,6 @@ public class GeneticProg
 			{
 			return NodeType.FUNCTION;
 			}
-		
 		
 
 		
@@ -508,7 +533,7 @@ public class GeneticProg
 				}
 			}
 		
-
+		/** replace children a given index */
 		protected void setChildrenAt(Node node,int index)
 			{
 			if(this.children[index]!=null)
@@ -539,8 +564,8 @@ public class GeneticProg
 				int n=  getGeneticProg().getRandom().nextInt(this.getChildCount());
 				int nodefromroot= getRoot().countDescendant();
 				int nodefromhere= this.countDescendant();
-				Shuttle shutte= new Shuttle();
-				shutte.total_node=nodefromroot-nodefromhere;
+				MutableInteger shutte= new MutableInteger(0);
+				shutte.setValue( nodefromroot-nodefromhere);
 				this.setChildrenAt(getGeneticProg().choose_random_node(shutte),n);
 				}
 			}
@@ -548,7 +573,7 @@ public class GeneticProg
 		@Override
 		public Double calc(int row)
 			{
-			Number val= this.operator.calc(row,children);
+			Double val= this.operator.calc(row,children);
 			if(val==null) return null;
 			return new Double(val.doubleValue());
 			}
@@ -599,7 +624,7 @@ public class GeneticProg
 		/** number of arguments */
 	    public abstract int argc();
 	    /** calculate the result for this operator at the given row */
-	    public abstract Number calc(int rowIndex,Node childs[]);
+	    public abstract Double calc(int rowIndex,Node childs[]);
 	    /** answer the name of this operator */
 	    public abstract String getName();
 	    @Override
@@ -632,7 +657,7 @@ public class GeneticProg
 			}
 
 		@Override
-		public Number calc(int rowIndex, Node[] childs)
+		public Double calc(int rowIndex, Node[] childs)
 			{
 			assert(childs!=null && childs.length==1);
 			Number value= childs[0].calc(rowIndex);
@@ -640,7 +665,7 @@ public class GeneticProg
 			return calc(rowIndex,value.doubleValue());
 			}
 
-		public abstract Number calc(int rowIndex,double value);
+		public abstract Double calc(int rowIndex,double value);
 		}
 	
 	/**
@@ -667,7 +692,7 @@ public class GeneticProg
 			}
 	
 		@Override
-		public Number calc(int rowIndex, Node[] childs)
+		public Double calc(int rowIndex, Node[] childs)
 			{
 			assert(childs!=null && childs.length==2);
 			Number value1= childs[0].calc(rowIndex);
@@ -681,7 +706,7 @@ public class GeneticProg
 			return calc(rowIndex,value1.doubleValue(),value2.doubleValue());
 			}
 	
-		public abstract Number calc(int rowIndex,double v1,double v2);
+		public abstract Double calc(int rowIndex,double v1,double v2);
 		}
 	
 	/**
@@ -707,7 +732,7 @@ public class GeneticProg
 
 
 		@Override
-		public Number calc(int rowIndex, Node[] childs)
+		public Double calc(int rowIndex, Node[] childs)
 			{
 			assert(childs!=null && childs.length==4);
 			Number value1= childs[0].calc(rowIndex);
@@ -968,7 +993,7 @@ public class GeneticProg
 		putOperator(new BinaryOperator("Add")
 				{
 				@Override
-				public Number calc(int rowIndex, double v1, double v2) {
+				public Double calc(int rowIndex, double v1, double v2) {
 					return new Double(v1+v2);
 					}
 				},new Integer(SIMPLE_MATH_DEFAULT_SCORE));
@@ -976,7 +1001,7 @@ public class GeneticProg
 		putOperator(new BinaryOperator("Minus")
 				{
 				@Override
-				public Number calc(int rowIndex, double v1, double v2) {
+				public Double calc(int rowIndex, double v1, double v2) {
 					return new Double(v1-v2);
 					}
 				},new Integer(SIMPLE_MATH_DEFAULT_SCORE));		
@@ -984,7 +1009,7 @@ public class GeneticProg
 		putOperator(new BinaryOperator("Mul")
 				{
 				@Override
-				public Number calc(int rowIndex, double v1, double v2) {
+				public Double calc(int rowIndex, double v1, double v2) {
 					return new Double(v1*v2);
 					}
 				},new Integer(SIMPLE_MATH_DEFAULT_SCORE));				
@@ -992,7 +1017,7 @@ public class GeneticProg
 		putOperator(new BinaryOperator("Div")
 				{
 				@Override
-				public Number calc(int rowIndex, double v1, double v2) {
+				public Double calc(int rowIndex, double v1, double v2) {
 					if(v2==0.0) return null;
 					return new Double(v1/v2);
 					}
@@ -1001,7 +1026,7 @@ public class GeneticProg
 		putOperator(new UnaryOperator("sqrt")
 				{
 				@Override
-				public Number calc(int rowIndex, double value)
+				public Double calc(int rowIndex, double value)
 					{
 					if(value<=0) return null;
 					return Math.sqrt(value);
@@ -1012,7 +1037,7 @@ public class GeneticProg
 		putOperator(new UnaryOperator("cos")
 				{
 				@Override
-				public Number calc(int rowIndex, double value)
+				public Double calc(int rowIndex, double value)
 					{
 					return Math.cos(value);
 					}
@@ -1021,7 +1046,7 @@ public class GeneticProg
 		putOperator(new UnaryOperator("sin")
 				{
 				@Override
-				public Number calc(int rowIndex, double value)
+				public Double calc(int rowIndex, double value)
 					{
 					return Math.sin(value);
 					}
@@ -1030,7 +1055,7 @@ public class GeneticProg
 		putOperator(new UnaryOperator("tan")
 				{
 				@Override
-				public Number calc(int rowIndex, double value)
+				public Double calc(int rowIndex, double value)
 					{
 					return Math.tan(value);
 					}
@@ -1038,7 +1063,7 @@ public class GeneticProg
 		putOperator(new UnaryOperator("log")
 				{
 				@Override
-				public Number calc(int rowIndex, double value)
+				public Double calc(int rowIndex, double value)
 					{
 					if(value<=0) return null;
 					return Math.log(value);
@@ -1047,7 +1072,7 @@ public class GeneticProg
 		putOperator(new UnaryOperator("exp")
 				{
 				@Override
-				public Number calc(int rowIndex, double value)
+				public Double calc(int rowIndex, double value)
 					{
 					return Math.exp(value);
 					}
@@ -1055,7 +1080,7 @@ public class GeneticProg
 		putOperator(new UnaryOperator("negate")
 				{
 				@Override
-				public Number calc(int rowIndex, double value)
+				public Double calc(int rowIndex, double value)
 					{
 					return -value;
 					}
@@ -1089,150 +1114,77 @@ public class GeneticProg
 
 
 
-	
-	
-
-	
-
-    
-	class Exploration implements Comparable<Exploration>
-		{
-		private Vector<Solution> sols;
-		
-		public Exploration()
-			{
-			this.sols= new Vector<Solution>();
-			}
-		
-		
-		public int compareTo(Exploration o)
-			{
-			return this.best().compareTo(o.best());
-			}
-		
-		void run(int geneIndex,int count) throws InterruptedException
-			{
-			for(int generation=geneIndex;generation< geneIndex+count;++generation)
-				{
-				while(this.sols.size()< getGeneticProg().num_parents())
-					{
-					sols.add(new Solution(choose_random_node(null),generation));
-					}
-				
-			    int n=this.sols.size();
-			    for(int i=0;i< n;++i)
-			    	{
-			    	  for(int j=0;j< n;++j)
-				    	{
-			    		
-			    		Node n1=  sols.elementAt(i).getNode().clone(null);
-			    		Node n2=  sols.elementAt(j).getNode().clone(null);
-			    		crossover(n1,n2);
-			    		Solution s1= new Solution(n1,generation);
-			    		Solution s2= new Solution(n1,generation);
-			    		s1.mute();
-			    		s2.mute();
-			    		this.sols.addElement(s1);
-			    		this.sols.addElement(s2);
-				    	}
-			    	}
-			    
-				while(this.sols.size()< num_extra_parents())
-					{
-					this.sols.add(new Solution(getGeneticProg().choose_random_node(null),generation));
-					}
-			    
-				Collections.sort(sols);
-				
-				//remove big ones
-				int k=0;
-				while(k< this.sols.size())
-					{
-					if(k!=0 && this.sols.elementAt(k).getNode().countDescendant()>  getGeneticProg().max_nodes_in_a_tree())
-						{
-						this.sols.removeElementAt(k);
-						}
-					else
-						{
-						++k;
-						}
-					}
-				
-				//remove duplicates
-				k=0;
-				while(k+1< this.sols.size())
-					{
-					if(sols.elementAt(k).equals(this.sols.elementAt(k+1)))
-						{
-						sols.removeElementAt(k);
-						}
-					else
-						{
-						++k;
-						}
-					}
-				//TODO fix getGeneticProg().challenge(this.sols.firstElement());
-				if(this.sols.size()> getGeneticProg().num_parents()) this.sols.setSize(getGeneticProg().num_parents());
-				if(generation%5==0 ) sols.setSize(1);
-				}
-			}
-		
-		public GeneticProg getGeneticProg()
-			{
-			return GeneticProg.this;
-			}
-		
-		public Solution best()
-			{
-			return this.sols.firstElement();
-			}
-		
-		}
-	
+	private int num_extra_parents=5;
 	public void run()
 		{
-	    
-		try
-    		{
-    		
-    		
-    			Vector<Exploration> explorations= new 	Vector<Exploration>(GeneticProg.this.getNumberOfExplorer());
-    		
-    		int generation=0;
-			while(true)
+		int geneIndex=0;
+		List<Solution> solutions= new ArrayList<Solution>();
+		for(int generation=geneIndex;generation< geneIndex;++generation)
+			{
+			while(solutions.size()< this.num_parents())
 				{
-				while(explorations.size()< GeneticProg.this.getNumberOfExplorer())
-        			{
-        			explorations.addElement(new Exploration());
-        			}
-    			
-				
-				
-				int shift= GeneticProg.this.getGenerationPerExplorer();
-				for(Exploration exploration: explorations)
-					{
-					exploration.run(generation,shift);
-					}
-				generation+=shift;
-				
-				Collections.sort(explorations);
-				
-				
-				
-				
-				explorations.setSize(1);
-				
+				solutions.add(new Solution(choose_random_node(null),generation));
 				}
 			
-
-    		}
-	        		catch (Exception e) {
-						e.printStackTrace();
+		    int n=solutions.size();
+		    for(int i=0;i< n;++i)
+		    	{
+		    	  for(int j=0;j< n;++j)
+			    	{
+		    		
+		    		Node n1=  solutions.get(i).getNode().clone(null);
+		    		Node n2=  solutions.get(j).getNode().clone(null);
+		    		crossover(n1,n2);
+		    		Solution s1= new Solution(n1,generation);
+		    		Solution s2= new Solution(n1,generation);
+		    		s1.mute();
+		    		s2.mute();
+		    		solutions.add(s1);
+		    		solutions.add(s2);
+			    	}
+		    	}
+		    
+			while(solutions.size()< num_extra_parents())
+				{
+				solutions.add(new Solution(choose_random_node(null),generation));
+				}
+		    
+			Collections.sort(solutions);
+			
+			//remove big ones
+			int k=0;
+			while(k< solutions.size())
+				{
+				if(k!=0 && solutions.get(k).getNode().countDescendant()>  max_nodes_in_a_tree())
+					{
+					solutions.remove(k);
 					}
-	        		
-	    
-	
-
+				else
+					{
+					++k;
+					}
+				}
+			
+			//remove duplicates
+			k=0;
+			while(k+1< solutions.size())
+				{
+				if(solutions.get(k).equals(solutions.get(k+1)))
+					{
+					solutions.remove(k);
+					}
+				else
+					{
+					++k;
+					}
+				}
+			//TODO fix getGeneticProg().challenge(this.sols.firstElement());
+			while(solutions.size()> num_parents())
+				{
+				solutions.remove(solutions.size()-1);
+				}
+			//if(generation%5==0 ) sols.setSize(1);
+			}
 	}
 
 
@@ -1403,25 +1355,24 @@ private void keep_best_repesentation()
 	
 	
 
- Node choose_random_node(Shuttle shuttle)
+ Node choose_random_node(MutableInteger count)
         {
-		if(shuttle==null)
+		if(count==null)
 			{
-			shuttle=new Shuttle();
-			shuttle.total_node=0;
+			count=new MutableInteger(0);
 			}
 		Node nn=null;
 
-        ++shuttle.total_node;
-
-        if( shuttle.total_node+1>= max_nodes_in_a_tree() ||
+		count.setValue(count.getValue()+1);
+		
+        if( count.getValue()+1>= max_nodes_in_a_tree() ||
                rnd() <  proba_create_leaf() )
                 {
                 nn = make_leaf();
                 }
         else
                 {
-                nn = new Function(shuttle);
+                nn = new Function(count);
                 }
         assert(nn!=null);
         return nn;
@@ -1514,6 +1465,7 @@ private Node make_leaf()
 
 public static void main(String[] args) {
 	try {
+		GeneticProg app= new GeneticProg();
 		int optind=0;
 	    while(optind<args.length)
 			{
@@ -1540,7 +1492,32 @@ public static void main(String[] args) {
 			     }
 			++optind;
 			}
-    
+	      if(optind==args.length)
+	    	{
+	    	app.getSpreadsheet().read(new BufferedReader(new InputStreamReader(System.in)));
+	    	}
+	      else if(optind+1!=args.length)
+	    	{
+	    	System.err.println("Illegal number of arguments");
+			System.exit(-1);
+	    	}
+		   else
+		    	{
+	    		BufferedReader in=null;
+	    		try {
+					in= IOUtils.openReader(args[optind++]);
+					app.getSpreadsheet().read(in);
+					}
+	    		catch (java.io.IOException e) {
+					throw e;
+					}
+				finally
+					{
+					if(in!=null) in.close();
+					in=null;
+					}
+		    	}
+	    app.run();
 	} catch (Exception e) {
 		e.printStackTrace();
 	}
