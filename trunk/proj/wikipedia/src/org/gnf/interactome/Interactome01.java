@@ -3,8 +3,10 @@ package org.gnf.interactome;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.URLEncoder;
@@ -12,6 +14,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Properties;
 import java.util.Set;
 import java.util.logging.Logger;
 import java.util.zip.GZIPInputStream;
@@ -37,8 +40,12 @@ import javax.xml.xpath.XPathExpression;
 import javax.xml.xpath.XPathFactory;
 
 
+import org.apache.commons.httpclient.HttpClient;
+import org.apache.commons.httpclient.HttpException;
+import org.apache.commons.httpclient.methods.PostMethod;
 import org.lindenb.berkeley.DocumentBinding;
 import org.lindenb.io.IOUtils;
+import org.lindenb.util.Base64;
 import org.lindenb.util.Cast;
 import org.lindenb.util.StringUtils;
 
@@ -104,6 +111,18 @@ private XPathExpression xpathFindMethod=null;
 private XPathExpression xpathFindExperimentRef=null;
 
 
+/** httpClient for loggin/wikipedia */
+private HttpClient httpClient=null;
+
+/** stores user id */
+static private class MWAuthorization
+	{
+	String lguserid;
+	String lgusername;
+	String lgtoken;
+	String cookieprefix;
+	String sessionid;
+	}
 
 static private enum BioGridKeyType
 	{
@@ -974,7 +993,72 @@ private String experiment2anchor(Document exp,Set<String> seenRefs)  throws Exce
 		"</a>";*/
 	}
 
+private MWAuthorization login() throws IOException,SAXException
+	{
+	MWAuthorization authorization= null;
+	PostMethod postMethod=null;
+	try
+		{
+		File wikipediaCfg= new File(System.getProperty("user.home"),".en.wikipedia.properties");
+		if(!wikipediaCfg.exists())
+			{
+		    throw new IOException("Default params doesn't exists: "+wikipediaCfg);
+			}
+		
+		Properties properties= new Properties();  
+		InputStream in=null;
+		in	= new FileInputStream(wikipediaCfg);
+		properties.loadFromXML(in);
+		in.close();
+		if(!properties.containsKey("lgname")) throw new org.lindenb.lang.IllegalInputException("lgname missing");
+		if(!properties.containsKey("lgpassword.base64")) throw new org.lindenb.lang.IllegalInputException("lgpassword.base64 missing");
 
+		
+		postMethod = new PostMethod(
+				"http://en.wikipedia.org/w/api.php"
+				);
+		
+		postMethod.addParameter("format", "xml");
+		postMethod.addParameter("lgname", properties.getProperty("lgname"));
+		postMethod.addParameter("lgpassword",new String(Base64.decode(properties.getProperty("lgpassword.base64"))));
+
+		int status = this.httpClient.executeMethod(postMethod);
+		if(status==200)
+			{
+			Document dom= this.documentBuilder.parse(  postMethod.getResponseBodyAsStream());
+			Element e= dom.getDocumentElement();
+			if(e==null || !e.getTagName().equals("api")) return null;
+			e= XMLUtilities.firstChild(e);
+			if(e==null || !e.getTagName().equals("login")) return null;
+			if(!"Success".equals(e.getAttribute("result"))) return null;
+			authorization= new MWAuthorization();
+			authorization.cookieprefix= e.getAttribute("cookieprefix");
+			authorization.lgusername= e.getAttribute("lgusername");
+			authorization.lgtoken= e.getAttribute("lgtoken");
+			authorization.sessionid= e.getAttribute("sessionid");
+			authorization.lguserid= e.getAttribute("lguserid");
+			}
+		else
+			{
+			throw new IOException("bad http status:"+status);
+			}
+		
+		
+		return authorization;
+		}
+	catch(HttpException  err)
+		{
+		throw err;
+		}
+	catch(IOException err)
+		{
+		throw err;
+		}
+	finally
+		{
+		if(postMethod!=null) postMethod.releaseConnection();
+		}
+	}
 
 public static void main(String[] args) {
 	try {

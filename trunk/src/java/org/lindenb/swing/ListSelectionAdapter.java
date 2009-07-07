@@ -6,29 +6,28 @@ package org.lindenb.swing;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.swing.AbstractAction;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 
 /**
- * @author pierre
+ * ListSelectionAdapter
  *
  */
-public abstract class ActionAdapter extends AbstractAction
+public abstract class ListSelectionAdapter
+	implements ListSelectionListener
 	{
-	private static final long serialVersionUID = 1L;
 	private List<Object> list=new ArrayList<Object>();
 	/**
-	 * 
+	 * ListSelectionAdapter
 	 */
-	public ActionAdapter(String name) {
-		super(name);
+	public ListSelectionAdapter() {
 		}
 
 	/**
-	 * @param arg0
+	 * @param arg0 values to be inserted
 	 */
-	public ActionAdapter(String name,Object...values)
+	public ListSelectionAdapter(Object...values)
 		{
-		this(name);
 		for(Object o:values) list.add(o);
 		}
 	
@@ -46,5 +45,6 @@ public abstract class ActionAdapter extends AbstractAction
 		{
 		return clazz.cast(getObject(index));
 		}
-	
+	@Override
+	public abstract void valueChanged(ListSelectionEvent event);
 	}

@@ -1200,7 +1200,7 @@ private boolean challenge(Solution best) throws DatabaseException
 		
 			
 			GeneticProg.this.history.addElement(bestSolution);
-			keep_best_repesentation();
+			keep_best_repesentation();  
 			
 			
 			for(int i=0;i< GeneticProg.this.history.size();++i)
@@ -1267,12 +1267,6 @@ private void keep_best_repesentation()
 	public Spreadsheet getSpreadsheet() {
 		return spreadsheet;
 		}
-	
-	
-
-	
-	
-	
 	
 
 	
@@ -1476,6 +1470,31 @@ public static void main(String[] args) {
 				System.err.println("-h this screen");
 				return;
 				}
+			else if (args[optind].equals("-w"))
+				{
+				++optind;
+				Operator found= null;
+				for(Operator o:app.operator2weight.keySet())
+					{
+					if(o.getName().equalsIgnoreCase(args[optind]));
+						{
+						found=o;
+						break;
+						}
+					}
+				if(found==null)
+					{
+					System.err.println("Unknown operator "+args[optind]);
+					return;
+					}
+				int weight= Integer.parseInt(args[++optind]);
+				if(weight<0)
+					{
+					System.err.println("bad weight for "+found+":"+weight);
+					return;
+					}
+				app.operator2weight.put(found, weight);
+				}
 			 else if (args[optind].equals("--"))
 			     {
 			     ++optind;
@@ -1517,6 +1536,11 @@ public static void main(String[] args) {
 					in=null;
 					}
 		    	}
+	    app.total_operator_weight=0;
+	    for(Operator o:app.operator2weight.keySet())
+	    	{
+	    	app.total_operator_weight+= app.operator2weight.get(o);
+	    	}
 	    app.run();
 	} catch (Exception e) {
 		e.printStackTrace();
