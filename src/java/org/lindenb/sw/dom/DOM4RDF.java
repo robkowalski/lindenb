@@ -1,5 +1,6 @@
 package org.lindenb.sw.dom;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
@@ -669,7 +670,30 @@ public class DOM4RDF
 		}
 	
 	
-		public static void main(String[] args) {
+	/**
+	 * get all the Statements in the model contained in the reader
+	 * @param a reader to a XML document
+	 * @return a set of Statements
+	 * @throws InvalidXMLException
+	 */
+	public static StmtSet getStatements(Reader r) throws InvalidXMLException,SAXException,IOException
+		{
+		return getStatements(newBuilder().parse(new InputSource(r)));
+		}
+	
+	
+	/**
+	 * get all the Statements in the model contained in the file
+	 * @param a XML document file
+	 * @return a set of Statements
+	 * @throws InvalidXMLException
+	 */
+	public static StmtSet getStatements(File rdfFile) throws InvalidXMLException,SAXException,IOException
+		{
+		return getStatements(newBuilder().parse(rdfFile));
+		}
+	
+	public static void main(String[] args) {
 		try
 			{
 			int optind=0;
