@@ -1,7 +1,6 @@
 package org.lindenb.berkeley;
 
 
-import java.sql.Array;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,7 +10,14 @@ import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.DatabaseException;
 import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
-
+/**
+ * MultiMapDatabase
+ * implementation of an AbstractDatabase having duplicate keys
+ * @author lindenb
+ *
+ * @param <K> key type
+ * @param <V> value type
+ */
 public abstract class MultiMapDatabase<K,V>
 	extends AbstractDatabase<K,V>
 	{

@@ -78,7 +78,14 @@ public class IOUtils
 		out.flush();
 		}
 	
-	
+	/**
+	 * answers a BufferedReader to the given uri.
+	 * if uri starts with a URL schema (http,ftp, etc...) then we can URL.openStream, else this is a file
+	 * if uri ends with *.gz, a GZIPInputStream is added to decode the gzipped-stream
+	 * @param uri the uri
+	 * @return an input stream to the uri
+	 * @throws IOException
+	 */
 	public static BufferedReader openReader(String uri) throws IOException
 		{
 		if(	uri.startsWith("http://") ||
@@ -102,6 +109,46 @@ public class IOUtils
 	        	return openFile( new File(uri));
 	        	}
 		}
+	
+	/**
+	 * answers an input stream to the given uri.
+	 * if uri starts with a URL schema (http,ftp, etc...) then we can URL.openStream, else this is a file
+	 * if uri ends with *.gz, a GZIPInputStream is added to decode the gzipped-stream
+	 * @param uri the uri
+	 * @return an input stream to the uri
+	 * @throws IOException
+	 */
+	public static InputStream openInputStream(String uri) throws IOException
+		{
+		if(	uri.startsWith("http://") ||
+				uri.startsWith("https://") ||
+				uri.startsWith("file://") ||
+				uri.startsWith("ftp://")
+	    		)
+	    		{
+	    		URL url= new URL(uri);
+	    		if(uri.endsWith(".gz"))
+	        		{
+	        		return new GZIPInputStream(url.openStream());
+	        		}
+	        	else
+	        		{
+	        		return url.openStream();
+	        		}
+	    		}
+	    	else
+	        	{
+	    		if(uri.endsWith(".gz"))
+	        		{
+	        		return new GZIPInputStream(new FileInputStream(uri));
+	        		}
+	        	else
+	        		{
+	        		return new FileInputStream(uri);
+	        		}
+	        	}
+			}
+	
 	
 	/** open a file and return a BufferedReader, gunzip the file if it ends with *.gz*/
 	public static BufferedReader openFile(File file) throws IOException

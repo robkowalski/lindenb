@@ -195,8 +195,23 @@ public abstract class AbstractDatabase<K, V>
 		return cursor(null );
 		}
 	
-	public abstract DatabaseEntry keyToEntry(K key);
-	public abstract DatabaseEntry valueToEntry(V value);
+	public final DatabaseEntry keyToEntry(K key)
+		{
+		DatabaseEntry entry= new DatabaseEntry();
+		keyToEntry(key, entry);
+		return entry;
+		}
+	
+	public final DatabaseEntry valueToEntry(V value)
+		{
+		DatabaseEntry entry= new DatabaseEntry();
+		valueToEntry(value, entry);
+		return entry;	
+		}
+	
+	
+	public abstract void keyToEntry(K key,DatabaseEntry entry);
+	public abstract void valueToEntry(V value,DatabaseEntry entry);
 	public abstract K entryToKey(DatabaseEntry entry);
 	public abstract V entryToValue(DatabaseEntry entry);
 	
@@ -330,5 +345,40 @@ public abstract class AbstractDatabase<K, V>
 			throw new RuntimeException(e);
 			}
 		}
-
+	
+	/**
+	 * return the key at a given index
+	 * to be used in a JTable or JTree...
+	 * @param key
+	 * @return
+	 * @throws DatabaseException
+	 * @throws IndexOutOfBoundsException
+	 */
+	public K getKeyAtIndex(long index)  throws DatabaseException
+		{
+		Cursor c=null;
+		try
+			{
+			DatabaseEntry key= new DatabaseEntry();
+			DatabaseEntry data= new DatabaseEntry();
+			long i=0L;
+			c= getDatabase().openCursor(null, null);
+			while(c.getNext(key, data, LockMode.DEFAULT)==OperationStatus.SUCCESS)
+				{
+				if(i==index) return entryToKey(key);
+				++i;
+				}
+			throw new IndexOutOfBoundsException("index:"+index);
+			}
+		catch(DatabaseException err)
+			{
+			throw err;
+			}
+		finally
+			{
+			if(c!=null) c.close();
+			}
+		}
+	
+	
 	}
