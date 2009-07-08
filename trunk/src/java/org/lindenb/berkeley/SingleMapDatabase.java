@@ -3,18 +3,29 @@ package org.lindenb.berkeley;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-
-
 import com.sleepycat.bind.tuple.TupleBinding;
+import com.sleepycat.je.Cursor;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.DatabaseException;
+import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
 import com.sleepycat.je.Transaction;
 
+/**
+ * SingleMapDatabase
+ * implementation of an AbstractDatabase having unique keys
+ * @author lindenb
+ *
+ * @param <K> key type
+ * @param <V> value type
+ */
 public abstract class SingleMapDatabase<K,V>
 	extends AbstractDatabase<K,V> {
 
+	/**
+	 * SingleMapDatabase
+	 */
 	public SingleMapDatabase(
 			Database database)
 		{
@@ -79,9 +90,41 @@ public abstract class SingleMapDatabase<K,V>
 		return map;
 		}
 	
+
 	
+	/**
+	 * return the index of this key in this database
+	 * @param key
+	 * @return
+	 * @throws DatabaseException
+	 */
+	public long indexOf(K k)  throws DatabaseException
+		{
+		Cursor c=null;
+		try
+			{
+			DatabaseEntry key= new DatabaseEntry();
+			DatabaseEntry data= new DatabaseEntry();
+			long i=0L;
+			c= getDatabase().openCursor(null, null);
+			while(c.getNext(key, data, LockMode.DEFAULT)==OperationStatus.SUCCESS)
+				{
+				if(entryToKey(key).equals(k)) return i;
+				++i;
+				}
+			return -1;
+			}
+		catch(DatabaseException err)
+			{
+			throw err;
+			}
+		finally
+			{
+			if(c!=null) c.close();
+			}
+		}
 	
-	private static abstract class AbstractTupleBindingDB<X,Y>
+	public static abstract class AbstractTupleBindingDB<X,Y>
 	extends SingleMapDatabase<X, Y>
 		{
 		public AbstractTupleBindingDB(Database database)
@@ -99,18 +142,14 @@ public abstract class SingleMapDatabase<K,V>
 			return getValueBinding().entryToObject(entry);
 			}
 		
-		public DatabaseEntry keyToEntry(X key)
+		public void keyToEntry(X key,DatabaseEntry e)
 			{
-			DatabaseEntry e= new DatabaseEntry();
 			getKeyBinding().objectToEntry(key, e);
-			return e;
 			};
 			
-		public DatabaseEntry valueToEntry(Y value)
+		public void valueToEntry(Y value,DatabaseEntry e)
 			{
-			DatabaseEntry e= new DatabaseEntry();
 			getValueBinding().objectToEntry(value, e);
-			return e;
 			};
 		}
 	
