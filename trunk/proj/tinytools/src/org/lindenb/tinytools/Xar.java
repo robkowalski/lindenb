@@ -13,23 +13,33 @@ import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 
 import org.lindenb.util.Compilation;
+import org.lindenb.util.StringUtils;
 import org.lindenb.xml.EchoHandler;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
 /**
- * XAR a tool extracting XML archive
+ * XAR a tool extracting a XML archive
  * @author lindenb
  *
  */
 public class Xar extends DefaultHandler
 {
+/** depth in the XML document */
 private int depth=-1;
+/** base directory for output */
 private File outputDir=null;
+/** current writer */
 private PrintWriter out;
+/** current file content-type (default is text/plain ) */
 private String contentType=null;
+/** current SAX handler for copying an internal xml document */
 private EchoHandler echoHandler=null;
+/** should files already exists or not ? */
+private boolean exclusiveCreate=false;
+/** can we overwrite existings file */
+private boolean allowOverwrite=true;
 
 private Xar()
 	{
@@ -85,9 +95,18 @@ public void startElement(String uri, String localName, String name,
 		
 		try {
 			File f= new File(currentDir,path);
+			if(exclusiveCreate && f.exists()) throw new SAXException("Exclusive Writing enabled and file exists: "+f);
 			System.out.print(f);
-			this.out= new PrintWriter(new FileWriter(f)); 
-			} 
+			if(!allowOverwrite && f.exists())
+				{
+				System.out.print(" ... ignoring ");
+				this.out=null;
+				}
+			else
+				{
+				this.out= new PrintWriter(new FileWriter(f)); 
+				} 
+			}
 		catch (IOException e)
 			{
 			throw new SAXException(e);
@@ -99,13 +118,13 @@ public void startElement(String uri, String localName, String name,
 			{
 			throw new SAXException("unknown content-type "+this.contentType);
 			}
-		if(this.contentType.equals("text/xml"))
+		if(this.out!=null && this.contentType.equals("text/xml"))
 			{
 			this.echoHandler= new EchoHandler(this.out);
 			this.echoHandler.startDocument();
 			}
 		}
-	else
+	else if(this.out!=null)
 		{
 		if(this.echoHandler!=null)
 			{
@@ -124,14 +143,19 @@ public void endElement(String uri, String localName, String name)
 	{
 	if(this.depth==1)
 		{
+		
 		System.out.println(" ... Done.");
+		
 		if(this.echoHandler!=null)
 			{
 			this.echoHandler.endDocument();
 			}
-		this.out.flush();
-		if(this.out.checkError()) throw new SAXException("Something went wront with the output");
-		this.out.close();
+		if(this.out!=null)
+			{
+			this.out.flush();
+			if(this.out.checkError()) throw new SAXException("Something went wront with the output");
+			this.out.close();
+			}
 		this.echoHandler=null;
 		this.out=null;
 		this.contentType=null;
@@ -140,7 +164,7 @@ public void endElement(String uri, String localName, String name)
 		{
 		//ignore
 		}
-	else
+	else if(this.out!=null)
 		{
 		if(this.echoHandler!=null)
 			{
@@ -167,6 +191,10 @@ public void endDocument() throws SAXException {
 public void characters(char[] ch, int start, int length)
 			throws SAXException
 	{
+	if(this.depth<1 && !StringUtils.isBlank(ch, start, length))
+		{
+		throw new SAXException("Illegal non-white characters before <file>.");
+		}
 	
 	if(this.echoHandler!=null)
 		{
@@ -214,25 +242,36 @@ public static void main(String[] args) {
 				{
 				System.err.println("Pierre Lindenbaum PhD 2009.");
 				System.err.println(Compilation.getLabel());
-				System.err.println("This tool expand an XML archive (see format below)");
-				System.err.println("-h this screen");
-				System.err.println("-D output directory : where to exand the file (default is current-directory");
+				System.err.println("This tool expand an XML archive and generate the files (see format below)");
+				System.err.println("options:");
+				System.err.println(" -h this screen");
+				System.err.println(" -X eXclusive create: files should not already exist");
+				System.err.println(" -N No overwrite: a file will not be over-written if it already exists.");
+				System.err.println(" -D output directory : where to exand the file (default is the current-directory)");
 				System.err.println("(stdin|urls|files) sources ending with *.xarz or *.xml.gz will be g-unzipped.");
 				System.err.println("\n\nExample:\n\n"+
 				"<?xml version=\"1.0\"?>\n" +
 				"<archive>\n" +
-				"<file path=\"mydir/file.01.txt\">\n" +
-				"Hello World !\n" +
-				"</file>\n" +
-				"<file path=\"mydir/file.02.text\" content-type=\"text/plain\">\n" +
-				"Hello World &lt;!\n" +
-				"</file>\n" +
-				"<file path=\"mydir/file.02.xml\" content-type=\"text/xml\">\n" +
-				"<a>Hello World !<b xmlns=\"urn:any\" att=\"x\">azdpoazd<i/></b></a>\n" +
-				"</file>\n" +
+				" <file path=\"mydir/file.01.txt\">\n" +
+				"  Hello World !\n" +
+				" </file>\n" +
+				" <file path=\"mydir/file.02.text\" content-type=\"text/plain\">\n" +
+				"  Hello World &lt;!\n" +
+				" </file>\n" +
+				" <file path=\"mydir/file.02.xml\" content-type=\"text/xml\">\n" +
+				"  <a>Hello World !<b xmlns=\"urn:any\" att=\"x\">azdpoazd<i/></b></a>\n" +
+				" </file>\n" +
 				"</archive>\n"
 				);
 				return;
+				}
+			else if (args[optind].equals("-X"))
+				{
+				handler.exclusiveCreate=true;
+				}
+			else if (args[optind].equals("-N"))
+				{
+				handler.allowOverwrite=false;
 				}
 			else if (args[optind].equals("-D"))
 			     {
@@ -277,11 +316,11 @@ public static void main(String[] args) {
 	    	while(optind< args.length)
 	    		{
 	    		String file=args[optind++];
-	    		if(file.startsWith("http://") || file.startsWith("https://") || file.startsWith("ftp://"))
+	    		if(StringUtils.startsWith(file,"http://","https://","ftp://"))
 	    			{
 	    			parser.parse(file, handler);	
 	    			}
-	    		else if(file.endsWith(".xarz") || file.endsWith(".xml.gz"))
+	    		else if(StringUtils.endsWith(file,".xarz",".xml.gz"))
 	    			{
 	    			InputStream in=new GZIPInputStream(new FileInputStream(file));
 	    			parser.parse(in,handler);
@@ -296,7 +335,7 @@ public static void main(String[] args) {
 	    
 	    
 	} catch (Exception e) {
-		e.printStackTrace();
+		System.err.println("[Error] "+e.getMessage());
 	}
 }
 }
