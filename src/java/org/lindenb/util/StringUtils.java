@@ -32,6 +32,17 @@ public class StringUtils
 			}
 		return true;
 		}
+	/** return wether the sequence is null, empty of contains only white characters */
+	public static boolean isBlank(char array[],int start,int length)
+		{
+		if(array==null || length==0) return true;
+		for(int i=0;i< length ;++i)
+			{
+			if(!Character.isWhitespace(array[start+i])) return false;
+			}
+		return true;
+		}
+	
 	/** remove simple or double quote from a String */
 	public static String unquote(String s)
 		{
@@ -57,5 +68,16 @@ public class StringUtils
 		return false;
 		}
 	
-	
+	/** anwsers wether the first string starts with any of the other strings */
+	public static boolean startsWith(String search,String...starts)
+		{
+		for(String s:starts) if(search.startsWith(s)) return true;
+		return false;
+		}
+	/** anwsers wether the first string ends with any of the other strings */
+	public static boolean endsWith(String search,String...ends)
+		{
+		for(String s:ends) if(search.endsWith(s)) return true;
+		return false;
+		}
 	}
