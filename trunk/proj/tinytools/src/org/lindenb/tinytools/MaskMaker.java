@@ -12,6 +12,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
@@ -365,7 +366,7 @@ extends JFrame
 				Rectangle r=drawingArea.getVisibleRect();
 				double cx=r.getCenterX();
 				double cy=r.getCenterY();
-				System.err.println(cx+" "+cy);
+
 				Figure f= new Figure(
 					new Point2D.Double(cx-20, cy-20),
 					new Point2D.Double(cx+20,cy-20),
@@ -408,24 +409,68 @@ extends JFrame
 			@Override
 			public void actionPerformed(ActionEvent e)
 				{
-				JFileChooser fileChooser= new JFileChooser(PreferredDirectory.getPreferredDirectory());
-				if(fileChooser.showSaveDialog(MaskMaker.this)!=JFileChooser.APPROVE_OPTION) return ;
-				File f= fileChooser.getSelectedFile();
-				if(f==null || (f.exists() && JOptionPane.showConfirmDialog(MaskMaker.this, f.toString()+" already exists. Overwrite ?","Warning",JOptionPane.OK_CANCEL_OPTION)!=JOptionPane.OK_OPTION))
-					{
-					return;
-					}
-				PreferredDirectory.setPreferredDirectory(f);
 				try
-				{
-				saveToSVG(f);
-				} catch (Exception err) {
+					{
+					File f=showSaveDialog();
+					if(f==null) return;
+					saveToSVG(f);
+					}
+				catch (Exception err) {
 					ThrowablePane.show(MaskMaker.this,err);
-				}
+					}
 				}
 			});
-		
+		menu.add(new AbstractAction("Save as PNG")
+			{
+			private static final long serialVersionUID = 1L;
+			@Override
+			public void actionPerformed(ActionEvent e)
+				{
+			try
+				{
+				File f=showSaveDialog();
+				if(f==null) return;
+				saveToPNG(f);
+				}
+			catch (Exception err) {
+				ThrowablePane.show(MaskMaker.this,err);
+				}
+			}});
 		setJMenuBar(bar);
+		}
+	
+	
+	private File showSaveDialog()
+		{
+		JFileChooser fileChooser= new JFileChooser(PreferredDirectory.getPreferredDirectory());
+		if(fileChooser.showSaveDialog(MaskMaker.this)!=JFileChooser.APPROVE_OPTION) return null;
+		File f= fileChooser.getSelectedFile();
+		if(f==null || (f.exists() && JOptionPane.showConfirmDialog(MaskMaker.this, f.toString()+" already exists. Overwrite ?","Warning",JOptionPane.OK_CANCEL_OPTION)!=JOptionPane.OK_OPTION))
+			{
+			return null;
+			}
+		PreferredDirectory.setPreferredDirectory(f);
+		return f;
+		}
+	
+	private void saveToPNG(File f) throws IOException
+		{
+		for(Figure fig:this.figures)
+			{
+			Shape shape=fig.getShape();
+			Rectangle rect=fig.getShape().getBounds();
+			AffineTransform tr=AffineTransform.getTranslateInstance(-rect.x, -rect.y);
+			shape=tr.createTransformedShape(shape);
+			BufferedImage dest= new BufferedImage(
+				rect.width,rect.height,
+				BufferedImage.TYPE_INT_ARGB
+				);
+			Graphics2D g= dest.createGraphics();
+			g.setClip(shape);
+			g.drawImage(this.image,-rect.x,-rect.y,null);
+			g.dispose();
+			ImageIO.write(dest,"png",f);
+			}
 		}
 	
 	private void saveToSVG(File f) throws IOException
@@ -485,7 +530,6 @@ extends JFrame
 	public static void main(String[] args) {
 		try
 			{
-			args=new String[]{"http://farm2.static.flickr.com/1415/792485590_c572058c09_b.jpg"};
 			JDialog.setDefaultLookAndFeelDecorated(true);
 			JFrame.setDefaultLookAndFeelDecorated(true);
 			int optind=0;
