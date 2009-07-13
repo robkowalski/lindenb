@@ -485,8 +485,8 @@ private class BioGridHandler
 
 private Interactome01() throws Exception
 	{
-	this.envHome= new File(System.getProperty("java.io.tmpdir"),"gnf01");
-	
+	//this.envHome= new File(System.getProperty("java.io.tmpdir"),"gnf01");
+	this.envHome= new File("/home/lindenb/tmp/gnf01");//TODO FIX THIS
 	
 	DocumentBuilderFactory domFactory= DocumentBuilderFactory.newInstance();
 	domFactory.setCoalescing(true);
