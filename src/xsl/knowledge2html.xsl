@@ -200,7 +200,7 @@
 <xsl:attribute name="target"><xsl:value-of select="generate-id($node)"/></xsl:attribute>
 <xsl:attribute name="href">
  <xsl:choose>
-  <xsl:when test="$node/dc:source"><xsl:value-of select="$node/dc:source"/></xsl:when>
+  <xsl:when test="$node/dc:source/@rdf:resource"><xsl:value-of select="$node/dc:source/@rdf:resource"/></xsl:when>
   <xsl:otherwise><xsl:value-of select="$node/@rdf:about"/></xsl:otherwise>
 </xsl:choose>
 </xsl:attribute>
@@ -302,6 +302,14 @@
 </xsl:template>
 
 
+<xsl:template match="my:birthPlace|my:deathPlace">
+<xsl:choose>
+<xsl:when test="@rdf:resource"><xsl:apply-templates select="@rdf:resource"/></xsl:when>
+<xsl:when test="count(*) = 0"><xsl:value-of select="."/></xsl:when>
+<xsl:otherwise><xsl:apply-templates select="my:Place"/></xsl:otherwise>
+</xsl:choose>
+</xsl:template>
+
 <xsl:template match="my:birthDate|my:deathDate">
 <xsl:choose>
 <xsl:when test="count(*) = 0"><xsl:value-of select="."/></xsl:when>
@@ -335,7 +343,7 @@
 </xsl:choose>
 </xsl:variable>
 <xsl:element name="a">
-<xsl:attribute name="href"><xsl:value-of select="@rdf:about"/></xsl:attribute>
+<xsl:attribute name="href"><xsl:value-of select="@rdf:resource"/></xsl:attribute>
 <xsl:attribute name="title"><xsl:value-of select="$name"/></xsl:attribute>
 <xsl:attribute name="target"><xsl:value-of select="generate-id(.)"/></xsl:attribute>
 <xsl:value-of select="$name"/>
