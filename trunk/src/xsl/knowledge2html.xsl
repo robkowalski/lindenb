@@ -38,7 +38,19 @@
 <div style="display:none;">
 <rdf:RDF><xsl:apply-templates mode="copy-rdf"/></rdf:RDF>
 </div>
-<div><xsl:apply-templates select="*|text()"/></div>
+<div><xsl:text>
+
+
+
+
+
+</xsl:text><xsl:apply-templates select="*|text()"/><xsl:text>
+
+
+
+
+
+</xsl:text></div>
 </div>
 </xsl:template>
 
@@ -48,6 +60,7 @@
 <xsl:apply-templates select="dc:source"/>
 <xsl:apply-templates select="dc:author"/>
 <xsl:call-template name="subjects"><xsl:with-param name="node" select="."/></xsl:call-template>
+<xsl:call-template name="footer"/>
 </div>
 </xsl:template>
 
@@ -115,14 +128,15 @@
   </xsl:if>
   <xsl:if test="my:hasPartner">
   <dt><b>Partner:</b></dt>
-  <dd><xsl:for-each select="my:hasPartner"><xsl:if test="position()!=last()"><br/></xsl:if><xsl:apply-templates select="."/></xsl:for-each></dd>
+  <dd><xsl:for-each select="my:hasPartner|my:hasHusband|my:hasWife"><xsl:if test="position()!=1"><br/></xsl:if><xsl:apply-templates select="."/></xsl:for-each></dd>
   </xsl:if>
   <xsl:if test="my:hasChildren">
   <dt><b>Children:</b></dt>
-  <dd><xsl:for-each select="my:hasChildren"><xsl:if test="position()!=last()"><br/></xsl:if><xsl:apply-templates select="."/></xsl:for-each></dd>
+  <dd><xsl:for-each select="my:hasChildren"><xsl:if test="position()!=1"><br/></xsl:if><xsl:apply-templates select="."/></xsl:for-each></dd>
   </xsl:if>
 </dl>
 <xsl:call-template name="subjects"><xsl:with-param name="node" select="."/></xsl:call-template>
+<xsl:call-template name="footer"/>
 </div>
 </xsl:template>
 
@@ -284,7 +298,7 @@
 
 
 <xsl:template match="dc:source" >
-<div style="text-align:right;font-style:italic"><xsl:value-of select="."/></div>
+<div style="text-align:right;font-style:italic;"><xsl:value-of select="."/></div>
 </xsl:template>
 
 
@@ -338,15 +352,14 @@
 
 <xsl:template match="my:gender">
 <xsl:choose>
-		<xsl:when test="@rdf:about=&apos;http://en.wikipedia.org/wiki/Male&apos;">Male</xsl:when>
-		<xsl:when test="@rdf:about=&apos;http://en.wikipedia.org/wiki/Female&apos;">Female</xsl:when>
-		<xsl:when test="@rdf:about"><xsl:call-template name="shortName"><xsl:with-param name="uri" select="@rdf:about"/></xsl:call-template></xsl:when>
+		<xsl:when test="@rdf:resource"><xsl:apply-templates select="@rdf:resource"/></xsl:when>
                 <xsl:otherwise><xsl:value-of select="."/></xsl:otherwise>
 </xsl:choose>
 </xsl:template>
 
-<xsl:template match="my:hasFather|my:hasMother|my:hasChildren|my:hasPartner">
+<xsl:template match="my:hasFather|my:hasMother|my:hasChildren|my:hasWife|my:hasHusband|my:hasPartner">
 <xsl:choose>
+	<xsl:when test="@rdf:resource"><xsl:apply-templates select="@rdf:resource"/></xsl:when>
 	<xsl:when test="count(*)=0"><xsl:value-of select="."/></xsl:when>
         <xsl:otherwise>TODO</xsl:otherwise>
 </xsl:choose>
@@ -359,6 +372,17 @@
   <xsl:attribute name="title"><xsl:call-template name="shortName"><xsl:with-param name="uri" select="@rdf:about"/></xsl:call-template></xsl:attribute>
   <xsl:attribute name="target"><xsl:value-of select="generate-id(.)"/></xsl:attribute>
   <xsl:call-template name="shortName"><xsl:with-param name="uri" select="@rdf:resource"/></xsl:call-template>
+</xsl:element>
+</xsl:template>
+
+
+<xsl:template match="@rdf:resource">
+<xsl:variable name="short"><xsl:call-template name="shortName"><xsl:with-param name="uri" select="."/></xsl:call-template></xsl:variable>
+<xsl:element name="a">
+  <xsl:attribute name="href"><xsl:value-of select="."/></xsl:attribute>
+  <xsl:attribute name="title"><xsl:value-of select="$short"/></xsl:attribute>
+  <xsl:attribute name="target"><xsl:value-of select="generate-id(.)"/></xsl:attribute>
+  <xsl:value-of select="$short"/>
 </xsl:element>
 </xsl:template>
 
@@ -434,8 +458,25 @@
 </xsl:choose>
 </xsl:template>
 
+<xsl:template name="footer">
+<div style="text-align:right;font-style:italic; color:gray; font-size:50%;"> <button title="Show Source" onclick="document.location='view-source:' + window.location.href ;"> <img border="0" src="http://www.w3.org/RDF/icons/rdf_metadata_button.32"
+alt="RDF Resource Description Framework Metadata Icon"/></button><br/>Data transformed with <a href="http://code.google.com/p/lindenb/source/browse/trunk/src/xsl/knowledge2html.xsl">knowledge2html.xsl</a></div>
+</xsl:template>
+
 <xsl:template match="text()">
-<xsl:if test="name(..)=&apos;rdf:RDF&apos; and count(preceding-sibling::*)!=0 and count(following-sibling::*)!=0"><hr/></xsl:if>
+<xsl:if test="name(..)=&apos;rdf:RDF&apos; and count(preceding-sibling::*)!=0 and count(following-sibling::*)!=0"><xsl:text>
+
+
+
+
+
+</xsl:text><hr/><xsl:text>
+
+
+
+
+
+</xsl:text></xsl:if>
 </xsl:template>
 
 <xsl:template match="*" mode="copy-rdf">
