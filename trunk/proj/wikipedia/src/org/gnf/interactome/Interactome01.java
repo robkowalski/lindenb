@@ -4,7 +4,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
@@ -44,11 +43,9 @@ import javax.xml.xpath.XPathFactory;
 
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpException;
-import org.apache.commons.httpclient.HttpState;
 import org.apache.commons.httpclient.cookie.CookiePolicy;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.methods.PostMethod;
-import org.apache.commons.httpclient.params.HttpMethodParams;
 import org.lindenb.berkeley.DocumentBinding;
 import org.lindenb.io.IOUtils;
 import org.lindenb.lang.InvalidXMLException;
@@ -1202,6 +1199,11 @@ private void edit(String page,MWAuthorization authorization,String text) throws 
 			content= content.substring(0,leftIndex)+
 					LEFT_COMMENT+ text+RIGHT_COMMENT+
 					content.substring(rightIndex+RIGHT_COMMENT.length());
+			}
+		else if(content.contains("==Interactions=="))
+			{
+			System.err.println("==Interaction== exists");
+			return;
 			}
 		else if(matcher.find())
 			{
