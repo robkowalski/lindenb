@@ -222,12 +222,15 @@ public class MWQuery
 			}
 		}*/
 	
+	
+	
 	private static class GetRevisionHandler
 		extends DefaultHandler
 		{
 		private String revId;
 		private StringBuilder sb=null;
 		private String content=null;
+
 		GetRevisionHandler(String revId)
 			{
 			this.revId=revId;
