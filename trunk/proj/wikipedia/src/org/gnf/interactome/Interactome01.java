@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
@@ -42,9 +44,14 @@ import javax.xml.xpath.XPathFactory;
 
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpException;
+import org.apache.commons.httpclient.HttpState;
+import org.apache.commons.httpclient.cookie.CookiePolicy;
+import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.methods.PostMethod;
+import org.apache.commons.httpclient.params.HttpMethodParams;
 import org.lindenb.berkeley.DocumentBinding;
 import org.lindenb.io.IOUtils;
+import org.lindenb.lang.InvalidXMLException;
 import org.lindenb.util.Base64;
 import org.lindenb.util.Cast;
 import org.lindenb.util.StringUtils;
@@ -112,7 +119,7 @@ private XPathExpression xpathFindExperimentRef=null;
 
 
 /** httpClient for loggin/wikipedia */
-private HttpClient httpClient=null;
+private HttpClient httpClient=new HttpClient();
 
 /** stores user id */
 static private class MWAuthorization
@@ -485,6 +492,7 @@ private class BioGridHandler
 
 private Interactome01() throws Exception
 	{
+	
 	//this.envHome= new File(System.getProperty("java.io.tmpdir"),"gnf01");
 	this.envHome= new File("/home/lindenb/tmp/gnf01");//TODO FIX THIS
 	
@@ -742,18 +750,27 @@ private static String simpleFindField(String wikiText,String tag)
  * Load Pages from wikipedia
  * @throws Exception
  */
-private void loadWikipedia() throws Exception
+private void loadWikipedia(boolean cleanupFirst) throws Exception
 	{
 	LOG.info("load wikipedia");
-	qName2wikipedia.clear();
-	qName2boxtemplate.clear();
-	omim2qname.clear();
-	entrezGene2qname.clear();
+	if(cleanupFirst)
+		{
+		qName2wikipedia.clear();
+		qName2boxtemplate.clear();
+		omim2qname.clear();
+		entrezGene2qname.clear();
+		}
 	
 	MWQuery query= new MWQuery();
 	//get all the pages aving a Template:PBB
 	for(Page page:query.listPagesEmbedding(new Page("Template:PBB")))
 		{
+		if(!cleanupFirst)
+			{
+			if(this.qName2wikipedia.get(page.getQName())!=null) continue;
+			}
+		
+		
 		LOG.info("current page is "+page);
 		//save the content of this page
 		String content= query.getContent(page);
@@ -803,15 +820,19 @@ private void loadWikipedia() throws Exception
 
 private void loop(File fileout) throws Exception
 	{
+	MWAuthorization authorization=login();
+	
 	Set<String> wikipediaPages= qName2wikipedia.getKeySet();
 	LOG.info("Start loop");
+	int countPageProcessed=0;
+	
 	//loop over wikipedia
-	PrintWriter out= new PrintWriter(new FileWriter(fileout));
-	out.print("<html><body>");
+	/*PrintWriter out= new PrintWriter(new FileWriter(fileout));
+	out.print("<html><body>"); */
 	for(String qName: wikipediaPages)
 		{
 		if(qName.startsWith("Template:")) continue;
-		
+		if(qName.equals("GFER")) continue;//this is my manual test
 		
 		String templateName= this.qName2boxtemplate.get(qName);
 		if(templateName==null)
@@ -862,19 +883,25 @@ private void loop(File fileout) throws Exception
 		//loop over all the interaction Ids
 		List<BerkeleyDBKey> interactionList=interactor2interaction.get(interactorID);
 		
-		
+		/*
 		out.println("<h1><a target='"+ qName+
 				"' href='http://en.wikipedia.org/w/index.php?action=edit&title="+
 				URLEncoder.encode(qName.replace(' ','_'),"UTf-8")+"'>"+
 				qName+"</a></h1>");
 		
-		StringWriter table= new StringWriter();
-		PrintWriter w= new PrintWriter(table);
 		
-		w.println("==Interactions==");
-		w.println("{| class=\"wikitable\" border=\"1\"");
-		w.println("! Partner !! Method !! References");
+		  StringWriter table= new StringWriter();
+		 PrintWriter w= new PrintWriter(table);
+		 w.println("==Interactions==");
+		 w.println("{| class=\"wikitable\" border=\"1\"");
+		 w.println("! Partner !! Method !! References");
+		 */
+		
 	
+	
+		StringWriter flow= new StringWriter();
+		PrintWriter flowriter= new PrintWriter(flow);
+		flowriter.append(qName+" has been shown to [[Protein-protein_interaction|interact]] with ");
 		
 		HashMap<String, Interactor>  partnerId2intractor= new HashMap<String, Interactor>();
 		for(BerkeleyDBKey interactionId : interactionList)
@@ -894,13 +921,22 @@ private void loop(File fileout) throws Exception
 				actor.interactions.add(interaction);
 				}
 			}
+		boolean foundOne=false;
 		Set<String> seenReferences= new HashSet<String>();
 		for(String partnerId: partnerId2intractor.keySet())
 			{
 			Interactor actor= partnerId2intractor.get(partnerId);
 			if(actor.interactions.size()<2) continue;
+			
+			if(foundOne) flowriter.append(", ");
+			String interactorQName=proteineId2qName(partnerId);
+			if(interactorQName.toLowerCase().startsWith("biogrid-")) continue;
+			foundOne=true;
+			flowriter.append(interactorQName);
+			
 			for(Document interaction:actor.interactions)
 				{
+				/*
 				w.println("|-");
 				w.print("| "+ proteineId2qName(partnerId));
 				String method= (String)xpathFindMethod.evaluate(interaction.getDocumentElement(),XPathConstants.STRING);
@@ -915,20 +951,42 @@ private void loop(File fileout) throws Exception
 						w.print(experiment2anchor(experiment,seenReferences));
 						}
 					}
-				w.println();
+				w.println();*/
+				
+				Attr expRef= (Attr)xpathFindExperimentRef.evaluate(interaction.getDocumentElement(),XPathConstants.NODE);
+				if(expRef!=null)
+					{
+					Document experiment= this.biogridDB.get(new BerkeleyDBKey(BioGridKeyType.experimentDescription,expRef.getValue()));
+					if(experiment!=null)
+						{
+						flowriter.print(experiment2anchor(experiment,seenReferences));
+						}
+					}
 				}
 			}
+		/*
 		w.println("|}");
 		w.flush();
 		out.println("<pre style='background-color:lightgray;'>"+ XMLUtilities.escape(table.toString())+"</pre>");
-		
-		
 		out.flush();
+		*/
+		flowriter.append(".\n");
+		flowriter.flush();
+		
+		if(foundOne)
+			{
+			edit(qName, authorization, flow.toString());
+			++countPageProcessed;
+			if(countPageProcessed==10) break;
+			}
+		//TODO
+		
+		
 		}
 	LOG.info("End  loop");
-	out.print("</body></html>");
+	/* out.print("</body></html>");
 	out.flush();
-	out.close();
+	out.close();*/
 	}
 
 private class Interactor
@@ -978,11 +1036,13 @@ private String experiment2anchor(Document exp,Set<String> seenRefs)  throws Exce
 	String pmid= primaryRef.getAttribute("id");
 	if(seenRefs.contains(pmid))
 		{
-		return XMLUtilities.escape(shortLabel.getTextContent())+"{{ref|pmid"+pmid+"}}";
+		return "";
+		//return XMLUtilities.escape(shortLabel.getTextContent())+"{{ref|pmid"+pmid+"}}";
 		}
 	seenRefs.add(pmid);
 	
-	return  XMLUtilities.escape(shortLabel.getTextContent())+"<ref name='pmid"+pmid+">"+
+	return  /*XMLUtilities.escape(shortLabel.getTextContent())+*/
+			"<ref name=pmid"+pmid+">"+
 			XMLUtilities.escape(pmid2wiki(pmid))+
 			"</ref>"
 			;
@@ -999,12 +1059,13 @@ private MWAuthorization login() throws IOException,SAXException
 	PostMethod postMethod=null;
 	try
 		{
+		
 		File wikipediaCfg= new File(System.getProperty("user.home"),".en.wikipedia.properties");
 		if(!wikipediaCfg.exists())
 			{
 		    throw new IOException("Default params doesn't exists: "+wikipediaCfg);
 			}
-		
+
 		Properties properties= new Properties();  
 		InputStream in=null;
 		in	= new FileInputStream(wikipediaCfg);
@@ -1018,25 +1079,29 @@ private MWAuthorization login() throws IOException,SAXException
 				"http://en.wikipedia.org/w/api.php"
 				);
 		
+		postMethod.addParameter("action", "login");
 		postMethod.addParameter("format", "xml");
 		postMethod.addParameter("lgname", properties.getProperty("lgname"));
 		postMethod.addParameter("lgpassword",new String(Base64.decode(properties.getProperty("lgpassword.base64"))));
-
+		postMethod.getParams().setCookiePolicy(CookiePolicy.RFC_2109);
+		
+		
 		int status = this.httpClient.executeMethod(postMethod);
 		if(status==200)
 			{
 			Document dom= this.documentBuilder.parse(  postMethod.getResponseBodyAsStream());
 			Element e= dom.getDocumentElement();
-			if(e==null || !e.getTagName().equals("api")) return null;
+			if(e==null || !e.getTagName().equals("api")) throw new InvalidXMLException(e,"not api");
 			e= XMLUtilities.firstChild(e);
-			if(e==null || !e.getTagName().equals("login")) return null;
-			if(!"Success".equals(e.getAttribute("result"))) return null;
+			if(e==null || !e.getTagName().equals("login")) throw new InvalidXMLException(e,"not login");
+			if(!"Success".equals(e.getAttribute("result"))) throw new InvalidXMLException(e,"not login@result");
 			authorization= new MWAuthorization();
 			authorization.cookieprefix= e.getAttribute("cookieprefix");
 			authorization.lgusername= e.getAttribute("lgusername");
 			authorization.lgtoken= e.getAttribute("lgtoken");
 			authorization.sessionid= e.getAttribute("sessionid");
 			authorization.lguserid= e.getAttribute("lguserid");
+			
 			}
 		else
 			{
@@ -1048,6 +1113,135 @@ private MWAuthorization login() throws IOException,SAXException
 		}
 	catch(HttpException  err)
 		{
+		err.printStackTrace();
+		throw err;
+		}
+	catch(IOException err)
+		{
+		err.printStackTrace();
+		throw err;
+		}
+	catch(Throwable err)
+		{
+		err.printStackTrace();
+		throw new RuntimeException(err);
+		}
+	finally
+		{
+		if(postMethod!=null) postMethod.releaseConnection();
+		}
+	}
+
+private static final String LEFT_COMMENT="<!-- BOT-BEGIN-INTERACTION-BOX. (please do not remove that flag) -->\n";
+private static final String RIGHT_COMMENT="\n<!-- BOT-END-INTERACTION-BOX. (please do not remove that flag) -->";
+private void edit(String page,MWAuthorization authorization,String text) throws IOException,SAXException
+	{
+	Pattern referencesPattern = Pattern.compile("[=]+[ ]*reference[s]?[ ]*[=]+", Pattern.CASE_INSENSITIVE);
+	PostMethod postMethod=null;
+	GetMethod getMethod= null;
+
+	try
+		{
+		
+		getMethod= new GetMethod(
+				"http://en.wikipedia.org/w/api.php?action=query" +
+				"&format=xml&intoken=edit" +
+				"&prop="+URLEncoder.encode("info|revisions","UTF-8") +
+				"&titles="+URLEncoder.encode(page.replace(' ', '_'),"UTF-8")+
+				"&rvprop="+URLEncoder.encode("timestamp|content|revisions","UTF-8")
+				);
+		
+		
+		int status = this.httpClient.executeMethod(getMethod);
+		if(status!=200)
+			{
+			System.err.println("Cannot send get method ");
+			}
+		InputStream in= getMethod.getResponseBodyAsStream();
+		Document dom= documentBuilder.parse(in);
+		in.close();
+		Element api=dom.getDocumentElement();
+		if(api==null) throw new IOException("no root");
+		Element queryTag = XMLUtilities.firstChild(api, "query");
+		if(queryTag==null) throw new IOException("no query");
+		Element pages = XMLUtilities.firstChild(queryTag, "pages");
+		if(pages==null) throw new IOException("no pages");
+		Element pageTag = XMLUtilities.firstChild(pages, "page");
+		if(pageTag==null) throw new IOException("no page");
+		String token= pageTag.getAttribute("edittoken");
+		
+		String starttimestamp=pageTag.getAttribute("starttimestamp");
+		Element revisions=  XMLUtilities.firstChild(pageTag, "revisions");
+		if(revisions==null) throw new IOException("no revisions");
+		Element rev=  XMLUtilities.firstChild(revisions, "rev");
+		if(rev==null) throw new IOException("no rev");
+		String basetimestamp=rev.getAttribute("timestamp");
+		String content=rev.getTextContent();
+		
+		postMethod = new PostMethod(
+				"http://en.wikipedia.org/w/api.php"
+				);
+		
+		Matcher matcher= referencesPattern.matcher(content);
+		
+		int leftIndex= content.indexOf(LEFT_COMMENT);
+		int rightIndex=-1;
+		if(leftIndex!=-1)
+			{
+			rightIndex = content.indexOf(RIGHT_COMMENT,leftIndex+1);
+			}
+		
+		if(rightIndex!=-1)
+			{
+			String old = content.substring(leftIndex+LEFT_COMMENT.length(),rightIndex);
+			if(old.equals(text))
+				{
+				System.err.println("text didn't changed for "+page);
+				return;
+				}
+			content= content.substring(0,leftIndex)+
+					LEFT_COMMENT+ text+RIGHT_COMMENT+
+					content.substring(rightIndex+RIGHT_COMMENT.length());
+			}
+		else if(matcher.find())
+			{
+			int n= matcher.start();
+			content = content.substring(0,n)+
+					"\n==Interactions==\n"+
+					LEFT_COMMENT+ text+RIGHT_COMMENT+
+					content.substring(n);
+			}
+		else
+			{	
+			System.err.println("Cannot process "+page+" "+content);
+			return;
+			}
+		
+		//postMethod.addParameter("bot", "true");
+		postMethod.addParameter("action","edit");
+		postMethod.addParameter("title",page.replace(' ', '_'));
+		postMethod.addParameter("summary","updating interactions");
+		postMethod.addParameter("text",content);
+		postMethod.addParameter("basetimestamp",basetimestamp);
+		postMethod.addParameter("starttimestamp",starttimestamp);
+		postMethod.addParameter("token",token);
+		postMethod.addParameter("notminor","");
+		
+		
+		
+		status = this.httpClient.executeMethod(postMethod);
+		if(status==200)
+			{
+			
+			System.out.println("Done: "+page+"\n");
+			}
+		else
+			{
+			throw new IOException("bad http status:"+status);
+			}
+		}
+	catch(HttpException  err)
+		{
 		throw err;
 		}
 	catch(IOException err)
@@ -1056,9 +1250,11 @@ private MWAuthorization login() throws IOException,SAXException
 		}
 	finally
 		{
+		if(getMethod!=null) getMethod.releaseConnection();
 		if(postMethod!=null) postMethod.releaseConnection();
 		}
 	}
+
 
 public static void main(String[] args) {
 	try {
@@ -1116,7 +1312,7 @@ public static void main(String[] args) {
 	    if(program.equals("wikipedia"))
 		    {
 		    app.open();
-		    app.loadWikipedia();
+		    app.loadWikipedia(false);
 		    app.close();
 		    }
 	    //-p biogrid -biogrid /home/lindenb/BIOGRID-ALL-SINGLEFILE-2.0.53.psi.xml
