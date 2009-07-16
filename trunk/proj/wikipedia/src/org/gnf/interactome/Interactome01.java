@@ -831,6 +831,7 @@ private void loop(File fileout) throws Exception
 		if(qName.startsWith("Template:")) continue;
 		if(qName.equals("GFER")) continue;//this is my manual test
 		
+		
 		String templateName= this.qName2boxtemplate.get(qName);
 		if(templateName==null)
 			{
@@ -925,9 +926,11 @@ private void loop(File fileout) throws Exception
 			Interactor actor= partnerId2intractor.get(partnerId);
 			if(actor.interactions.size()<2) continue;
 			
-			if(foundOne) flowriter.append(", ");
+			
 			String interactorQName=proteineId2qName(partnerId);
 			if(interactorQName.toLowerCase().startsWith("biogrid-")) continue;
+			
+			if(foundOne) flowriter.append(", ");
 			foundOne=true;
 			flowriter.append(interactorQName);
 			
@@ -972,7 +975,13 @@ private void loop(File fileout) throws Exception
 		
 		if(foundOne)
 			{
+			
+			if(!qName.equals("PARP1")) continue;//TODO remove
+			System.err.println(flow.toString());//TODO remove
 			edit(qName, authorization, flow.toString());
+			
+			if(1==1) break;//TODO remove
+			
 			++countPageProcessed;
 			if(countPageProcessed==10) break;
 			}
@@ -1209,7 +1218,7 @@ private void edit(String page,MWAuthorization authorization,String text) throws 
 			{
 			int n= matcher.start();
 			content = content.substring(0,n)+
-					"\n==Interactions==\n"+
+					"==Interactions==\n"+
 					LEFT_COMMENT+ text+RIGHT_COMMENT+
 					content.substring(n);
 			}
@@ -1218,16 +1227,19 @@ private void edit(String page,MWAuthorization authorization,String text) throws 
 			System.err.println("Cannot process "+page+" "+content);
 			return;
 			}
-		
+	
 		//postMethod.addParameter("bot", "true");
 		postMethod.addParameter("action","edit");
 		postMethod.addParameter("title",page.replace(' ', '_'));
-		postMethod.addParameter("summary","updating interactions");
+		//postMethod.addParameter("title","Wikipedia:Tutorial_(Editing)/sandbox");
+		postMethod.addParameter("summary","trying to fix this accent problem");
+		//TODO postMethod.addParameter("summary","updating interactions");
 		postMethod.addParameter("text",content);
 		postMethod.addParameter("basetimestamp",basetimestamp);
 		postMethod.addParameter("starttimestamp",starttimestamp);
 		postMethod.addParameter("token",token);
 		postMethod.addParameter("notminor","");
+		postMethod.addParameter("format","xml");
 		
 		
 		
@@ -1235,7 +1247,7 @@ private void edit(String page,MWAuthorization authorization,String text) throws 
 		if(status==200)
 			{
 			
-			System.out.println("Done: "+page+"\n");
+			System.out.println("Done: "+page+" "+token+"\n"+postMethod.getResponseBodyAsString());
 			}
 		else
 			{

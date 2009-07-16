@@ -1,23 +1,27 @@
-package org.lindenb.tool.krobar;
+package java.org.lindenb.graffiti;
 
 import java.awt.AlphaComposite;
 import java.awt.Composite;
+import java.beans.PropertyChangeSupport;
+import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.Vector;
+import java.util.List;
 
 public class Layer
 	implements Iterable<Figure>
 	{
+	private PropertyChangeSupport propertyChanges;
 	private float alpha=1f;
 	private boolean visible=true;
 	private Model model;
-	private Vector<Figure> figures_=new Vector<Figure>();
+	private List<Figure> figures_=new ArrayList<Figure>();
 	public Layer(Model model)
 		{
+		this.propertyChanges= new PropertyChangeSupport(this);
 		this.model=model;
 		}
 	
-	public Vector<Figure> figures()
+	public List<Figure> figures()
 		{
 		return this.figures_;
 		}
@@ -36,8 +40,11 @@ public class Layer
 		return visible;
 		}
 	
-	public void setVisible(boolean visible) {
-		this.visible = visible;
+	public void setVisible(boolean is_visible)
+		{
+		boolean oldValue= this.visible;
+		this.visible = is_visible;
+		this.propertyChanges.firePropertyChange("visible", oldValue, is_visible);
 		}
 	
 	public float getOpacity()
@@ -51,6 +58,8 @@ public class Layer
 		}
 
 	public void setOpacity(float alpha) {
+		float oldValue= this.alpha;
 		this.alpha = alpha;
+		this.propertyChanges.firePropertyChange("alpha", oldValue, this.alpha);
 		}
 	}
