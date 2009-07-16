@@ -1,4 +1,4 @@
-<?xml version='1.0' ?>
+<?xml version='1.0'  encoding="ISO-8859-1"?>
 <xsl:stylesheet
 	xmlns:xsl='http://www.w3.org/1999/XSL/Transform'
 	version='1.0'
@@ -14,7 +14,7 @@ Author: Pierre Lindenbaum PhD plindenbaum@yahoo.fr
 see: http://en.wikipedia.org/wiki/Template:Citation
 
 -->
-<xsl:output method='text'/>
+<xsl:output method='text' encoding="UTF-8"/>
 
 
 <xsl:template match="/">

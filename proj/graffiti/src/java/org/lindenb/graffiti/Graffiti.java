@@ -1,5 +1,5 @@
 /** Basic template for a simple jaav gui program */
-package org.lindenb.tool.krobar;
+package java.org.lindenb.graffiti;
 import java.awt.AlphaComposite;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
@@ -14,7 +14,6 @@ import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
-import java.awt.LinearGradientPaint;
 import java.awt.Paint;
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -38,7 +37,6 @@ import java.awt.event.MouseMotionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.geom.AffineTransform;
-import java.awt.geom.Area;
 import java.awt.geom.GeneralPath;
 
 import java.awt.geom.Point2D;
@@ -104,7 +102,7 @@ import org.lindenb.util.Compilation;
 import org.lindenb.util.Debug;
 import org.lindenb.util.NamedKey;
 import org.lindenb.util.Observed;
-import org.lindenb.util.Pair;
+
 
 
 
@@ -112,7 +110,7 @@ import org.lindenb.util.Pair;
  * @author pierre
  *
  */
-public class Krobar02 extends JFrame
+public class Graffiti extends JFrame
 	{
 	private static final long serialVersionUID = 1L;
 	private Model model;
@@ -269,9 +267,9 @@ public class Krobar02 extends JFrame
 			{
 			}
 		
-		public Krobar02 getKrobar()
+		public Graffiti getKrobar()
 			{
-			return Krobar02.this;
+			return Graffiti.this;
 			}
 		
 		public Model getModel()
@@ -355,7 +353,7 @@ public class Krobar02 extends JFrame
 					try {
 						JFileChooser chooser= new JFileChooser();
 						chooser.setFileFilter(FileExtensionFilter.createImageFilter());
-						if(chooser.showOpenDialog(Krobar02.this)!=JFileChooser.APPROVE_OPTION) return;
+						if(chooser.showOpenDialog(Graffiti.this)!=JFileChooser.APPROVE_OPTION) return;
 						BufferedImage img= ImageIO.read(chooser.getSelectedFile());
 						setBbackgroundImage(img);
 						} 
@@ -393,7 +391,7 @@ public class Krobar02 extends JFrame
 		@Override
 		void install() {
 			super.install();
-			getKrobar().cardLayout.show(Krobar02.this.cardPane, "BCKGIMAGE");
+			getKrobar().cardLayout.show(Graffiti.this.cardPane, "BCKGIMAGE");
 			}
 		
 		@Override
@@ -669,7 +667,7 @@ public class Krobar02 extends JFrame
 		@Override
 		void install() {
 			super.install();
-			getKrobar().cardLayout.show(Krobar02.this.cardPane, "LAYER");
+			getKrobar().cardLayout.show(Graffiti.this.cardPane, "LAYER");
 			getDrawingArea().setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
 			}
 		
@@ -759,16 +757,16 @@ public class Krobar02 extends JFrame
 			int d= -(e.getX()-prevMouse.x);
 			int v=getKrobar().hScrollBar.getValue();
 			if(!(v+d<0 ||
-			   v+d+getKrobar().hScrollBar.getBlockIncrement()>Krobar02.this.hScrollBar.getMaximum()))
+			   v+d+getKrobar().hScrollBar.getBlockIncrement()>Graffiti.this.hScrollBar.getMaximum()))
 				{
 				getKrobar().hScrollBar.setValue(v+d);
 				}
 			
 			
 			d= -(e.getY()-prevMouse.y);
-			v=Krobar02.this.vScrollBar.getValue();
+			v=Graffiti.this.vScrollBar.getValue();
 			if(!(v+d<0 ||
-			   v+d+getKrobar().vScrollBar.getBlockIncrement()>Krobar02.this.vScrollBar.getMaximum()))
+			   v+d+getKrobar().vScrollBar.getBlockIncrement()>Graffiti.this.vScrollBar.getMaximum()))
 				{
 				getKrobar().vScrollBar.setValue(v+d);
 				}
@@ -805,6 +803,8 @@ public class Krobar02 extends JFrame
 			Box box= Box.createVerticalBox();
 			box.add(new JButton(new AbstractAction("1/1")
 				{
+				private static final long serialVersionUID = 1L;
+
 				@Override
 				public void actionPerformed(ActionEvent e) {
 					zoom.setValue(1.0);
@@ -812,6 +812,7 @@ public class Krobar02 extends JFrame
 				}));
 			box.add(new JButton(new AbstractAction("Out")
 				{
+				private static final long serialVersionUID = 1L;
 				@Override
 				public void actionPerformed(ActionEvent e) {
 					zoomIt(1.05);
@@ -819,6 +820,7 @@ public class Krobar02 extends JFrame
 				}));
 			box.add(new JButton(new AbstractAction("In")
 				{
+				private static final long serialVersionUID = 1L;
 				@Override
 				public void actionPerformed(ActionEvent e) {
 					zoomIt(0.95);
@@ -1060,7 +1062,7 @@ public class Krobar02 extends JFrame
 		@Override
 		void install() {
 			super.install();
-			getKrobar().cardLayout.show(	Krobar02.this.cardPane, "DRAW");
+			getKrobar().cardLayout.show(	Graffiti.this.cardPane, "DRAW");
 			getKrobar().drawingArea.setCursor( Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
 			}
 		
@@ -1073,7 +1075,7 @@ public class Krobar02 extends JFrame
 		@Override
 		public void mouseMoved(MouseEvent e)
 			{
-			Graphics2D g= Graphics2D.class.cast(Krobar02.this.drawingArea.getGraphics());
+			Graphics2D g= Graphics2D.class.cast(Graffiti.this.drawingArea.getGraphics());
 			g.setXORMode(Color.RED);
 			if(prevMouse!=null)
 				{
@@ -1229,7 +1231,7 @@ public class Krobar02 extends JFrame
 							f.setPath( modelPath );
 							f.setLayer(L);
 							if(e.isControlDown()) f.setFilled(true);
-							L.figures().addElement(f);
+							L.figures().add(f);
 							getModel().updateDimension();
 							resetOffscreenBackground();
 							getKrobar().adjustScrollBar();
@@ -1312,7 +1314,7 @@ public class Krobar02 extends JFrame
 	
 	
 	/** Krobar02 */
-	private Krobar02(Model model)
+	private Graffiti(Model model)
 		{
 		super("Krobar02");
 		this.model=model;
@@ -1326,7 +1328,7 @@ public class Krobar02 extends JFrame
 			private static final long serialVersionUID = 1L;
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				JOptionPane.showMessageDialog(Krobar02.this, Compilation.getLabel());
+				JOptionPane.showMessageDialog(Graffiti.this, Compilation.getLabel());
 				}
 			});
 		menu.add(new JSeparator());
@@ -1336,7 +1338,7 @@ public class Krobar02 extends JFrame
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				Model m= new Model();
-				Krobar02 newframe= new Krobar02(m);
+				Graffiti newframe= new Graffiti(m);
 				newframe.setVisible(true);
 				}
 			});
@@ -1347,7 +1349,7 @@ public class Krobar02 extends JFrame
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				Krobar02.this.doMenuClosing();
+				Graffiti.this.doMenuClosing();
 				}
 			});
 		
@@ -1358,16 +1360,16 @@ public class Krobar02 extends JFrame
 			public void actionPerformed(ActionEvent e) {
 				JFileChooser chooser= new JFileChooser();
 				chooser.setFileFilter(new FileExtensionFilter("SVG files",".svg",".svgz",".svg.gz"));
-				if(chooser.showOpenDialog(Krobar02.this)!=JFileChooser.APPROVE_OPTION) return;
+				if(chooser.showOpenDialog(Graffiti.this)!=JFileChooser.APPROVE_OPTION) return;
 				File f= chooser.getSelectedFile();
 				try {
 					Model newmodel= Model.parse(f);
-					Krobar02 newin= new Krobar02(newmodel);
+					Graffiti newin= new Graffiti(newmodel);
 					newin.setVisible(true);
 					} 
 				catch (Exception err)
 					{
-					ThrowablePane.show(Krobar02.this, err);
+					ThrowablePane.show(Graffiti.this, err);
 					}
 				}
 			});
@@ -1409,7 +1411,7 @@ public class Krobar02 extends JFrame
 				Layer last= layerTool.getCurrentLatyer();
 				if(!last.figures().isEmpty())
 					{
-					last.figures().removeElementAt(last.figures().size()-1);
+					last.figures().remove(last.figures().size()-1);
 					resetOffscreenBackground();
 					adjustScrollBar();
 					getDrawingArea().repaint();
@@ -1495,7 +1497,7 @@ public class Krobar02 extends JFrame
 			{
 			@Override
 			public void windowOpened(WindowEvent e) {
-				Krobar02.this.floatingFrame.setVisible(true);
+				Graffiti.this.floatingFrame.setVisible(true);
 				adjustScrollBar();
 				getDrawingArea().requestFocus();
 				}
@@ -1567,7 +1569,7 @@ public class Krobar02 extends JFrame
 	private void doMenuExport()
 		{
 		JFileChooser chooser= new JFileChooser();
-		if(chooser.showSaveDialog(Krobar02.this)!=JFileChooser.APPROVE_OPTION)
+		if(chooser.showSaveDialog(Graffiti.this)!=JFileChooser.APPROVE_OPTION)
 			{
 			return;
 			}
@@ -1661,7 +1663,7 @@ public class Krobar02 extends JFrame
 			{
 			g.drawImage(bckgTool.backgroundImage,
 				(int)bckgTool.modelXY.x, (int)bckgTool.modelXY.y, 
-				Krobar02.this.drawingArea	
+				Graffiti.this.drawingArea	
 				);
 			}
 		int currentLayer= layerTool.getCurrentLayerIndex();
@@ -1826,7 +1828,7 @@ public class Krobar02 extends JFrame
 				@Override
 				public void run()
 					{
-					JFrame f= new Krobar02(getObject());
+					JFrame f= new Graffiti(getObject());
 					f.setVisible(true);
 					}
 				});

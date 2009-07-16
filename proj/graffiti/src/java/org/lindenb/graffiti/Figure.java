@@ -1,4 +1,4 @@
-package org.lindenb.tool.krobar;
+package java.org.lindenb.graffiti;
 
 import java.awt.AlphaComposite;
 import java.awt.BasicStroke;

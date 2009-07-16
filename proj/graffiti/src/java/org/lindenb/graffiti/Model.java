@@ -1,4 +1,4 @@
-package org.lindenb.tool.krobar;
+package java.org.lindenb.graffiti;
 
 import java.awt.Color;
 import java.awt.Component;
@@ -12,6 +12,7 @@ import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Toolkit;
+import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Dimension2D;
@@ -59,7 +60,6 @@ import javax.xml.stream.events.XMLEvent;
 import org.lindenb.awt.Cap;
 import org.lindenb.awt.ColorUtils;
 import org.lindenb.awt.Join;
-import org.lindenb.awt.XMouseAdapter;
 import org.lindenb.io.PreferredDirectory;
 import org.lindenb.lang.ThrowablePane;
 import org.lindenb.sw.vocabulary.SVG;
@@ -83,6 +83,8 @@ public class Model
 		private JPanel rightArea;
 		private Rectangle2D modelRect;
 		private JTextField xLabel,yLabel,widthLabel,heightLabel;
+		private Point mousePrev;
+		private Point mouseStart;
 		RegionChooser(Model model)
 			{
 			super(new GridLayout(1,0,2,2));
@@ -101,26 +103,26 @@ public class Model
 				};
 			this.leftArea.setOpaque(true);
 			this.leftArea.setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
-			XMouseAdapter mouse= new XMouseAdapter()
+			MouseAdapter mouse= new MouseAdapter()
 				{
 				@Override
 				public void mousePressed(MouseEvent e) {
-					this.mouseStart= new Point(e.getX(),e.getY());
-					this.mousePrev=null;
+					mouseStart= new Point(e.getX(),e.getY());
+					mousePrev=null;
 					}
 				
 				@Override
 				public void mouseDragged(MouseEvent e)
 					{
-					Graphics2D g= getGraphics(e);
+					Graphics2D g= (Graphics2D)e.getComponent().getGraphics();
 					g.setXORMode(Color.RED);
-					if(this.mousePrev!=null)
+					if(mousePrev!=null)
 						{
-						drawRect(g,this.mouseStart,this.mousePrev);
+						drawRect(g,mouseStart,mousePrev);
 						}
 					mousePrev= new Point(e.getX(),e.getY());
-					drawRect(g,this.mouseStart,this.mousePrev);
-					setSelectionViewRect(this.mouseStart.x,this.mouseStart.y,mousePrev.x,mousePrev.y);
+					drawRect(g,mouseStart,mousePrev);
+					setSelectionViewRect(mouseStart.x,mouseStart.y,mousePrev.x,mousePrev.y);
 					g.dispose();
 					}
 				
@@ -133,7 +135,7 @@ public class Model
 						}
 					else
 						{
-						setSelectionViewRect(this.mouseStart.x,this.mouseStart.y,mousePrev.x,mousePrev.y);
+						setSelectionViewRect(mouseStart.x,mouseStart.y,mousePrev.x,mousePrev.y);
 						}
 					leftArea.repaint();
 					}
@@ -184,6 +186,11 @@ public class Model
 			this.rightArea.setBorder(new LineBorder(Color.DARK_GRAY));
 			this.add(this.rightArea);
 			
+			}
+		
+		private void drawRect(Graphics2D g,Point a,Point b)
+			{
+			g.drawRect(Math.min(a.x,b.x), Math.min(a.y,b.y), Math.abs(a.x-b.x), Math.abs(a.y-b.y));
 			}
 		
 		private Pair<JLabel, JTextField> createLabel(String label)
@@ -267,7 +274,7 @@ public class Model
 		}
 	
 	
-	
+		
 	public Model()
 		{
 		layers().addElement(new Layer(this));
@@ -304,7 +311,7 @@ public class Model
 		return m;
 		}
 	
-	public static File showDialogExportImage(Component owner,Model model)
+	public File showDialogExportImage(Component owner,Model model)
 		{
 		RegionChooser zone= new RegionChooser(model);
 		if(JOptionPane.showConfirmDialog(owner, zone,"Select the Region",JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE,null)!=JOptionPane.OK_OPTION)
@@ -337,7 +344,7 @@ public class Model
 		return f;
 		}
 	
-	public static File showDialogExportSVG(Component owner,Model model)
+	public File showDialogExportSVG(Component owner,Model model)
 		{
 		RegionChooser zone= new RegionChooser(model);
 		if(JOptionPane.showConfirmDialog(owner, zone,"Select the Region",JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE,null)!=JOptionPane.OK_OPTION)
@@ -408,7 +415,7 @@ public class Model
                     	if(f!=null &&f.getPath()!=null && !layers().isEmpty())
 	                    	{
                     		f.setLayer(this.layers().lastElement());
-                    		this.layers().lastElement().figures().addElement(f);	          
+                    		this.layers().lastElement().figures().add(f);	          
 	                        }
                         }
                     else if(  e.getName().getLocalPart().equals("g"))
