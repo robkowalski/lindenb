@@ -7,6 +7,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
+import java.io.StringReader;
 import java.io.StringWriter;
 import java.net.URLEncoder;
 import java.util.ArrayList;
@@ -22,6 +23,7 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 
+import javax.swing.JOptionPane;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.SAXParser;
@@ -64,7 +66,10 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
+
+import arq.qtest;
 
 import com.sleepycat.bind.tuple.IntegerBinding;
 import com.sleepycat.bind.tuple.StringBinding;
@@ -897,9 +902,7 @@ private void loop(File fileout) throws Exception
 		
 	
 	
-		StringWriter flow= new StringWriter();
-		PrintWriter flowriter= new PrintWriter(flow);
-		flowriter.append(qName+" has been shown to [[Protein-protein_interaction|interact]] with ");
+		
 		
 		HashMap<String, Interactor>  partnerId2intractor= new HashMap<String, Interactor>();
 		for(BerkeleyDBKey interactionId : interactionList)
@@ -919,20 +922,24 @@ private void loop(File fileout) throws Exception
 				actor.interactions.add(interaction);
 				}
 			}
-		boolean foundOne=false;
+		
 		Set<String> seenReferences= new HashSet<String>();
+		List<String> interactorsQNames= new ArrayList<String>();
+		StringBuilder citations= new StringBuilder();
 		for(String partnerId: partnerId2intractor.keySet())
 			{
 			Interactor actor= partnerId2intractor.get(partnerId);
 			if(actor.interactions.size()<2) continue;
 			
 			
-			String interactorQName=proteineId2qName(partnerId);
+			String interactorQName = proteineId2qName(partnerId);
 			if(interactorQName.toLowerCase().startsWith("biogrid-")) continue;
 			
-			if(foundOne) flowriter.append(", ");
-			foundOne=true;
-			flowriter.append(interactorQName);
+			
+			if(!interactorsQNames.contains(interactorQName))
+				{
+				interactorsQNames.add(interactorQName);
+				}
 			
 			for(Document interaction:actor.interactions)
 				{
@@ -959,7 +966,7 @@ private void loop(File fileout) throws Exception
 					Document experiment= this.biogridDB.get(new BerkeleyDBKey(BioGridKeyType.experimentDescription,expRef.getValue()));
 					if(experiment!=null)
 						{
-						flowriter.print(experiment2anchor(experiment,seenReferences));
+						citations.append(experiment2anchor(experiment,seenReferences));
 						}
 					}
 				}
@@ -970,22 +977,38 @@ private void loop(File fileout) throws Exception
 		out.println("<pre style='background-color:lightgray;'>"+ XMLUtilities.escape(table.toString())+"</pre>");
 		out.flush();
 		*/
-		flowriter.append(".\n");
+		StringWriter flow= new StringWriter();
+		PrintWriter flowriter= new PrintWriter(flow);
+		flowriter.append("'''"+qName+"''' has been shown to [[Protein-protein_interaction|interact]] with ");
+		
+		
+		for(int i=0;i <interactorsQNames.size();++i)
+			{
+			if(i!=0 && i+1== interactorsQNames.size())
+				{
+				flowriter.append(" and ");
+				}
+			else if(i!=0)
+				{
+				flowriter.append(", ");
+				}
+			flowriter.append(interactorsQNames.get(i));
+			}
+		
+		flowriter.append("."+citations+"\n");
 		flowriter.flush();
 		
-		if(foundOne)
+		if(!interactorsQNames.isEmpty())
 			{
-			
-			if(!qName.equals("PARP1")) continue;//TODO remove
-			System.err.println(flow.toString());//TODO remove
-			edit(qName, authorization, flow.toString());
-			
-			if(1==1) break;//TODO remove
-			
-			++countPageProcessed;
-			if(countPageProcessed==10) break;
+			if( edit(qName, authorization, flow.toString()))
+				{
+				long seconds=5*1000;
+				Thread.sleep(seconds);
+				++countPageProcessed;
+				}
+			//if(countPageProcessed>=10) break;//TODO
 			}
-		//TODO
+		
 		
 		
 		}
@@ -1042,8 +1065,7 @@ private String experiment2anchor(Document exp,Set<String> seenRefs)  throws Exce
 	String pmid= primaryRef.getAttribute("id");
 	if(seenRefs.contains(pmid))
 		{
-		return "";
-		//return XMLUtilities.escape(shortLabel.getTextContent())+"{{ref|pmid"+pmid+"}}";
+		return "";//XMLUtilities.escape(shortLabel.getTextContent())+"{{ref|pmid"+pmid+"}}";
 		}
 	seenRefs.add(pmid);
 	
@@ -1138,9 +1160,7 @@ private MWAuthorization login() throws IOException,SAXException
 		}
 	}
 
-private static final String LEFT_COMMENT="<!-- BOT-BEGIN-INTERACTION-BOX. (please do not remove that flag) -->\n";
-private static final String RIGHT_COMMENT="\n<!-- BOT-END-INTERACTION-BOX. (please do not remove that flag) -->";
-private void edit(String page,MWAuthorization authorization,String text) throws IOException,SAXException
+private boolean edit(String page,MWAuthorization authorization,String text) throws IOException,SAXException
 	{
 	Pattern referencesPattern = Pattern.compile("[=]+[ ]*reference[s]?[ ]*[=]+", Pattern.CASE_INSENSITIVE);
 	PostMethod postMethod=null;
@@ -1184,75 +1204,106 @@ private void edit(String page,MWAuthorization authorization,String text) throws 
 		String basetimestamp=rev.getAttribute("timestamp");
 		String content=rev.getTextContent();
 		
-		postMethod = new PostMethod(
-				"http://en.wikipedia.org/w/api.php"
-				);
+		
 		
 		Matcher matcher= referencesPattern.matcher(content);
 		
-		int leftIndex= content.indexOf(LEFT_COMMENT);
-		int rightIndex=-1;
-		if(leftIndex!=-1)
-			{
-			rightIndex = content.indexOf(RIGHT_COMMENT,leftIndex+1);
-			}
 		
-		if(rightIndex!=-1)
+		
+		if(content.contains("==Interactions=="))
 			{
-			String old = content.substring(leftIndex+LEFT_COMMENT.length(),rightIndex);
-			if(old.equals(text))
-				{
-				System.err.println("text didn't changed for "+page);
-				return;
-				}
-			content= content.substring(0,leftIndex)+
-					LEFT_COMMENT+ text+RIGHT_COMMENT+
-					content.substring(rightIndex+RIGHT_COMMENT.length());
-			}
-		else if(content.contains("==Interactions=="))
-			{
-			System.err.println("==Interaction== exists");
-			return;
+			System.err.println("==Interactions== exists");
+			return false;
 			}
 		else if(matcher.find())
 			{
 			int n= matcher.start();
 			content = content.substring(0,n)+
 					"==Interactions==\n"+
-					LEFT_COMMENT+ text+RIGHT_COMMENT+
+					text+
 					content.substring(n);
 			}
 		else
 			{	
-			System.err.println("Cannot process "+page+" "+content);
-			return;
+			System.err.println("Cannot process "+page+" (no ==References==)");
+			return false;
 			}
-	
-		//postMethod.addParameter("bot", "true");
-		postMethod.addParameter("action","edit");
-		postMethod.addParameter("title",page.replace(' ', '_'));
-		//postMethod.addParameter("title","Wikipedia:Tutorial_(Editing)/sandbox");
-		postMethod.addParameter("summary","trying to fix this accent problem");
-		//TODO postMethod.addParameter("summary","updating interactions");
-		postMethod.addParameter("text",content);
-		postMethod.addParameter("basetimestamp",basetimestamp);
-		postMethod.addParameter("starttimestamp",starttimestamp);
-		postMethod.addParameter("token",token);
-		postMethod.addParameter("notminor","");
-		postMethod.addParameter("format","xml");
 		
 		
 		
-		status = this.httpClient.executeMethod(postMethod);
-		if(status==200)
+		String captchaid=null;
+		String captchaword=null;
+		int tryCount=0;
+		while((tryCount++)<10)
 			{
+			postMethod = new PostMethod(
+					"http://en.wikipedia.org/w/api.php"
+					);
+			postMethod.setRequestHeader( "Content-Type", "application/x-www-form-urlencoded; charset=utf-8");
+
+			//postMethod.addParameter("bot", "true");
+			postMethod.addParameter("action","edit");
+			postMethod.addParameter("title",page.replace(' ', '_'));
+			postMethod.addParameter("summary","updating interactions");
+			postMethod.addParameter("text",content);
+			postMethod.addParameter("basetimestamp",basetimestamp);
+			postMethod.addParameter("starttimestamp",starttimestamp);
+			postMethod.addParameter("token",token);
+			postMethod.addParameter("notminor","");
+			postMethod.addParameter("format","xml");
 			
-			System.out.println("Done: "+page+" "+token+"\n"+postMethod.getResponseBodyAsString());
+			if(captchaid!=null && captchaword!=null)
+				{
+				System.err.println("Setting captchaid "+captchaid +"="+captchaword);
+				postMethod.addParameter("captchaid", captchaid);
+				postMethod.addParameter("captchaword", captchaword);
+				}
+			
+			status = this.httpClient.executeMethod(postMethod);
+			if(status==200)
+				{
+				String response= postMethod.getResponseBodyAsString();
+				dom= this.documentBuilder.parse(new InputSource(new StringReader(response)));
+				api=dom.getDocumentElement();
+				if(api==null) throw new IOException("no root");
+				Element editTag = XMLUtilities.firstChild(api, "edit");
+				if(editTag==null) throw new IOException("no edit");
+				String result= editTag.getAttribute("result");
+				if(result.equals("Failure"))
+					{
+					Element captcha= XMLUtilities.firstChild(editTag, "captcha");
+					if(captcha==null)
+						{
+						System.err.println("No captcha for "+response);
+						return false;
+						}
+					captchaid= captcha.getAttribute("id");
+					String type= captcha.getAttribute("type");
+					String question=captcha.getAttribute("question");
+					
+					captchaword = resolveCaptcha(question);
+					if(captchaword==null)
+						{
+						captchaword= JOptionPane.showInputDialog(null,
+								""+question,page+" "+tryCount+" "+response,
+								JOptionPane.QUESTION_MESSAGE
+								);
+						}
+					if(captchaword==null) captchaword="";
+					postMethod.releaseConnection();
+					continue;
+					}
+				
+				System.out.println("Done: "+page +" "+response);
+				return true;
+				}
+			else
+				{
+				throw new IOException("bad http status:"+status);
+				}
 			}
-		else
-			{
-			throw new IOException("bad http status:"+status);
-			}
+		System.out.println("Error trying mutiple time for: "+page);
+		return false;
 		}
 	catch(HttpException  err)
 		{
@@ -1269,6 +1320,38 @@ private void edit(String page,MWAuthorization authorization,String text) throws 
 		}
 	}
 
+
+private String resolveCaptcha(String question)
+	{
+	if(question==null) return null;
+	String tokens[]=question.trim().replaceAll("[ \t]+", " ").split("[ ]");
+	if(tokens.length!=3) return null;
+	Integer left= Cast.Integer.cast(tokens[0]);
+	if(left==null) return null;
+	Integer right= Cast.Integer.cast(tokens[2]);
+	if(right==null) return null;
+	if(tokens[1].equals("+"))
+		{
+		return String.valueOf(left+right);
+		}
+	else if(tokens[1].equals("-"))
+		{
+		return String.valueOf(left-right);
+		}
+	else if(tokens[1].equals("*"))
+		{
+		return String.valueOf(left*right);
+		}
+	else if(tokens[1].equals("/") && right!=0)
+		{
+		return String.valueOf(left/right);
+		}
+	else
+		{
+		System.err.println("Cannot result "+question);
+		return null;
+		}
+	}
 
 public static void main(String[] args) {
 	try {
