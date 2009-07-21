@@ -11,6 +11,7 @@ import java.awt.Stroke;
 import java.awt.font.FontRenderContext;
 import java.awt.font.TextLayout;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.Area;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Line2D;
 import java.awt.geom.Rectangle2D;
@@ -56,6 +57,8 @@ public class SVGRenderer
 		Element svgRoot;
 		/** current node */
 		Element node;
+		/** current clip */
+		Shape clip;
 		/** current shape */
 		Shape shape;
 		float fontSize=12;
@@ -78,6 +81,7 @@ public class SVGRenderer
 			this.svgRoot=root;
 			this.node=root;
 			this.transform=new AffineTransform(g.getTransform());
+			this.clip= g.getClip();
 			}
 		
 		Shuttle(Shuttle cp,Element e)
@@ -86,6 +90,7 @@ public class SVGRenderer
 			this.g = cp.g;
 			this.svgRoot = cp.svgRoot;
 			this.shape=cp.shape;
+			this.clip=cp.clip;
 			this.fontSize=cp.fontSize;
 			this.fontFamily=cp.fontFamily;
 			this.stroke=cp.stroke;
@@ -203,7 +208,22 @@ public class SVGRenderer
 		if(!XMLUtilities.isA(root, SVG.NS, "svg")) throw new InvalidXMLException(root,"not a SVG root");
 		
 		Dimension2D srcSize= getSize(root);
+		Rectangle2D viewBox=null;
+		Attr viewBoxAttr = root.getAttributeNode("viewBox");
+		if(viewBoxAttr!=null)
+			{
+			String tokens[]= viewBoxAttr.getValue().trim().split("[ \t\n]+");
+			if(tokens.length!=4) throw new InvalidXMLException(viewBoxAttr,"invalid ");
+			viewBox = new  Rectangle2D.Double(
+				Double.parseDouble(tokens[0]),
+				Double.parseDouble(tokens[1]),
+				Double.parseDouble(tokens[2]),
+				Double.parseDouble(tokens[3])
+				);
+			srcSize= new Dimension2D.Double(viewBox.getWidth(),viewBox.getHeight());
+			}
 		
+			
 		AffineTransform originalTr=null;
 		if(viewRect==null)
 			{
@@ -220,7 +240,6 @@ public class SVGRenderer
 						viewRect.getHeight()/srcSize.getHeight()
 					);
 				
-				
 				g.translate(
 						(viewRect.getWidth() -srcSize.getWidth()*ratio)/2.0,
 						(viewRect.getHeight()-srcSize.getHeight()*ratio)/2.0
@@ -228,9 +247,23 @@ public class SVGRenderer
 				g.scale(ratio,ratio);
 				}
 			}
-		
+		Shape oldclip= g.getClip();
 		Shuttle shuttle=new Shuttle(g,root);
-		
+		if(viewBox!=null)
+			{
+			AffineTransform tr= AffineTransform.getTranslateInstance(
+				-viewBox.getX(),
+				-viewBox.getY()
+				);
+			shuttle.transform.concatenate(tr);
+			Area area= new Area(shuttle.clip);
+			area.intersect(new Area(new Rectangle2D.Double(
+				0,0,
+				viewBox.getWidth(),
+				viewBox.getHeight()
+				)));
+			shuttle.clip= area;
+			}
 		
 		paint(shuttle);
 		
@@ -239,7 +272,7 @@ public class SVGRenderer
 			{
 			g.setTransform(originalTr);
 			}
-		
+		g.setClip(oldclip);
 		}
 	
 	private void paint(Shuttle shuttle) throws InvalidXMLException
@@ -413,7 +446,8 @@ public class SVGRenderer
 	private void drawShape(Shuttle shuttle)
 		{
 		Graphics2D g= shuttle.g;
-		
+		Shape oldclip=shuttle.g.getClip();
+		g.setClip(shuttle.clip);
 		Composite oldcomposite=g.getComposite();
 		if(shuttle.opacity!=1f)
 			{
@@ -441,6 +475,7 @@ public class SVGRenderer
 			g.setPaint(shuttle.stroke);
 			g.draw(shuttle.shape);
 			}
+		g.setClip(oldclip);
 		g.setStroke(oldStroke);
 		g.setTransform(oldtr);
 		g.setComposite(oldcomposite);
