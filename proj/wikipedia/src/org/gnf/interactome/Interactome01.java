@@ -512,7 +512,7 @@ private Interactome01() throws Exception
 	TransformerFactory tFactory=TransformerFactory.newInstance();
 	//ARGH, full path, ugly ! FIX THIS
 	this.pubmed2wikiXslt=tFactory.newTemplates(new StreamSource(
-			new File("/home/lindenb/src/lindenb/src/xsl/pubmed2wiki.xsl")));
+			new File("/home/lindenb/src/lindenb/src/xsl/pubmed2wiki.tmp.xsl")));
 	
 	this.transformer =tFactory.newTransformer();
 	this.transformer.setOutputProperty(OutputKeys.METHOD, "xml");
@@ -820,10 +820,16 @@ private void loadWikipedia(boolean cleanupFirst) throws Exception
 	LOG.info("load wikipedia END");
 	}
 
+private static class InlineCitation
+	{
+	String qName=null;
+	StringBuilder citations= new StringBuilder();
+	}
+
 private void loop(File fileout) throws Exception
 	{
 	MWAuthorization authorization=login();
-	
+	boolean firstSeen=false;
 	Set<String> wikipediaPages= qName2wikipedia.getKeySet();
 	LOG.info("Start loop");
 	int countPageProcessed=0;
@@ -835,8 +841,16 @@ private void loop(File fileout) throws Exception
 		{
 		if(qName.startsWith("Template:")) continue;
 		if(qName.equals("GFER")) continue;//this is my manual test
-		
-		
+		if(qName.equals("UBE2D3"))
+			{
+			firstSeen=true;
+			continue;
+			}
+		if(!firstSeen) continue;
+		if(!StringUtils.isIn(qName, "Replication protein A1","MAP4K1","Heat shock protein 90kDa alpha (cytosolic), member A1","RHOA","HMGB1"))
+			{
+			continue;
+			}
 		String templateName= this.qName2boxtemplate.get(qName);
 		if(templateName==null)
 			{
@@ -922,10 +936,10 @@ private void loop(File fileout) throws Exception
 				actor.interactions.add(interaction);
 				}
 			}
-		
+		List<InlineCitation> inlineCitations=  new ArrayList<InlineCitation>();
 		Set<String> seenReferences= new HashSet<String>();
-		List<String> interactorsQNames= new ArrayList<String>();
-		StringBuilder citations= new StringBuilder();
+		//List<String> interactorsQNames= new ArrayList<String>();
+		//StringBuilder citations= new StringBuilder();
 		for(String partnerId: partnerId2intractor.keySet())
 			{
 			Interactor actor= partnerId2intractor.get(partnerId);
@@ -935,11 +949,27 @@ private void loop(File fileout) throws Exception
 			String interactorQName = proteineId2qName(partnerId);
 			if(interactorQName.toLowerCase().startsWith("biogrid-")) continue;
 			
+			InlineCitation inlineCitation=null;
+			for(InlineCitation ic:inlineCitations)
+				{
+				if(ic.qName.equals(interactorQName))
+					{
+					inlineCitation=ic;
+					break;
+					}
+				}
+			if(inlineCitation==null)
+				{
+				inlineCitation=new InlineCitation();
+				inlineCitation.qName= interactorQName;
+				inlineCitations.add(inlineCitation);
+				}
 			
+			/*
 			if(!interactorsQNames.contains(interactorQName))
 				{
 				interactorsQNames.add(interactorQName);
-				}
+				}*/
 			
 			for(Document interaction:actor.interactions)
 				{
@@ -966,7 +996,7 @@ private void loop(File fileout) throws Exception
 					Document experiment= this.biogridDB.get(new BerkeleyDBKey(BioGridKeyType.experimentDescription,expRef.getValue()));
 					if(experiment!=null)
 						{
-						citations.append(experiment2anchor(experiment,seenReferences));
+						inlineCitation.citations.append(experiment2anchor(experiment,seenReferences));
 						}
 					}
 				}
@@ -979,26 +1009,33 @@ private void loop(File fileout) throws Exception
 		*/
 		StringWriter flow= new StringWriter();
 		PrintWriter flowriter= new PrintWriter(flow);
-		flowriter.append("'''"+qName+"''' has been shown to [[Protein-protein_interaction|interact]] with ");
+		flowriter.append(""+qName+" has been shown to [[Protein-protein_interaction|interact]] with ");
 		
 		
-		for(int i=0;i <interactorsQNames.size();++i)
+		for(int i=0;i <inlineCitations.size();++i)
 			{
-			if(i!=0 && i+1== interactorsQNames.size())
+			
+			if(i+2==inlineCitations.size())
 				{
+				flowriter.append(inlineCitations.get(i).qName);
 				flowriter.append(" and ");
+				flowriter.append(inlineCitations.get(i+1).qName);
+				flowriter.append("."+inlineCitations.get(i).citations.toString()+inlineCitations.get(i+1).citations.toString()+"\n");
+				break;
 				}
-			else if(i!=0)
+			else if(i+1== inlineCitations.size())
 				{
-				flowriter.append(", ");
+				flowriter.append(inlineCitations.get(i).qName+"."+inlineCitations.get(i).citations.toString()+"\n");
 				}
-			flowriter.append(interactorsQNames.get(i));
+			else 
+				{
+				flowriter.append(inlineCitations.get(i).qName+","+inlineCitations.get(i).citations.toString()+" ");
+				}
 			}
 		
-		flowriter.append("."+citations+"\n");
 		flowriter.flush();
 		
-		if(!interactorsQNames.isEmpty())
+		if(!inlineCitations.isEmpty())
 			{
 			if( edit(qName, authorization, flow.toString()))
 				{
@@ -1163,6 +1200,7 @@ private MWAuthorization login() throws IOException,SAXException
 private boolean edit(String page,MWAuthorization authorization,String text) throws IOException,SAXException
 	{
 	Pattern referencesPattern = Pattern.compile("[=]+[ ]*reference[s]?[ ]*[=]+", Pattern.CASE_INSENSITIVE);
+	Pattern seeAlsoPattern = Pattern.compile("[=]+[ ]*See[ ]also?[ ]*[=]+", Pattern.CASE_INSENSITIVE);
 	PostMethod postMethod=null;
 	GetMethod getMethod= null;
 
@@ -1207,7 +1245,28 @@ private boolean edit(String page,MWAuthorization authorization,String text) thro
 		
 		
 		Matcher matcher= referencesPattern.matcher(content);
+		int index1=-1;
+		if(matcher.find())
+			{
+			index1=matcher.start();
+			}
+		else
+			{
+			index1= Integer.MAX_VALUE;
+			}
+		matcher= seeAlsoPattern.matcher(content);
+		int index2=-1;
+		if(matcher.find())
+			{
+			index2=matcher.start();
+			}
+		else
+			{
+			index2= Integer.MAX_VALUE;
+			}
 		
+		int n=Math.min(index1, index2);
+		if(n==Integer.MAX_VALUE) n=-1;
 		
 		
 		if(content.contains("==Interactions=="))
@@ -1215,9 +1274,8 @@ private boolean edit(String page,MWAuthorization authorization,String text) thro
 			System.err.println("==Interactions== exists");
 			return false;
 			}
-		else if(matcher.find())
-			{
-			int n= matcher.start();
+		else if(n!=-1)
+			{		
 			content = content.substring(0,n)+
 					"==Interactions==\n"+
 					text+
