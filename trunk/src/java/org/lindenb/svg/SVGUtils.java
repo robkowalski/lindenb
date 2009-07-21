@@ -341,7 +341,12 @@ public class SVGUtils extends SVG
 		return p;
 		}
 	
-	
+	/**
+	 * pathToShape
+	 * copied from http://www.blackdirt.com/graphics/svg/svgImage.java
+	 * @param pathString the path string
+	 * @return
+	 */
 	public static GeneralPath pathToShape(String pathString )
 	{
 		float fx=0,fy=0,fx1=0,fx2=0,fy1=0,fy2=0,oldfx=0,oldfy=0;
