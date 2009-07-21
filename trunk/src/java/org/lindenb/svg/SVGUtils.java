@@ -343,7 +343,7 @@ public class SVGUtils extends SVG
 	
 	/**
 	 * pathToShape
-	 * copied from http://www.blackdirt.com/graphics/svg/svgImage.java
+	 * inspired from http://www.blackdirt.com/graphics/svg/svgImage.java
 	 * @param pathString the path string
 	 * @return
 	 */
