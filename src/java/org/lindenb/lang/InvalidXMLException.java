@@ -15,7 +15,11 @@ public class InvalidXMLException extends Exception
 	public InvalidXMLException()
 		{
 		}
-
+	public InvalidXMLException(Node node)
+		{
+		this(node,"Illegal node");
+		}
+	
 	public InvalidXMLException(Node node,String msg)
 		{
 		super(
