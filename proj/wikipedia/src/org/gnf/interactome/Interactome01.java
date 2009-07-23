@@ -4,18 +4,25 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
+import java.util.logging.FileHandler;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -764,101 +771,154 @@ private void loadWikipedia(boolean cleanupFirst) throws Exception
 		}
 	
 	MWQuery query= new MWQuery();
-	//get all the pages aving a Template:PBB
-	for(Page page:query.listPagesEmbedding(new Page("Template:PBB")))
-		{
-		if(!cleanupFirst)
+	
+		//get all the pages aving a Template:PBB
+		for(Page page:query.listPagesEmbedding(new Page("Template:PBB")))
 			{
 			if(this.qName2wikipedia.get(page.getQName())!=null) continue;
-			}
-		
-		
-		LOG.info("current page is "+page);
-		//save the content of this page
-		String content= query.getContent(page);
-		
-		this.qName2wikipedia.put(page.getQName(),content);
-		LOG.info("load templates in "+page);
-		boolean found=false;
-		//get al the templates in this page
-		for(Page template:query.listTemplatesIn(page))
-			{
-			//get the PBB/xxxx template
-			if(!template.getQName().startsWith("Template:PBB/")) continue;
-			LOG.info("found PBB templates for  "+page+" "+template);
+
+			//save the content of this page
+			String contentOfPage= query.getContent(page);
 			
-			//save the content of this template
-			content= query.getContent(template);
-			if(content==null)
+			this.qName2wikipedia.put(page.getQName(),contentOfPage);
+			LOG.info("load templates in "+page);
+			
+			String templateContent=null;
+			
+			boolean found=false;
+			
+			//get al the templates in this page
+			for(Page template:query.listTemplatesIn(page))
 				{
-				LOG.warning("no template for "+page);
+				//get the PBB/xxxx template
+				if(!template.getQName().startsWith("Template:PBB/")) continue;
+				LOG.info("found PBB templates for  "+page+" "+template);
+				
+				//save the content of this template
+				templateContent= query.getContent(template);
+				if(templateContent==null)
+					{
+					LOG.warning("no template for "+page);
+					continue;
+					}
+				this.qName2wikipedia.put(template.getQName(),templateContent);
+				this.qName2boxtemplate.put(page.getQName(), template.getQName());
+				
+				String omimId = simpleFindField(templateContent, "OMIM");
+				if(omimId!=null && Cast.Integer.isA(omimId))
+					{
+					omim2qname.put(omimId, page.getQName());
+					}
+				String Hs_EntrezGene= simpleFindField(templateContent, "Hs_EntrezGene");
+				if(Hs_EntrezGene!=null)
+					{
+					entrezGene2qname.put(Hs_EntrezGene, page.getQName());
+					}
+				
+				found=true;
+				break;
+				}
+			
+			
+			
+			if(!found)
+				{
+				LOG.warning("Cannot find Template:PBB for "+page);
 				continue;
 				}
-			this.qName2wikipedia.put(template.getQName(),content);
-			this.qName2boxtemplate.put(page.getQName(), template.getQName());
 			
-			String omimId = simpleFindField(content, "OMIM");
-			if(omimId!=null && Cast.Integer.isA(omimId))
-				{
-				omim2qname.put(omimId, page.getQName());
-				}
-			String Hs_EntrezGene= simpleFindField(content, "Hs_EntrezGene");
-			if(Hs_EntrezGene!=null)
-				{
-				entrezGene2qname.put(Hs_EntrezGene, page.getQName());
-				}
 			
-			found=true;
-			break;
+			
+			
 			}
 		
-		if(!found)
-			{
-			LOG.warning("Cannot find PBB for "+page);
-			}
-		}
 	LOG.info("load wikipedia END");
 	}
 
 private static class InlineCitation
 	{
 	String qName=null;
+	Set<String> citationsSeen=new HashSet<String>();
 	StringBuilder citations= new StringBuilder();
 	}
 
+
+private static String anchorQName(String qName)
+	{
+	if(qName.toLowerCase().endsWith("(gene)"))
+		{
+		return "[["+qName+"|"+qName.substring(0,qName.length()-6).trim()+"]]";
+		}
+	else if(qName.toLowerCase().endsWith("(protein)"))
+		{
+		return "[["+qName+"|"+qName.substring(0,qName.length()-9).trim()+"]]";
+		}
+	return "[["+qName+"]]";
+	}
+
+private PrintStream logStream=null; 
 private void loop(File fileout) throws Exception
 	{
+	if(fileout!=null)
+		{
+		logStream= new PrintStream(new FileOutputStream(fileout,true));
+		logStream.println("%%\n\n");
+		LOG.addHandler(new Handler()
+			{
+			@Override
+			public void publish(LogRecord record) {
+				logStream.println(""+record.getMessage());	
+				}
+			@Override
+			public void close() throws SecurityException {
+				logStream.close();
+				}
+			@Override
+			public void flush()
+				{
+				logStream.flush();
+				}
+			});
+		}
 	MWAuthorization authorization=login();
-	boolean firstSeen=false;
+	
 	Set<String> wikipediaPages= qName2wikipedia.getKeySet();
 	LOG.info("Start loop");
 	int countPageProcessed=0;
+	boolean firstSeen=true;//TODO fix
 	
-	//loop over wikipedia
-	/*PrintWriter out= new PrintWriter(new FileWriter(fileout));
-	out.print("<html><body>"); */
 	for(String qName: wikipediaPages)
 		{
 		if(qName.startsWith("Template:")) continue;
-		if(qName.equals("GFER")) continue;//this is my manual test
-		if(qName.equals("UBE2D3"))
+		if(qName.equals("HERPUD1"))
 			{
 			firstSeen=true;
 			continue;
 			}
+		
 		if(!firstSeen) continue;
-		if(!StringUtils.isIn(qName, "Replication protein A1","MAP4K1","Heat shock protein 90kDa alpha (cytosolic), member A1","RHOA","HMGB1"))
-			{
-			continue;
-			}
+		
+		
+		
+		
+		
 		String templateName= this.qName2boxtemplate.get(qName);
+		String templateContent=null;
 		if(templateName==null)
 			{
-			LOG.info("No box template for "+qName);
+			LOG.info("No Box template or GNF_Protein_box for "+qName);
 			continue;
 			}
+		else
+			{
+			templateContent=  qName2wikipedia.get(templateName);
+			}
 		
-		String templateContent=  qName2wikipedia.get(templateName);
+		if(templateContent==null)
+			{
+			LOG.info("No templateContent for "+qName);
+			continue;
+			}
 		
 		Document interactor= null;
 		
@@ -890,7 +950,7 @@ private void loop(File fileout) throws Exception
 		
 		if(interactor==null)
 			{
-			//System.err.println("Cannot find info for "+templateContent);
+			LOG.info("no interactions for "+qName);
 			continue;
 			}
 		
@@ -944,8 +1004,6 @@ private void loop(File fileout) throws Exception
 			{
 			Interactor actor= partnerId2intractor.get(partnerId);
 			if(actor.interactions.size()<2) continue;
-			
-			
 			String interactorQName = proteineId2qName(partnerId);
 			if(interactorQName.toLowerCase().startsWith("biogrid-")) continue;
 			
@@ -965,62 +1023,43 @@ private void loop(File fileout) throws Exception
 				inlineCitations.add(inlineCitation);
 				}
 			
-			/*
-			if(!interactorsQNames.contains(interactorQName))
-				{
-				interactorsQNames.add(interactorQName);
-				}*/
 			
 			for(Document interaction:actor.interactions)
 				{
-				/*
-				w.println("|-");
-				w.print("| "+ proteineId2qName(partnerId));
-				String method= (String)xpathFindMethod.evaluate(interaction.getDocumentElement(),XPathConstants.STRING);
-				w.print(" || [["+method+"]]");
-				Attr expRef= (Attr)xpathFindExperimentRef.evaluate(interaction.getDocumentElement(),XPathConstants.NODE);
-				w.print(" || ");
-				if(expRef!=null)
-					{
-					Document experiment= this.biogridDB.get(new BerkeleyDBKey(BioGridKeyType.experimentDescription,expRef.getValue()));
-					if(experiment!=null)
-						{
-						w.print(experiment2anchor(experiment,seenReferences));
-						}
-					}
-				w.println();*/
-				
 				Attr expRef= (Attr)xpathFindExperimentRef.evaluate(interaction.getDocumentElement(),XPathConstants.NODE);
 				if(expRef!=null)
 					{
 					Document experiment= this.biogridDB.get(new BerkeleyDBKey(BioGridKeyType.experimentDescription,expRef.getValue()));
 					if(experiment!=null)
 						{
-						inlineCitation.citations.append(experiment2anchor(experiment,seenReferences));
+						inlineCitation.citations.append(
+								experiment2anchor(experiment,seenReferences,inlineCitation.citationsSeen));
 						}
 					}
 				}
 			}
-		/*
-		w.println("|}");
-		w.flush();
-		out.println("<pre style='background-color:lightgray;'>"+ XMLUtilities.escape(table.toString())+"</pre>");
-		out.flush();
-		*/
+		
 		StringWriter flow= new StringWriter();
 		PrintWriter flowriter= new PrintWriter(flow);
 		flowriter.append(""+qName+" has been shown to [[Protein-protein_interaction|interact]] with ");
 		
+		/* non bordel dans ref Collections.sort(inlineCitations,new Comparator<InlineCitation>()
+				{
+				@Override
+				public int compare(InlineCitation o1, InlineCitation o2)
+					{
+					return o1.qName.compareToIgnoreCase(o2.qName);
+					}
+				});*/
 		
 		for(int i=0;i <inlineCitations.size();++i)
 			{
-			
 			if(i+2==inlineCitations.size())
 				{
-				flowriter.append(inlineCitations.get(i).qName);
+				flowriter.append(inlineCitations.get(i).qName+inlineCitations.get(i).citations.toString());
 				flowriter.append(" and ");
 				flowriter.append(inlineCitations.get(i+1).qName);
-				flowriter.append("."+inlineCitations.get(i).citations.toString()+inlineCitations.get(i+1).citations.toString()+"\n");
+				flowriter.append("."+inlineCitations.get(i+1).citations.toString()+"\n");
 				break;
 				}
 			else if(i+1== inlineCitations.size())
@@ -1039,20 +1078,17 @@ private void loop(File fileout) throws Exception
 			{
 			if( edit(qName, authorization, flow.toString()))
 				{
-				long seconds=5*1000;
+				long seconds=2500;
 				Thread.sleep(seconds);
 				++countPageProcessed;
 				}
-			//if(countPageProcessed>=10) break;//TODO
+			//if(countPageProcessed>=3) break;//TODO
 			}
 		
 		
 		
 		}
 	LOG.info("End  loop");
-	/* out.print("</body></html>");
-	out.flush();
-	out.close();*/
 	}
 
 private class Interactor
@@ -1070,25 +1106,32 @@ private String proteineId2qName(String id) throws Exception
 	
 	Attr omimAtt=(Attr)xpathFindOmimId.evaluate(dom.getDocumentElement(), XPathConstants.NODE);
 	String omim= (omimAtt==null?null:omimAtt.getValue());
+	//LOG.info("omim of "+id+" "+omim);
 	if(omim!=null && Cast.Integer.isA(omim))
 		{
 		String qName= omim2qname.get(omim);
-		if(qName!=null) return "[["+qName+"]]";
+		if(qName!=null) return anchorQName(qName);
 		}
 	
 	
 	String shortName=(String)xpathInteractorShortName.evaluate(dom.getDocumentElement(), XPathConstants.STRING);
+	
 	if(shortName!=null && shortName.startsWith("EG"))
 		{
+		
 		shortName = shortName.substring(2);
 		String qName= entrezGene2qname.get(shortName);
-		if(qName!=null) return "[["+qName+"]]";
+		
+		if(qName!=null) return anchorQName(qName);
 		}
 
 	return id;
 	}
 
-private String experiment2anchor(Document exp,Set<String> seenRefs)  throws Exception
+private String experiment2anchor(Document exp,
+		Set<String> seenRefs,
+		Set<String> seenInCurrentCitation
+		)  throws Exception
 	{
 	Element names= XMLUtilities.firstChild(exp.getDocumentElement(), PSI_NS, "names");
 	if(names==null) return "?";
@@ -1100,15 +1143,22 @@ private String experiment2anchor(Document exp,Set<String> seenRefs)  throws Exce
 	Element primaryRef= XMLUtilities.firstChild(xref, PSI_NS, "primaryRef");
 	if(!"pubmed".equals(primaryRef.getAttribute("db"))) return fullName.getTextContent();
 	String pmid= primaryRef.getAttribute("id");
+	
+	if(seenInCurrentCitation.contains(pmid))
+		{
+		return "";
+		}
+	seenInCurrentCitation.add(pmid);
+	
 	if(seenRefs.contains(pmid))
 		{
-		return "";//XMLUtilities.escape(shortLabel.getTextContent())+"{{ref|pmid"+pmid+"}}";
+		return "<ref name=pmid"+pmid+"/>";
 		}
 	seenRefs.add(pmid);
 	
 	return  /*XMLUtilities.escape(shortLabel.getTextContent())+*/
 			"<ref name=pmid"+pmid+">"+
-			XMLUtilities.escape(pmid2wiki(pmid))+
+			pmid2wiki(pmid)+
 			"</ref>"
 			;
 	/*
@@ -1219,7 +1269,8 @@ private boolean edit(String page,MWAuthorization authorization,String text) thro
 		int status = this.httpClient.executeMethod(getMethod);
 		if(status!=200)
 			{
-			System.err.println("Cannot send get method ");
+			LOG.warning("Cannot send get method ");
+			return false;
 			}
 		InputStream in= getMethod.getResponseBodyAsStream();
 		Document dom= documentBuilder.parse(in);
@@ -1242,7 +1293,12 @@ private boolean edit(String page,MWAuthorization authorization,String text) thro
 		String basetimestamp=rev.getAttribute("timestamp");
 		String content=rev.getTextContent();
 		
-		
+		if(!content.contains("<references/>") &&
+		   !content.contains("{{Reflist") &&
+		   !content.contains("{{reflist"))
+			{
+			LOG.info("<references/> missing in "+page);
+			}
 		
 		Matcher matcher= referencesPattern.matcher(content);
 		int index1=-1;
@@ -1268,22 +1324,34 @@ private boolean edit(String page,MWAuthorization authorization,String text) thro
 		int n=Math.min(index1, index2);
 		if(n==Integer.MAX_VALUE) n=-1;
 		
-		
-		if(content.contains("==Interactions=="))
+		final String INTERACTION_HEADER="==Interactions==";
+		int indexOfInteraction=content.indexOf(INTERACTION_HEADER);
+		String summary="updating interactions";
+		if(indexOfInteraction!=-1)
 			{
-			System.err.println("==Interactions== exists");
-			return false;
+			indexOfInteraction += INTERACTION_HEADER.length();
+			n= content.indexOf("\n==",indexOfInteraction+1);
+			if(n==-1)
+				{
+				LOG.info("problem of "+page+" with "+INTERACTION_HEADER);
+				return false;
+				}
+			content = content.substring(0,indexOfInteraction)+
+				"\n"+
+				text+
+				content.substring(n);
+			summary="reformating interactions";
 			}
 		else if(n!=-1)
 			{		
 			content = content.substring(0,n)+
-					"==Interactions==\n"+
+					INTERACTION_HEADER+"\n"+
 					text+
 					content.substring(n);
 			}
 		else
 			{	
-			System.err.println("Cannot process "+page+" (no ==References==)");
+			LOG.info("Cannot process "+page+" (no ==References==)");
 			return false;
 			}
 		
@@ -1302,7 +1370,7 @@ private boolean edit(String page,MWAuthorization authorization,String text) thro
 			//postMethod.addParameter("bot", "true");
 			postMethod.addParameter("action","edit");
 			postMethod.addParameter("title",page.replace(' ', '_'));
-			postMethod.addParameter("summary","updating interactions");
+			postMethod.addParameter("summary",summary);
 			postMethod.addParameter("text",content);
 			postMethod.addParameter("basetimestamp",basetimestamp);
 			postMethod.addParameter("starttimestamp",starttimestamp);
@@ -1491,6 +1559,7 @@ public static void main(String[] args) {
 		    	System.err.println("fileout File missing");
 		    	return;
 		    	}
+	    	
 	    	app.open();
 			app.loop(fileout);
 			app.close();
