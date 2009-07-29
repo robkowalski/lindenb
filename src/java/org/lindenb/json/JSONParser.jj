@@ -1,0 +1,204 @@
+
+options {
+STATIC=false;
+}
+
+
+PARSER_BEGIN(JSONParser)
+
+
+package org.lindenb.json;
+/**
+ * Author Pierre Lindenbaum
+ * Javacc based JSON parser 
+ * See http://plindenbaum.blogspot.com/2008/07/parsing-json-with-javacc-my-notebook.html
+ *
+ */
+import java.io.InputStream;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
+import org.lindenb.io.IOUtils;
+import org.lindenb.util.C;
+
+/**
+ *
+ * JSONParser
+ *
+ */
+@SuppressWarnings("unchecked")
+public class JSONParser
+{
+/** creates an integer from a parsed text */
+protected Number createInteger(String image)
+	{
+	return new java.math.BigInteger(image);
+	}
+
+/** creates an floating number from a parsed text */
+protected Number createFloating(String image)
+	{
+	return new java.math.BigDecimal(image);
+	}
+	
+/** just a test */
+public static void main(String args[])
+	{
+	int optind=0;
+	try
+	        {
+	      
+	    if(optind==args.length)
+	    	{
+	    	new JSONParser(System.in).any();
+	    	}
+	    else
+	    	{
+	    	while(optind< args.length)
+	    		{
+	    		InputStream in=null;
+	    		try {
+					in=  IOUtils.openInputStream(args[optind++]);
+					new JSONParser(System.in).any();
+					}
+	    		catch (java.io.IOException e) {
+					throw e;
+					}
+				finally
+					{
+					if(in!=null) in.close();
+					in=null;
+					}
+	    		}
+	    	}
+	        }
+	catch(Exception err)
+	        {
+	        err.printStackTrace();
+	        }
+	}
+
+}
+
+PARSER_END(JSONParser)
+
+SKIP :
+{
+" "
+| "\t"
+| "\n"
+| "\r"
+}
+
+
+TOKEN : /* LITERALS */
+{
+<#LETTER: ["_","a"-"z","A"-"Z"] >
+| <#DIGIT: ["0"-"9"] >
+| <#SIGN: ["-","+"]>
+| <#EXPONENT: ("E"|"e") (<SIGN>)? (<DIGIT>)+ >
+| <FLOATING_NUMBER: (<DIGIT>)* "." (<DIGIT>)* (<EXPONENT>)?
+| (<DIGIT>)+ (<EXPONENT>) >
+| <INT_NUMBER: (<DIGIT>)+ >
+| <IDENTIFIER: <LETTER> (<LETTER>|<DIGIT>|"-")* >
+| <#ESCAPE_CHAR: "\\" ["n","t","b","r","f","\\","'","\""] >
+| <SIMPLE_QUOTE_LITERAL:
+"\'"
+( (~["\'","\\","\n","\r"])
+| <ESCAPE_CHAR>
+)*
+"\'"
+>
+|
+<DOUBLE_QUOTE_LITERAL:
+"\""
+( (~["\"","\\","\n","\r"])
+| <ESCAPE_CHAR>
+)*
+"\""
+>
+}
+
+
+
+public Object any():
+	{Object o;}
+	{
+	(
+	o=array()
+	| o= object()
+	| o= identifier()
+	)
+	{return o;}
+	}
+
+public Object identifier():
+	{Token t;}
+	{
+	(
+	t=<FLOATING_NUMBER>
+		{
+		return createFloating(t.image);
+		}
+	| t=<INT_NUMBER>
+		{
+		return createInteger(t.image);
+		}
+	| t=<IDENTIFIER>
+		{
+		if(t.image.equals("true"))
+			{
+			return Boolean.TRUE;
+			}
+		else if(t.image.equals("false"))
+			{
+			return Boolean.FALSE;
+			}
+		else if(t.image.equals("null"))
+			{
+			return null;
+			}
+		return t.image;
+		}
+	| t=<SIMPLE_QUOTE_LITERAL>
+		{
+		return  C.unescape(C.unquote(t.image));
+		}
+	| t=<DOUBLE_QUOTE_LITERAL>
+		{
+		return C.unescape(C.unquote(t.image));
+		}
+	)
+	}
+
+public List<Object> array():
+	{List<Object> vector= new ArrayList<Object>(); Object o;}
+	{
+	"[" ( o=any() {vector.add(o);} ("," o=any() {vector.add(o);} ) * )? "]"
+		{
+		return vector;
+		}
+	}
+
+public Map<String,Object> object():
+	{Map<String,Object> map= new HashMap<String,Object>(); }
+	{
+	"{" ( keyValue(map) ("," keyValue(map))*)? "}"
+		{
+		return map;
+		}
+	}
+
+private void keyValue( Map<String,Object> map):
+{Object k; Object v;}
+	{
+	(k=identifier() ":" v=any())
+		{
+		if(k==null) throw new ParseException("null cannot be used as key in object");
+		if(k.getClass()!=String.class) throw new ParseException(k.toString()+"("+k.getClass()+") cannot be used as key in object");
+		String key= String.class.cast(k);
+		if(map.containsKey(key)) throw new ParseException(k.toString()+" defined twice in object");
+		map.put(key,v);
+		}
+	}

@@ -1,5 +1,6 @@
 package org.lindenb.tinytools;
 
+import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 
@@ -8,6 +9,7 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
 import org.lindenb.io.IOUtils;
+import org.lindenb.json.JSONParser;
 import org.lindenb.util.Compilation;
 
 /**
@@ -127,15 +129,17 @@ public static void main(String[] args) {
 			     }
 			++optind;
 			}
-	    org.lindenb.json.Parser parser=new org.lindenb.json.Parser();
+	  
 	    Object o=null;
 	    if(args.length==0)
 	    	{
-	    	o=parser.parse(System.in);
+	    	o= new JSONParser(System.in).any();
 	    	}
 	    else if(optind+1==args.length)
 	    	{
-	    	o=parser.parse(IOUtils.openInputStream(args[optind++]));
+	    	InputStream in= IOUtils.openInputStream(args[optind++]);
+	    	o=new JSONParser(in).any();
+	    	in.close();
 	    	}
 	    else
 	    	{
