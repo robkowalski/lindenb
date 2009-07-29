@@ -23,7 +23,7 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
 import org.lindenb.io.IOUtils;
-import org.lindenb.json.Parser;
+import org.lindenb.json.JSONParser;//should be javacc'ed
 import org.lindenb.sw.vocabulary.XHTML;
 import org.lindenb.sw.vocabulary.XSD;
 import org.lindenb.sw.vocabulary.XSI;
@@ -184,7 +184,7 @@ private static Element json2xml(Document dom,Object json)
 
     public Document send2xml(String json) throws IOException
     	{
-    	return convertJson2Xml( Parser.newInstance().parse(send(json)));
+    	return convertJson2Xml( new JSONParser(send(json)));
     	}  
 		  
 		    	
@@ -319,7 +319,7 @@ private static Element json2xml(Document dom,Object json)
 		    
 		    if(xmlOuput)
 		    	{
-		    	Document doc= convertJson2Xml( Parser.newInstance().parse(result));
+		    	Document doc= convertJson2Xml( new JSONParser(result));
 				Transformer xformer = TransformerFactory.newInstance().newTransformer();
 				xformer.setOutputProperty(OutputKeys.METHOD, "xml");
 				xformer.setOutputProperty(OutputKeys.INDENT, "yes");
