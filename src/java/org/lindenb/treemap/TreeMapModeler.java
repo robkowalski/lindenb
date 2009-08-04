@@ -7,7 +7,12 @@ import java.util.List;
 
 /**
  * TreeMapModeler
- *
+ * original java code from http://www.cs.umd.edu/hcil/treemap-history/Treemaps-Java-Algorithms.zip
+ * by  
+ *  - Martin Wattenberg, w(at)bewitched.com
+ *  - Ben Bederson, bederson(at)cs.umd.edu
+ *    University of Maryland, Human-Computer Interaction Lab
+ *    http://www.cs.umd.edu/hcil
  */
 public class TreeMapModeler
 	{
