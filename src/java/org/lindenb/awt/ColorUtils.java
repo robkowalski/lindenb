@@ -164,6 +164,11 @@ public class ColorUtils
             text2color.put("yellow", Color.YELLOW);            
             }
 
+    /**
+     * Inverse RGB of a color
+     * @param c
+     * @return
+     */
     public static Color negative(Color c)
     	{
     	return new Color(
@@ -171,6 +176,12 @@ public class ColorUtils
     		255-c.getGreen(),
     		255-c.getBlue()
     		);
+    	}
+    
+    /** return a gray color */
+    public static Color gray(float f)
+    	{
+    	return new Color(f,f,f);
     	}
     
     /**

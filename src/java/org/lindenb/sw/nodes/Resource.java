@@ -3,6 +3,7 @@ package org.lindenb.sw.nodes;
 import java.net.URISyntaxException;
 import java.util.Random;
 
+
 import org.lindenb.util.TimeUtils;
 
 public class Resource
