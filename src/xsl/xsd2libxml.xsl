@@ -6,6 +6,18 @@
 	version='1.0'
 	>
 
+ <!--
+
+Motivation:
+        transforms a xsd file xml result a C code parsing the XML
+        with a 'pull' parser.
+	This stylesheet was mainly developped for parsing the
+	dbSNP xsd file ( ftp://ftp.ncbi.nih.gov/snp/specs/docsum_3.1.xsd )
+Author
+        Pierre Lindenbaum PhD plindenbaum@yahoo.fr
+        http://plindenbaum.blogspot.com
+
+-->
 
 
 <xsl:output method="text"/>
@@ -15,17 +27,31 @@
 </xsl:template>
 
 <xsl:template match="xsd:schema">
+/**
+ * This file was generated with xsd2libxml.xsl
+ * Pierre Lindenbaum   http://plindenbaum.blogspot.com
+ *
+ * Requirement:
+ *	libxml2  http://xmlsoft.org/
+ *
+ * Compilation:
+ *       xsltproc /home/pierre/lindenb/src/xsl/xsd2libxml.xsl schema.xsd > test.c
+ *       gcc -Wall -DNDEBUG `xml2-config --cflags --libs` test.c
+ */
+#include &lt;string.h&gt;
 #include &lt;libxml/xmlreader.h&gt;
-
 
 
 /** a simple container */
 typedef struct State_t
 	{
+	/** xml engine */
 	xmlTextReaderPtr reader;
+	/** error stream */
+	FILE* error;
 	} State,*StatePtr;
 	
-
+/* forward declaration of the function processing a given XML Node ==================================== */
 <xsl:for-each select="//xsd:element[xsd:complexType]">
  <xsl:sort select="@name"/>
  <xsl:variable name="tagName">
@@ -39,8 +65,6 @@ typedef struct State_t
 </xsl:for-each>
 
 
-
-
 /** read the string content of a simple tag. return a xmlChar* that should be free with xmlFree */
 static xmlChar* _readString(StatePtr state,const char* nodeName,int *errCode)
 	{
@@ -52,7 +76,7 @@ static xmlChar* _readString(StatePtr state,const char* nodeName,int *errCode)
 	if(!success)
 		{
 		*errCode=EXIT_FAILURE;
-		fprintf(stderr,"In %s  I/O Error.\n",nodeName);
+		fprintf( state->error,"In %s  I/O Error.\n",nodeName);
 		return NULL;
 		}
 	nodeType=xmlTextReaderNodeType(state->reader);
@@ -67,14 +91,14 @@ static xmlChar* _readString(StatePtr state,const char* nodeName,int *errCode)
 			if(value==NULL)
 				{
 				*errCode=EXIT_FAILURE;
-				fprintf(stderr,"In %s  Cannot read text value.\n",nodeName);
+				fprintf( state->error,"In %s  Cannot read text value.\n",nodeName);
 				return NULL;
 				}
 			break;
 			}
 		default:
 			*errCode=EXIT_FAILURE;
-			fprintf(stderr,"In %s  Expected a text node but got %d.\n",nodeName,nodeType);
+			fprintf( state->error,"In %s  Expected a text node but got %d.\n",nodeName,nodeType);
 			return NULL;
 		}
 	
@@ -83,7 +107,7 @@ static xmlChar* _readString(StatePtr state,const char* nodeName,int *errCode)
 		{
 		*errCode=EXIT_FAILURE;
 		xmlFree(value);
-		fprintf(stderr,"In %s  I/O Error.\n",nodeName);
+		fprintf( state->error,"In %s  I/O Error.\n",nodeName);
 		return NULL;
 		}
 	nodeType=xmlTextReaderNodeType(state->reader);
@@ -91,68 +115,124 @@ static xmlChar* _readString(StatePtr state,const char* nodeName,int *errCode)
 		{
 		*errCode=EXIT_FAILURE;
 		xmlFree(value);
-		fprintf(stderr,"In %s Expected a XML_READER_TYPE_END_ELEMENT but got %d.\n",nodeName,nodeType);
+		fprintf( state->error,"In %s Expected a XML_READER_TYPE_END_ELEMENT but got %d.\n",nodeName,nodeType);
 		return NULL;
 		}
 	#ifndef NDEBUG
-	fprintf(stderr,"#value of %s is %s.\n",nodeName,value);
+	fprintf( state->error,"#value of %s is %s.\n",nodeName,value);
 	#endif
 	return value;
 	}
 
 <xsl:for-each select="//xsd:element[xsd:complexType]">
  <xsl:sort select="@name"/>
+ <xsl:text>
+ 
+ /* BEGIN &lt;</xsl:text><xsl:value-of select="@name"/><xsl:text> ======================================================================= */
+ </xsl:text>
  <xsl:call-template name="element">
   <xsl:with-param name="node" select="."/>
  </xsl:call-template>
+ <xsl:text>
+ 
+ /* END &lt;</xsl:text><xsl:value-of select="@name"/><xsl:text> ======================================================================= */
+ 
+ </xsl:text>
 </xsl:for-each>
 
-
-int streamFile(char *filename)
-   {
-    xmlTextReaderPtr reader;
-    int ret;
-
-    reader = xmlReaderForFile(filename,NULL,XML_PARSE_NOBLANKS);
-    if (reader != NULL) {
-    	State state;
-    	state.reader= reader;
-        ret = xmlTextReaderRead(reader);
-        
-        while (ret == 1)
-        	{
-        	if(XML_READER_TYPE_ELEMENT==xmlTextReaderNodeType(reader) &amp;&amp;
-        	xmlStrcmp(xmlTextReaderConstName(reader),BAD_CAST "ExchangeSet")==0
-        	   )
-        	   {
-        	   State state;
-        	   state.reader= reader;
-        	   if(processExchangeSet(&amp;state)!=EXIT_SUCCESS)
-        	   	{
-        	   	fprintf(stderr,"Failure\n");
-        	   	exit(EXIT_FAILURE);
-        	   	}
-        	   else
-        	   	{
-        	   	fprintf(stderr,"Success\n");
-        	   	}
-        	   }
-            	ret = xmlTextReaderRead(reader);
-        	}
-        xmlFreeTextReader(reader);
-        printf("Done.");
-        if (ret != 0) {
-            printf("%s : failed to parse\n", filename);
-        }
-    } else {
-        printf("Unable to open %s\n", filename);
-    }
-}
-
+/**
+ * Main method
+ */
 int main(int argc,char** argv)
 	{
-	if(argc&lt;=1) return 0;
-	streamFile(argv[1]);
+	State state;
+	int optind=1;
+	
+	
+	state.error = stderr;
+	while(optind &lt; argc)
+		{
+		if(strcmp("-h",argv[optind])==0)
+			{
+			printf("%s. Compiled on %s at %s.\n",argv[0],__DATE__ , __TIME__);
+			printf("Options:\n"
+				" -h help (this screen)\n"
+				"&lt;xml-files&gt;\n"
+				"\n"
+				);
+			
+			}
+		else if(strcmp("--",argv[optind])==0)
+			{
+			++optind;
+			break;
+			}
+		else if(argv[optind][0]=='-')
+			{
+			fprintf(stderr,"Unknown option %s\n",argv[optind]);
+			return EXIT_FAILURE;
+			}
+		else
+			{
+			break;
+			}
+		++optind;
+		}
+	
+	
+	if(optind==argc)
+		{
+		fprintf(stderr,"XML file(s) missing\n");
+		}
+	else
+		{
+		int ret;
+		while(optind&lt;argc)
+			{
+			int found=0;
+			state.reader = xmlReaderForFile(argv[optind],NULL,XML_PARSE_NOBLANKS);
+			if(state.reader==NULL)
+				{
+				fprintf(stderr,"xmlReaderForFile failed for %s\n",argv[optind]);
+				return EXIT_FAILURE;
+				}
+				
+			ret = xmlTextReaderRead(state.reader);
+        		if(!ret)
+        			{
+        			fprintf(stderr,"Failure. Cannot read %s\n",argv[optind]);
+        			continue;
+        			}
+        		
+			while (ret == 1)
+				{
+				if(	XML_READER_TYPE_ELEMENT!=xmlTextReaderNodeType(state.reader)||
+					xmlStrcmp(
+						xmlTextReaderConstName(state.reader),
+						BAD_CAST "<xsl:value-of select="/xsd:schema/xsd:element[1]/@name"/>"
+						)!=0
+					)
+					{
+					ret = xmlTextReaderRead(state.reader);
+					continue;
+					}
+				found=1;
+				if(processExchangeSet(&amp;state)!=EXIT_SUCCESS)
+					{
+					fprintf(stderr,"Failure. Cannot process %s\n",argv[optind]);
+					}
+				break;
+				}	
+				
+			xmlFreeTextReader(state.reader);
+			if(!found)
+				{
+				fprintf(stderr,"Failure. (%s)/<xsl:value-of select="/xsd:schema/xsd:element[1]/@name"/> was not found \n",argv[optind]);
+				}
+			optind++;
+			}
+       		}
+       	return 0;
 	}
 
 </xsl:template>
@@ -206,11 +286,11 @@ static int process<xsl:value-of select="$tagName"/>(StatePtr state)
 	</xsl:for-each>
 	
 	#ifndef NDEBUG
-	fprintf(stderr,"#Entering <xsl:value-of select="$tagName"/>\n");
+	fprintf( state->error,"#Entering <xsl:value-of select="$tagName"/>\n");
 	
 	if(xmlTextReaderNodeType(state -> reader)!=XML_READER_TYPE_ELEMENT)
 		{
-		fprintf(stderr,"#[%d]Not a XML_READER_TYPE_ELEMENT but %d\n",__LINE__,xmlTextReaderNodeType(state -> reader));
+		fprintf( state->error,"#[%d]Not a XML_READER_TYPE_ELEMENT but %d\n",__LINE__,xmlTextReaderNodeType(state -> reader));
 		returnValue=EXIT_FAILURE;
 		goto cleanup;
 		}
@@ -263,7 +343,7 @@ static int process<xsl:value-of select="$tagName"/>(StatePtr state)
 			}
 		<xsl:if test="position()=last()"> else
 			{
-			fprintf(stderr,"Unknown enum value for @<xsl:value-of select="$attName"/> %s\n",<xsl:value-of select="$attName"/>Attr);
+			fprintf( state->error,"Unknown enum value for @<xsl:value-of select="$attName"/> %s\n",<xsl:value-of select="$attName"/>Attr);
 		  	returnValue =  EXIT_FAILURE;
 		 	 goto cleanup;
 			}</xsl:if>
@@ -275,7 +355,7 @@ static int process<xsl:value-of select="$tagName"/>(StatePtr state)
 		{
 		<xsl:choose>
 		  <xsl:when test="@use='required'">
-		  fprintf(stderr,"Error in <xsl:value-of select="$tagName"/> attribute @<xsl:value-of select="@name"/> missing");
+		  fprintf( state->error,"Error in <xsl:value-of select="$tagName"/> attribute @<xsl:value-of select="@name"/> missing");
 		  returnValue =  EXIT_FAILURE;
 		  goto cleanup;
 		  </xsl:when>
@@ -293,7 +373,7 @@ static int process<xsl:value-of select="$tagName"/>(StatePtr state)
 	<xsl:if test="count($node/xsd:complexType/xsd:sequence/xsd:element)=0">
 	if(!xmlTextReaderIsEmptyElement(state -> reader))
 		{
-		fprintf(stderr,"Expected no element under <xsl:value-of select="$tagName"/>\n");
+		fprintf( state->error,"Expected no element under <xsl:value-of select="$tagName"/>\n");
                 returnValue =  EXIT_FAILURE;
 		goto cleanup;
 		}
@@ -306,13 +386,13 @@ static int process<xsl:value-of select="$tagName"/>(StatePtr state)
 	success = xmlTextReaderRead( state -> reader );
         if(!success)
                 {
-                fprintf(stderr,"In <xsl:value-of select="$tagName"/>  I/O Error. xmlTextReaderRead returned \n");
+                fprintf( state->error,"In <xsl:value-of select="$tagName"/>  I/O Error. xmlTextReaderRead returned \n");
                 returnValue =  EXIT_FAILURE;
 		goto cleanup;
                 }
 	nodeType = xmlTextReaderNodeType( state -> reader );
 	#ifndef NDEBUG
-	fprintf(stderr,"#[%d]Invoking <xsl:value-of select="$tagName"/> type=%d\n",__LINE__,nodeType);
+	fprintf( state->error,"#[%d]Invoking <xsl:value-of select="$tagName"/> type=%d\n",__LINE__,nodeType);
 	#endif
 	
 	
@@ -330,7 +410,7 @@ static int process<xsl:value-of select="$tagName"/>(StatePtr state)
 	while(nodeType == XML_READER_TYPE_ELEMENT)
 		{
 		#ifndef NDEBUG
-		fprintf(stderr,"#[%d] Current Child is <xsl:value-of select="$tagName"/>/%s\n",
+		fprintf( state->error,"#[%d] Current Child is <xsl:value-of select="$tagName"/>/%s\n",
 			__LINE__,
 			xmlTextReaderConstName(state -> reader)
 			);
@@ -358,7 +438,7 @@ static int process<xsl:value-of select="$tagName"/>(StatePtr state)
 		</xsl:variable>
 		if( count<xsl:value-of select="$childName"/> &gt; <xsl:value-of select="$max"/> )
 			{
-			fprintf(stderr,"Expected at most <xsl:value-of select="$max"/> &lt;<xsl:value-of select="$childName"/>&gt; under  &lt;<xsl:value-of select="$tagName"/>&gt; but found %d\n",count<xsl:value-of select="$childName"/>);
+			fprintf( state->error,"Expected at most <xsl:value-of select="$max"/> &lt;<xsl:value-of select="$childName"/>&gt; under  &lt;<xsl:value-of select="$tagName"/>&gt; but found %d\n",count<xsl:value-of select="$childName"/>);
 			returnValue =  EXIT_FAILURE;
 			goto cleanup;
 			}
@@ -399,12 +479,12 @@ static int process<xsl:value-of select="$tagName"/>(StatePtr state)
 		if(!success)
 			{
 			returnValue =  EXIT_FAILURE;
-			fprintf(stderr,"In  <xsl:value-of select="$tagName"/>/<xsl:value-of select="$childName"/> I/O Error.\n");
+			fprintf( state->error,"In  <xsl:value-of select="$tagName"/>/<xsl:value-of select="$childName"/> I/O Error.\n");
 			goto cleanup;
 			}
 		nodeType=xmlTextReaderNodeType(state->reader);
 		#ifndef NDEBUG
-		fprintf(stderr,"#[%d]Invoking <xsl:value-of select="$tagName"/>/<xsl:value-of select="$childName"/> type=%d\n",__LINE__,nodeType);
+		fprintf( state->error,"#[%d]Invoking <xsl:value-of select="$tagName"/>/<xsl:value-of select="$childName"/> type=%d\n",__LINE__,nodeType);
 		#endif
 		}
 	
@@ -419,7 +499,7 @@ static int process<xsl:value-of select="$tagName"/>(StatePtr state)
 	  
 	  if( count<xsl:value-of select="$childName"/> &lt; <xsl:value-of select="$min"/> )
 	  	{
-	  	fprintf(stderr,"Expected at least <xsl:value-of select="$min"/> &lt;<xsl:value-of select="$childName"/>&gt; under  &lt;<xsl:value-of select="$tagName"/>&gt; bout found %d.\n",count<xsl:value-of select="$childName"/>);
+	  	fprintf( state->error,"Expected at least <xsl:value-of select="$min"/> &lt;<xsl:value-of select="$childName"/>&gt; under  &lt;<xsl:value-of select="$tagName"/>&gt; bout found %d.\n",count<xsl:value-of select="$childName"/>);
                 returnValue =  EXIT_FAILURE;
 		goto cleanup;
 	  	}
@@ -433,10 +513,10 @@ static int process<xsl:value-of select="$tagName"/>(StatePtr state)
 	
         if(nodeType != XML_READER_TYPE_END_ELEMENT)
                 {
-                fprintf(stderr,"Expected closing &lt;/<xsl:value-of select="@name"/>&gt; but found nodeType: %d \n",nodeType);
+                fprintf( state->error,"Expected closing &lt;/<xsl:value-of select="@name"/>&gt; but found nodeType: %d \n",nodeType);
                 if(nodeType==XML_READER_TYPE_ELEMENT)
                 	{
-                	fprintf(stderr,"Element is :%s",xmlTextReaderConstName(state -> reader));
+                	fprintf( state->error,"Element is :%s",xmlTextReaderConstName(state -> reader));
                 	}
                 returnValue =  EXIT_FAILURE;
 		goto cleanup;
@@ -446,7 +526,7 @@ static int process<xsl:value-of select="$tagName"/>(StatePtr state)
 			BAD_CAST "<xsl:value-of select="@name"/>"
 			)!=0)
 		{
-		fprintf(stderr,"Expected closing &lt;/<xsl:value-of select="$tagName"/>&gt; but found %s\n",
+		fprintf( state->error,"Expected closing &lt;/<xsl:value-of select="$tagName"/>&gt; but found %s\n",
 			xmlTextReaderConstName(state -> reader));
                 returnValue =  EXIT_FAILURE;
 		goto cleanup;
@@ -479,7 +559,7 @@ static int process<xsl:value-of select="$tagName"/>(StatePtr state)
 	</xsl:if>
 	</xsl:for-each>
 	#ifndef NDEBUG
-	fprintf(stderr,"#Exiting <xsl:value-of select="$tagName"/>\n");
+	fprintf( state->error,"#Exiting <xsl:value-of select="$tagName"/>\n");
 	#endif
 	return returnValue;
 	}
