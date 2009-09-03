@@ -35,7 +35,7 @@ Author
  *	libxml2  http://xmlsoft.org/
  *
  * Compilation:
- *       xsltproc /home/pierre/lindenb/src/xsl/xsd2libxml.xsl schema.xsd > test.c
+ *       xsltproc xsd2libxml.xsl schema.xsd > test.c
  *       gcc -Wall -DNDEBUG `xml2-config --cflags --libs` test.c
  */
 #include &lt;string.h&gt;
@@ -130,9 +130,18 @@ static xmlChar* _readString(StatePtr state,const char* nodeName,int *errCode)
  
  /* BEGIN &lt;</xsl:text><xsl:value-of select="@name"/><xsl:text> ======================================================================= */
  </xsl:text>
- <xsl:call-template name="element">
+ <xsl:choose>
+ <xsl:when test="xsd:complexType/xsd:simpleContent">
+  <xsl:call-template name="elementData">
   <xsl:with-param name="node" select="."/>
  </xsl:call-template>
+ </xsl:when>
+ <xsl:otherwise>
+ <xsl:call-template name="elementSequence">
+  <xsl:with-param name="node" select="."/>
+ </xsl:call-template>
+ </xsl:otherwise>
+ </xsl:choose>
  <xsl:text>
  
  /* END &lt;</xsl:text><xsl:value-of select="@name"/><xsl:text> ======================================================================= */
@@ -201,7 +210,7 @@ int main(int argc,char** argv)
         		if(!ret)
         			{
         			fprintf(stderr,"Failure. Cannot read %s\n",argv[optind]);
-        			continue;
+        			return EXIT_FAILURE;
         			}
         		
 			while (ret == 1)
@@ -220,6 +229,7 @@ int main(int argc,char** argv)
 				if(processExchangeSet(&amp;state)!=EXIT_SUCCESS)
 					{
 					fprintf(stderr,"Failure. Cannot process %s\n",argv[optind]);
+					return EXIT_FAILURE;
 					}
 				break;
 				}	
@@ -228,9 +238,11 @@ int main(int argc,char** argv)
 			if(!found)
 				{
 				fprintf(stderr,"Failure. (%s)/<xsl:value-of select="/xsd:schema/xsd:element[1]/@name"/> was not found \n",argv[optind]);
+				return EXIT_FAILURE;
 				}
 			optind++;
 			}
+		printf("Done.\n");
        		}
        	return 0;
 	}
@@ -249,7 +261,7 @@ int main(int argc,char** argv)
 </xsl:text>
 </xsl:template>
 
-<xsl:template name="element">
+<xsl:template name="elementSequence">
 <xsl:param name="node"/>
 <xsl:variable name="tagName">
  <xsl:call-template name="tagName">
@@ -265,12 +277,10 @@ static int process<xsl:value-of select="$tagName"/>(StatePtr state)
 	int returnValue=EXIT_SUCCESS;
 	int success;
 	int nodeType;
-	//Attributes
-	<xsl:for-each select="$node/xsd:complexType/xsd:attribute">
-	<xsl:sort select="@name"/>
-	<xsl:apply-templates select="xsd:annotation"/>
-	xmlChar* <xsl:value-of select="@name"/>Attr=NULL;
-	</xsl:for-each>
+	const int isEmptyElement= xmlTextReaderIsEmptyElement(state -> reader);
+	<xsl:call-template name="declareAttributes">
+	 <xsl:with-param name="node" select="$node"/>
+	</xsl:call-template>
 	//Count/Values Elements 
 	<xsl:for-each select="$node/xsd:complexType/xsd:sequence/xsd:element">
 	<xsl:sort select="@name"/>
@@ -285,6 +295,7 @@ static int process<xsl:value-of select="$tagName"/>(StatePtr state)
 	</xsl:if>
 	</xsl:for-each>
 	
+	
 	#ifndef NDEBUG
 	fprintf( state->error,"#Entering <xsl:value-of select="$tagName"/>\n");
 	
@@ -298,80 +309,13 @@ static int process<xsl:value-of select="$tagName"/>(StatePtr state)
 	
 	#endif
 	
-	//fill Attributes
-	<xsl:for-each select="$node/xsd:complexType/xsd:attribute">
-	<xsl:sort select="@name"/>
-	<xsl:variable name="attName"><xsl:value-of select="@name"/></xsl:variable>
-	<xsl:apply-templates select="xsd:annotation"/>
-	<xsl:value-of select="$attName"/>Attr= xmlTextReaderGetAttribute(state->reader,BAD_CAST "<xsl:value-of select="@name"/>");
-	if(<xsl:value-of select="$attName"/>Attr!=NULL)
-		{
-		<xsl:choose>
-		  <xsl:when test="@type='xsd:int' or @type='xsd:integer'">
-		  //check it is an integer
-		  </xsl:when>
-		   <xsl:when test="@type='xsd:boolean'">
-		  //check it is a boolean
-		  </xsl:when>
-		   <xsl:when test="@type='xsd:float'">
-		  //check it is a float
-		  </xsl:when>
-		  <xsl:when test="@type='xsd:double'">
-		  //check it is a double
-		  </xsl:when>
-		  <xsl:when test="@type='xsd:string' or @type='' or not(@type)">
-		  <xsl:if test="not(xsd:simpleType)">/* just a string, nothing special */</xsl:if>
-		  </xsl:when>
-		  <xsl:otherwise>
-		    <xsl:message terminate="yes">unknown flag "<xsl:value-of select="@type"/>" </xsl:message>
-		  </xsl:otherwise>
-		</xsl:choose>
-		
-		<!-- attribute is an enumeration -->
-		<xsl:for-each select="xsd:simpleType/xsd:restriction[@base='xsd:string']/xsd:enumeration">
-		<xsl:if test="position()=1">
-		/* attribute @<xsl:value-of select="$attName"/> is an enumeration, checking the value */
-		</xsl:if>
-		<xsl:if test="position()!=1">
-		else </xsl:if> if( xmlStrcmp(
-			<xsl:value-of select="$attName"/>Attr,
-			BAD_CAST "<xsl:value-of select="@value"/>"
-			)==0
-			)
-			{
-			//process "<xsl:value-of select="@value"/>" enumeration
-			}
-		<xsl:if test="position()=last()"> else
-			{
-			fprintf( state->error,"Unknown enum value for @<xsl:value-of select="$attName"/> %s\n",<xsl:value-of select="$attName"/>Attr);
-		  	returnValue =  EXIT_FAILURE;
-		 	 goto cleanup;
-			}</xsl:if>
-				
-		</xsl:for-each>
-		
-		}
-	else
-		{
-		<xsl:choose>
-		  <xsl:when test="@use='required'">
-		  fprintf( state->error,"Error in <xsl:value-of select="$tagName"/> attribute @<xsl:value-of select="@name"/> missing");
-		  returnValue =  EXIT_FAILURE;
-		  goto cleanup;
-		  </xsl:when>
-		  <xsl:when test="@use='optional' or not(@use)">
-		  /* optional ignore */
-		  </xsl:when>
-		  <xsl:otherwise>
-		    <xsl:message terminate="yes">unknown flag <xsl:value-of select="@use"/></xsl:message>
-		  </xsl:otherwise>
-		</xsl:choose>
-		}
-	</xsl:for-each>
+	<xsl:call-template name="fillAttributes">
+	 <xsl:with-param name="node" select="$node"/>
+	</xsl:call-template>
 	
 	
 	<xsl:if test="count($node/xsd:complexType/xsd:sequence/xsd:element)=0">
-	if(!xmlTextReaderIsEmptyElement(state -> reader))
+	if(!isEmptyElement)
 		{
 		fprintf( state->error,"Expected no element under <xsl:value-of select="$tagName"/>\n");
                 returnValue =  EXIT_FAILURE;
@@ -383,165 +327,175 @@ static int process<xsl:value-of select="$tagName"/>(StatePtr state)
 		}
 	</xsl:if>
 	
-	success = xmlTextReaderRead( state -> reader );
-        if(!success)
-                {
-                fprintf( state->error,"In <xsl:value-of select="$tagName"/>  I/O Error. xmlTextReaderRead returned \n");
-                returnValue =  EXIT_FAILURE;
-		goto cleanup;
-                }
-	nodeType = xmlTextReaderNodeType( state -> reader );
-	#ifndef NDEBUG
-	fprintf( state->error,"#[%d]Invoking <xsl:value-of select="$tagName"/> type=%d\n",__LINE__,nodeType);
-	#endif
-	
-	
-	
-	
-	<xsl:for-each select="$node/xsd:complexType/xsd:sequence/xsd:element">
-	<!-- NO !! <xsl:sort select="@name"/> -->
-	<xsl:variable name="childName">
-	<xsl:call-template name="tagName">
-	  <xsl:with-param name="node" select="."/>
-	</xsl:call-template>
-	</xsl:variable>
-	/* process childNode &lt;<xsl:value-of select="$childName"/>/&gt; */
-	<xsl:apply-templates select="xsd:annotation"/>
-	while(nodeType == XML_READER_TYPE_ELEMENT)
+	if(!isEmptyElement)
 		{
+		success = xmlTextReaderRead( state -> reader );
+		if(!success)
+			{
+			fprintf( state->error,"In <xsl:value-of select="$tagName"/>  I/O Error. xmlTextReaderRead returned \n");
+			returnValue =  EXIT_FAILURE;
+			goto cleanup;
+			}
+		nodeType = xmlTextReaderNodeType( state -> reader );
 		#ifndef NDEBUG
-		fprintf( state->error,"#[%d] Current Child is <xsl:value-of select="$tagName"/>/%s\n",
-			__LINE__,
-			xmlTextReaderConstName(state -> reader)
-			);
+		fprintf( state->error,"#[%d]Invoking <xsl:value-of select="$tagName"/> type=%d\n",__LINE__,nodeType);
 		#endif
 		
-		if(xmlStrcmp(
-			xmlTextReaderConstName(state -> reader),
-			BAD_CAST <xsl:choose>
-			<xsl:when test="@name">"<xsl:value-of select="@name"/>"</xsl:when>
-			<xsl:when test="@ref">"<xsl:value-of select="@ref"/>"</xsl:when>
-			<xsl:otherwise> BOOOM </xsl:otherwise>
-			</xsl:choose>
-			)!=0)
-			{
-			break;
-			}
 		
-		++count<xsl:value-of select="$childName"/>;
-		<xsl:if test="not(@maxOccurs) or @maxOccurs!='unbounded'">
-		<xsl:variable name="max">
-		  <xsl:choose>
-		    <xsl:when test="@maxOccurs"><xsl:value-of select="@maxOccurs"/></xsl:when>
-		    <xsl:otherwise>1</xsl:otherwise>
-		  </xsl:choose>
+		
+		
+		<xsl:for-each select="$node/xsd:complexType/xsd:sequence/xsd:element">
+		<!-- NO !! <xsl:sort select="@name"/> -->
+		<xsl:variable name="childName">
+		<xsl:call-template name="tagName">
+		<xsl:with-param name="node" select="."/>
+		</xsl:call-template>
 		</xsl:variable>
-		if( count<xsl:value-of select="$childName"/> &gt; <xsl:value-of select="$max"/> )
+		/* process childNode &lt;<xsl:value-of select="$childName"/>/&gt; */
+		<xsl:apply-templates select="xsd:annotation"/>
+		while(nodeType == XML_READER_TYPE_ELEMENT)
 			{
-			fprintf( state->error,"Expected at most <xsl:value-of select="$max"/> &lt;<xsl:value-of select="$childName"/>&gt; under  &lt;<xsl:value-of select="$tagName"/>&gt; but found %d\n",count<xsl:value-of select="$childName"/>);
+			#ifndef NDEBUG
+			fprintf( state->error,"#[%d] Current Child is <xsl:value-of select="$tagName"/>/%s\n",
+				__LINE__,
+				xmlTextReaderConstName(state -> reader)
+				);
+			#endif
+			
+			if(xmlStrcmp(
+				xmlTextReaderConstName(state -> reader),
+				BAD_CAST <xsl:choose>
+				<xsl:when test="@name">"<xsl:value-of select="@name"/>"</xsl:when>
+				<xsl:when test="@ref">"<xsl:value-of select="@ref"/>"</xsl:when>
+				<xsl:otherwise> BOOOM </xsl:otherwise>
+				</xsl:choose>
+				)!=0)
+				{
+				break;
+				}
+			
+			++count<xsl:value-of select="$childName"/>;
+			<xsl:if test="not(@maxOccurs) or @maxOccurs!='unbounded'">
+			<xsl:variable name="max">
+			<xsl:choose>
+			<xsl:when test="@maxOccurs"><xsl:value-of select="@maxOccurs"/></xsl:when>
+			<xsl:otherwise>1</xsl:otherwise>
+			</xsl:choose>
+			</xsl:variable>
+			if( count<xsl:value-of select="$childName"/> &gt; <xsl:value-of select="$max"/> )
+				{
+				fprintf( state->error,"Expected at most <xsl:value-of select="$max"/> &lt;<xsl:value-of select="$childName"/>&gt; under  &lt;<xsl:value-of select="$tagName"/>&gt; but found %d\n",count<xsl:value-of select="$childName"/>);
+				returnValue =  EXIT_FAILURE;
+				goto cleanup;
+				}
+			</xsl:if>
+			
+			<xsl:choose>
+			<!-- this element is 'callable by another method -->
+			<xsl:when test="@ref or (@name and xsd:complexType)">
+			<xsl:variable name="refId">
+			<xsl:choose>
+				<xsl:when test="@ref"><xsl:value-of select="@ref"/></xsl:when>
+				<xsl:when test="@name"><xsl:value-of select="@name"/></xsl:when>
+			</xsl:choose>
+			</xsl:variable>
+			<xsl:variable name="refName">
+				<xsl:call-template name="tagName">
+				<xsl:with-param name="node" select="//xsd:element[@name=$refId]"/>
+			</xsl:call-template>
+			</xsl:variable>
+			if(process<xsl:value-of select="$refName"/>(state)!=EXIT_SUCCESS)
+				{
+				returnValue =  EXIT_FAILURE;
+				goto cleanup;
+				}
+			
+			</xsl:when>
+			
+			<xsl:when test="@name">
+				/* read content of &lt;<xsl:value-of select="$childName"/>/&gt; */
+				value<xsl:value-of select="$childName"/>= _readString(state,"<xsl:value-of select="$tagName"/>/<xsl:value-of select="$childName"/>",&amp;returnValue);
+			</xsl:when>
+			
+			
+			</xsl:choose>
+			
+			/* read next event */
+			success= xmlTextReaderRead(state->reader);
+			if(!success)
+				{
+				returnValue =  EXIT_FAILURE;
+				fprintf( state->error,"In  <xsl:value-of select="$tagName"/>/<xsl:value-of select="$childName"/> I/O Error.\n");
+				goto cleanup;
+				}
+			nodeType=xmlTextReaderNodeType(state->reader);
+			#ifndef NDEBUG
+			fprintf( state->error,"#[%d]Invoking <xsl:value-of select="$tagName"/>/<xsl:value-of select="$childName"/> type=%d\n",__LINE__,nodeType);
+			#endif
+			}
+		</xsl:for-each>
+		
+		//end of parsing the element we expect to close <xsl:value-of select="@name"/>
+		if( nodeType != XML_READER_TYPE_END_ELEMENT)
+			{
+			fprintf( state->error,"Expected closing &lt;/<xsl:value-of select="@name"/>&gt; but found nodeType: %d \n",nodeType);
+			if(nodeType==XML_READER_TYPE_ELEMENT)
+				{
+				fprintf( state->error,"Element is :%s",xmlTextReaderConstName(state -> reader));
+				}
+			returnValue =  EXIT_FAILURE;
+			goto cleanup;
+			}
+		if(xmlStrcmp(
+				xmlTextReaderConstName(state -> reader),
+				BAD_CAST "<xsl:value-of select="@name"/>"
+				)!=0)
+			{
+			fprintf( state->error,"Expected closing &lt;/<xsl:value-of select="$tagName"/>&gt; but found %s\n",
+				xmlTextReaderConstName(state -> reader));
+			returnValue =  EXIT_FAILURE;
+			goto cleanup;
+			}
+		}//end of if(!isEmptyElement)
+	
+	//test the count of each element
+	<xsl:for-each select="$node/xsd:complexType/xsd:sequence/xsd:element">
+		<xsl:sort select="@name"/>
+			<xsl:variable name="childName">
+				<xsl:call-template name="tagName">
+				<xsl:with-param name="node" select="."/>
+			</xsl:call-template>
+		</xsl:variable>
+		
+		/*
+		<xsl:value-of select="$childName"/> and 
+		<xsl:value-of select="@minOccurs"/>
+		*/
+		<xsl:if test="@minOccurs and @minOccurs!='0'">
+		//check number of <xsl:value-of select="$childName"/> read
+		<xsl:variable name="min">
+			<xsl:choose>
+			<xsl:when test="@minOccurs"><xsl:value-of select="@minOccurs"/></xsl:when>
+			<xsl:otherwise>1</xsl:otherwise>
+			</xsl:choose>
+		</xsl:variable>
+		
+		if( count<xsl:value-of select="$childName"/> &lt; <xsl:value-of select="$min"/> )
+			{
+			fprintf( state->error,"Expected at least <xsl:value-of select="$min"/> &lt;<xsl:value-of select="$childName"/>&gt; under  &lt;<xsl:value-of select="$tagName"/>&gt; bout found %d.\n",count<xsl:value-of select="$childName"/>);
 			returnValue =  EXIT_FAILURE;
 			goto cleanup;
 			}
 		</xsl:if>
 		
-		<xsl:choose>
-		  <!-- this element is 'callable by another method -->
-		  <xsl:when test="@ref or (@name and xsd:complexType)">
-		  <xsl:variable name="refId">
-		  <xsl:choose>
-		  	<xsl:when test="@ref"><xsl:value-of select="@ref"/></xsl:when>
-		  	<xsl:when test="@name"><xsl:value-of select="@name"/></xsl:when>
-		  </xsl:choose>
-		  </xsl:variable>
-		  <xsl:variable name="refName">
-			<xsl:call-template name="tagName">
-			<xsl:with-param name="node" select="//xsd:element[@name=$refId]"/>
-		   </xsl:call-template>
-		   </xsl:variable>
-		  if(process<xsl:value-of select="$refName"/>(state)!=EXIT_SUCCESS)
-		  	{
-		  	returnValue =  EXIT_FAILURE;
-			goto cleanup;
-		  	}
-		  
-		  </xsl:when>
-		  
-		  <xsl:when test="@name">
-		  	/* read content of &lt;<xsl:value-of select="$childName"/>/&gt; */
-		  	value<xsl:value-of select="$childName"/>= _readString(state,"<xsl:value-of select="$tagName"/>/<xsl:value-of select="$childName"/>",&amp;returnValue);
-		  </xsl:when>
-		  
-		  
-		</xsl:choose>
-		
-		/* read next event */
-		success= xmlTextReaderRead(state->reader);
-		if(!success)
-			{
-			returnValue =  EXIT_FAILURE;
-			fprintf( state->error,"In  <xsl:value-of select="$tagName"/>/<xsl:value-of select="$childName"/> I/O Error.\n");
-			goto cleanup;
-			}
-		nodeType=xmlTextReaderNodeType(state->reader);
-		#ifndef NDEBUG
-		fprintf( state->error,"#[%d]Invoking <xsl:value-of select="$tagName"/>/<xsl:value-of select="$childName"/> type=%d\n",__LINE__,nodeType);
-		#endif
-		}
-	
-	<xsl:if test="@minOccurs and @minOccurs!='0'">
-	//check number of <xsl:value-of select="$childName"/> read
-	  <xsl:variable name="min">
-		<xsl:choose>
-		<xsl:when test="@minOccurs"><xsl:value-of select="@minOccurs"/></xsl:when>
-		<xsl:otherwise>1</xsl:otherwise>
-		</xsl:choose>
-	</xsl:variable>
-	  
-	  if( count<xsl:value-of select="$childName"/> &lt; <xsl:value-of select="$min"/> )
-	  	{
-	  	fprintf( state->error,"Expected at least <xsl:value-of select="$min"/> &lt;<xsl:value-of select="$childName"/>&gt; under  &lt;<xsl:value-of select="$tagName"/>&gt; bout found %d.\n",count<xsl:value-of select="$childName"/>);
-                returnValue =  EXIT_FAILURE;
-		goto cleanup;
-	  	}
-	</xsl:if>
-	
-	
-	
 	</xsl:for-each>
-	
-	//end of element
-	
-        if(nodeType != XML_READER_TYPE_END_ELEMENT)
-                {
-                fprintf( state->error,"Expected closing &lt;/<xsl:value-of select="@name"/>&gt; but found nodeType: %d \n",nodeType);
-                if(nodeType==XML_READER_TYPE_ELEMENT)
-                	{
-                	fprintf( state->error,"Element is :%s",xmlTextReaderConstName(state -> reader));
-                	}
-                returnValue =  EXIT_FAILURE;
-		goto cleanup;
-                }
-	if(xmlStrcmp(
-			xmlTextReaderConstName(state -> reader),
-			BAD_CAST "<xsl:value-of select="@name"/>"
-			)!=0)
-		{
-		fprintf( state->error,"Expected closing &lt;/<xsl:value-of select="$tagName"/>&gt; but found %s\n",
-			xmlTextReaderConstName(state -> reader));
-                returnValue =  EXIT_FAILURE;
-		goto cleanup;
-		}
 	
 	cleanup:
 	
-	//free attributes
-	<xsl:for-each select="$node/xsd:complexType/xsd:attribute">
-	<xsl:sort select="@name"/>
-	if(<xsl:value-of select="@name"/>Attr!=NULL)
-		{
-		xmlFree(<xsl:value-of select="@name"/>Attr);
-		}
-	</xsl:for-each>
+	
+	<xsl:call-template name="freeAttributes">
+	 <xsl:with-param name="node" select="$node"/>
+	</xsl:call-template>
 	
 	//Free Elements Values 
 	<xsl:for-each select="$node/xsd:complexType/xsd:sequence/xsd:element">
@@ -558,6 +512,81 @@ static int process<xsl:value-of select="$tagName"/>(StatePtr state)
 		}
 	</xsl:if>
 	</xsl:for-each>
+	#ifndef NDEBUG
+	fprintf( state->error,"#Exiting <xsl:value-of select="$tagName"/>\n");
+	#endif
+	return returnValue;
+	}
+
+</xsl:template>
+
+
+
+<xsl:template name="elementData">
+<xsl:param name="node"/>
+<xsl:variable name="tagName">
+ <xsl:call-template name="tagName">
+  <xsl:with-param name="node" select="$node"/>
+ </xsl:call-template>
+</xsl:variable>
+<xsl:apply-templates select="$node/xsd:annotation"/>
+<!-- <xsl:if test="not($node/xsd:complexType/xsd:sequence)">
+ <xsl:message terminate="no">unknown type <xsl:value-of select="$tagName"/></xsl:message>
+</xsl:if> -->
+static int process<xsl:value-of select="$tagName"/>(StatePtr state)
+	{
+	int returnValue=EXIT_SUCCESS;
+	//int success;
+	//int nodeType;
+	<xsl:call-template name="declareAttributes">
+	 <xsl:with-param name="node" select="$node"/>
+	</xsl:call-template>
+	xmlChar* myValue=NULL;
+	
+	
+	#ifndef NDEBUG
+	fprintf( state->error,"#Entering <xsl:value-of select="$tagName"/>\n");
+	
+	if(xmlTextReaderNodeType(state -> reader)!=XML_READER_TYPE_ELEMENT)
+		{
+		fprintf( state->error,"#[%d]Not a XML_READER_TYPE_ELEMENT but %d\n",__LINE__,xmlTextReaderNodeType(state -> reader));
+		returnValue=EXIT_FAILURE;
+		goto cleanup;
+		}
+	
+	
+	#endif
+	
+	<xsl:call-template name="fillAttributes">
+	 <xsl:with-param name="node" select="$node"/>
+	</xsl:call-template>
+	
+	//get the value of this simple node
+	myValue = _readString(state,"<xsl:value-of select="@name"/>",&amp;returnValue);
+	if(myValue==NULL)
+		{
+		fprintf( state->error,
+			"#[%d]Expected a string content under &lt;<xsl:value-of select="@name"/>&gt; %d\n",
+			__LINE__,
+			xmlTextReaderNodeType(state -> reader)
+			);
+		returnValue=EXIT_FAILURE;
+		goto cleanup;
+		}	
+
+	
+	cleanup:
+	
+	
+	<xsl:call-template name="freeAttributes">
+	 <xsl:with-param name="node" select="$node"/>
+	</xsl:call-template>
+	
+	//Free Element Values 
+	if(myValue!=NULL)
+		{
+		xmlFree(myValue);
+		}
 	#ifndef NDEBUG
 	fprintf( state->error,"#Exiting <xsl:value-of select="$tagName"/>\n");
 	#endif
@@ -592,7 +621,102 @@ static int process<xsl:value-of select="$tagName"/>(StatePtr state)
 </xsl:choose>
 </xsl:template>
 
+<xsl:template name="declareAttributes">
+<xsl:param name="node"/>
+//Attributes
+<xsl:for-each select="$node/xsd:complexType/xsd:attribute">
+<xsl:sort select="@name"/>
+<xsl:apply-templates select="xsd:annotation"/>
+xmlChar* <xsl:value-of select="@name"/>Attr=NULL;
+</xsl:for-each>
+</xsl:template>
 
+<xsl:template name="freeAttributes">
+<xsl:param name="node"/>
+//free attributes
+<xsl:for-each select="$node/xsd:complexType/xsd:attribute">
+<xsl:sort select="@name"/>
+if(<xsl:value-of select="@name"/>Attr!=NULL)
+	{
+	xmlFree(<xsl:value-of select="@name"/>Attr);
+	}
+</xsl:for-each>
+</xsl:template>
+
+<xsl:template name="fillAttributes">
+<xsl:param name="node"/>
+/* START fill Attributes ***********************/
+<xsl:for-each select="$node/xsd:complexType/xsd:attribute">
+<xsl:sort select="@name"/>
+<xsl:variable name="attName"><xsl:value-of select="@name"/></xsl:variable>
+<xsl:apply-templates select="xsd:annotation"/>
+<xsl:value-of select="$attName"/>Attr= xmlTextReaderGetAttribute(state->reader,BAD_CAST "<xsl:value-of select="@name"/>");
+if(<xsl:value-of select="$attName"/>Attr!=NULL)
+	{
+	<xsl:choose>
+		<xsl:when test="@type='xsd:int' or @type='xsd:integer'">
+		//check it is an integer
+		</xsl:when>
+		<xsl:when test="@type='xsd:boolean'">
+		//check it is a boolean
+		</xsl:when>
+		<xsl:when test="@type='xsd:float'">
+		//check it is a float
+		</xsl:when>
+		<xsl:when test="@type='xsd:double'">
+		//check it is a double
+		</xsl:when>
+		<xsl:when test="@type='xsd:string' or @type='' or not(@type)">
+		<xsl:if test="not(xsd:simpleType)">/* just a string, nothing special */</xsl:if>
+		</xsl:when>
+		<xsl:otherwise>
+		<xsl:message terminate="yes">unknown flag "<xsl:value-of select="@type"/>" </xsl:message>
+		</xsl:otherwise>
+	</xsl:choose>
+	
+	<!-- attribute is an enumeration -->
+	<xsl:for-each select="xsd:simpleType/xsd:restriction[@base='xsd:string']/xsd:enumeration">
+	<xsl:if test="position()=1">
+	/* attribute @<xsl:value-of select="$attName"/> is an enumeration, checking the value */
+	</xsl:if>
+	<xsl:if test="position()!=1">
+	else </xsl:if> if( xmlStrcmp(
+		<xsl:value-of select="$attName"/>Attr,
+		BAD_CAST "<xsl:value-of select="@value"/>"
+		)==0
+		)
+		{
+		//process "<xsl:value-of select="@value"/>" enumeration
+		}
+	<xsl:if test="position()=last()"> else
+		{
+		fprintf( state->error,"Unknown enum value for @<xsl:value-of select="$attName"/> %s\n",<xsl:value-of select="$attName"/>Attr);
+		returnValue =  EXIT_FAILURE;
+			goto cleanup;
+		}</xsl:if>
+			
+	</xsl:for-each>
+	
+	}
+else
+	{
+	<xsl:choose>
+		<xsl:when test="@use='required'">
+		fprintf( state->error,"Error in <xsl:value-of select="$node/@name"/> attribute @<xsl:value-of select="@name"/> missing");
+		returnValue =  EXIT_FAILURE;
+		goto cleanup;
+		</xsl:when>
+		<xsl:when test="@use='optional' or not(@use)">
+		/* optional ignore */
+		</xsl:when>
+		<xsl:otherwise>
+		<xsl:message terminate="yes">unknown flag <xsl:value-of select="@use"/></xsl:message>
+		</xsl:otherwise>
+	</xsl:choose>
+	}
+</xsl:for-each>
+/* END fill Attributes ***********************/
+</xsl:template>
 
 
 </xsl:stylesheet>
