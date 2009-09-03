@@ -466,11 +466,7 @@ static int process<xsl:value-of select="$tagName"/>(StatePtr state)
 				<xsl:with-param name="node" select="."/>
 			</xsl:call-template>
 		</xsl:variable>
-		
-		/*
-		<xsl:value-of select="$childName"/> and 
-		<xsl:value-of select="@minOccurs"/>
-		*/
+	
 		<xsl:if test="@minOccurs and @minOccurs!='0'">
 		//check number of <xsl:value-of select="$childName"/> read
 		<xsl:variable name="min">
@@ -629,6 +625,11 @@ static int process<xsl:value-of select="$tagName"/>(StatePtr state)
 <xsl:apply-templates select="xsd:annotation"/>
 xmlChar* <xsl:value-of select="@name"/>Attr=NULL;
 </xsl:for-each>
+<xsl:for-each select="$node/xsd:simpleContent/xsd:extension/xsd:attribute">
+<xsl:sort select="@name"/>
+<xsl:apply-templates select="xsd:annotation"/>
+xmlChar* <xsl:value-of select="@name"/>Attr=NULL;
+</xsl:for-each>
 </xsl:template>
 
 <xsl:template name="freeAttributes">
@@ -641,41 +642,63 @@ if(<xsl:value-of select="@name"/>Attr!=NULL)
 	xmlFree(<xsl:value-of select="@name"/>Attr);
 	}
 </xsl:for-each>
+<xsl:for-each select="$node/xsd:simpleContent/xsd:extension/xsd:attribute">
+<xsl:sort select="@name"/>
+if(<xsl:value-of select="@name"/>Attr!=NULL)
+	{
+	xmlFree(<xsl:value-of select="@name"/>Attr);
+	}
+</xsl:for-each>
 </xsl:template>
 
 <xsl:template name="fillAttributes">
-<xsl:param name="node"/>
 /* START fill Attributes ***********************/
+<xsl:param name="node"/>
 <xsl:for-each select="$node/xsd:complexType/xsd:attribute">
 <xsl:sort select="@name"/>
-<xsl:variable name="attName"><xsl:value-of select="@name"/></xsl:variable>
-<xsl:apply-templates select="xsd:annotation"/>
-<xsl:value-of select="$attName"/>Attr= xmlTextReaderGetAttribute(state->reader,BAD_CAST "<xsl:value-of select="@name"/>");
+<xsl:call-template name="fillAttribute">
+ <xsl:with-param name="node" select="."/>
+</xsl:call-template>
+</xsl:for-each>
+<xsl:for-each select="$node/xsd:simpleContent/xsd:extension/xsd:attribute">
+<xsl:sort select="@name"/>
+<xsl:call-template name="fillAttribute">
+ <xsl:with-param name="node" select="."/>
+</xsl:call-template>
+</xsl:for-each>
+/* END fill Attributes ***********************/
+</xsl:template>
+
+<xsl:template name="fillAttribute">
+<xsl:param name="node"/>
+<xsl:variable name="attName"><xsl:value-of select="$node/@name"/></xsl:variable>
+<xsl:apply-templates select="$node/xsd:annotation"/>
+<xsl:value-of select="$attName"/>Attr= xmlTextReaderGetAttribute(state->reader,BAD_CAST "<xsl:value-of select="$node/@name"/>");
 if(<xsl:value-of select="$attName"/>Attr!=NULL)
 	{
 	<xsl:choose>
-		<xsl:when test="@type='xsd:int' or @type='xsd:integer'">
+		<xsl:when test="$node/@type='xsd:int' or $node/@type='xsd:integer'">
 		//check it is an integer
 		</xsl:when>
-		<xsl:when test="@type='xsd:boolean'">
+		<xsl:when test="$node/@type='xsd:boolean'">
 		//check it is a boolean
 		</xsl:when>
-		<xsl:when test="@type='xsd:float'">
+		<xsl:when test="$node/@type='xsd:float'">
 		//check it is a float
 		</xsl:when>
-		<xsl:when test="@type='xsd:double'">
+		<xsl:when test="$node/@type='xsd:double'">
 		//check it is a double
 		</xsl:when>
-		<xsl:when test="@type='xsd:string' or @type='' or not(@type)">
-		<xsl:if test="not(xsd:simpleType)">/* just a string, nothing special */</xsl:if>
+		<xsl:when test="$node/@type='xsd:string' or $node/@type='' or not($node/@type)">
+		<xsl:if test="not($node/xsd:simpleType)">/* just a string, nothing special */</xsl:if>
 		</xsl:when>
 		<xsl:otherwise>
-		<xsl:message terminate="yes">unknown flag "<xsl:value-of select="@type"/>" </xsl:message>
+		<xsl:message terminate="yes">unknown flag "<xsl:value-of select="$node/@type"/>" </xsl:message>
 		</xsl:otherwise>
 	</xsl:choose>
 	
 	<!-- attribute is an enumeration -->
-	<xsl:for-each select="xsd:simpleType/xsd:restriction[@base='xsd:string']/xsd:enumeration">
+	<xsl:for-each select="$node/xsd:simpleType/xsd:restriction[@base='xsd:string']/xsd:enumeration">
 	<xsl:if test="position()=1">
 	/* attribute @<xsl:value-of select="$attName"/> is an enumeration, checking the value */
 	</xsl:if>
@@ -690,7 +713,7 @@ if(<xsl:value-of select="$attName"/>Attr!=NULL)
 		}
 	<xsl:if test="position()=last()"> else
 		{
-		fprintf( state->error,"Unknown enum value for @<xsl:value-of select="$attName"/> %s\n",<xsl:value-of select="$attName"/>Attr);
+		fprintf( state->error,"Unknown enum value for @<xsl:value-of select="$attName"/> found: %s\n",<xsl:value-of select="$attName"/>Attr);
 		returnValue =  EXIT_FAILURE;
 			goto cleanup;
 		}</xsl:if>
@@ -701,21 +724,19 @@ if(<xsl:value-of select="$attName"/>Attr!=NULL)
 else
 	{
 	<xsl:choose>
-		<xsl:when test="@use='required'">
-		fprintf( state->error,"Error in <xsl:value-of select="$node/@name"/> attribute @<xsl:value-of select="@name"/> missing");
+		<xsl:when test="$node/@use='required'">
+		fprintf( state->error,"Error in <xsl:value-of select="$node/@name"/> attribute @<xsl:value-of select="$node/@name"/> missing");
 		returnValue =  EXIT_FAILURE;
 		goto cleanup;
 		</xsl:when>
-		<xsl:when test="@use='optional' or not(@use)">
+		<xsl:when test="$node/@use='optional' or not($node/@use)">
 		/* optional ignore */
 		</xsl:when>
 		<xsl:otherwise>
-		<xsl:message terminate="yes">unknown flag <xsl:value-of select="@use"/></xsl:message>
+		<xsl:message terminate="yes">unknown flag <xsl:value-of select="$node/@use"/></xsl:message>
 		</xsl:otherwise>
 	</xsl:choose>
 	}
-</xsl:for-each>
-/* END fill Attributes ***********************/
 </xsl:template>
 
 
