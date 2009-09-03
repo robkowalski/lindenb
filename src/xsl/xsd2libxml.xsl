@@ -414,6 +414,10 @@ static int process<xsl:value-of select="$tagName"/>(StatePtr state)
 			
 			<xsl:when test="@name">
 				/* read content of &lt;<xsl:value-of select="$childName"/>/&gt; */
+				if(value<xsl:value-of select="$childName"/>!=NULL)
+					{
+					xmlFree(value<xsl:value-of select="$childName"/>);
+					}
 				value<xsl:value-of select="$childName"/>= _readString(state,"<xsl:value-of select="$tagName"/>/<xsl:value-of select="$childName"/>",&amp;returnValue);
 			</xsl:when>
 			
