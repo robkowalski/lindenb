@@ -626,9 +626,22 @@ private class RssHandler
 		JPanel pane= new JPanel(new GridLayout(0,6,5,5));
 		for(Item item:handler.items)
 			{
-			InputStream io= openStream(item.imageURL);
-			BufferedImage icon=ImageIO.read(io);
-			io.close();
+			InputStream io= null;
+			BufferedImage icon=null;
+			try
+				{
+				io=openStream(item.imageURL);
+				icon=ImageIO.read(io);
+				}
+			catch(Exception err)
+				{
+				err.printStackTrace();
+				continue;
+				}
+			finally
+				{
+				IOUtils.safeClose(io);
+				}
 			JToggleButton button = new JToggleButton(new ImageIcon(icon));
 			pane.add(button);
 			button.addMouseListener(new ItemAdapter(item));

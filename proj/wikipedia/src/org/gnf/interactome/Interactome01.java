@@ -55,7 +55,7 @@ import org.apache.commons.httpclient.HttpException;
 import org.apache.commons.httpclient.cookie.CookiePolicy;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.methods.PostMethod;
-import org.lindenb.berkeley.DocumentBinding;
+import org.lindenb.berkeley.binding.DocumentBinding;
 import org.lindenb.io.IOUtils;
 import org.lindenb.lang.InvalidXMLException;
 import org.lindenb.util.Base64;

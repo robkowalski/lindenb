@@ -6,7 +6,7 @@ import java.util.logging.Logger;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
-import org.lindenb.berkeley.DocumentBinding;
+import org.lindenb.berkeley.binding.DocumentBinding;
 import org.lindenb.sw.RDFException;
 import org.w3c.dom.Document;
 
