@@ -1,7 +1,7 @@
 /**
  * 
  */
-package org.lindenb.berkeley;
+package org.lindenb.berkeley.binding;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
