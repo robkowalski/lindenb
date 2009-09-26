@@ -11,34 +11,19 @@
  <!--
 
 Motivation:
-	transforms a pubchem xml result to Processing
+	transforms a pubchem 3D xml result to Processing
 Author
 	Pierre Lindenbaum PhD plindenbaum@yahoo.fr
 	http://plindenbaum.blogspot.com
-Parameters:
-	scale :=scale factor
-	show-bounds := (true/false) 
-	xradius := scale factor for atoms
+	http://code.google.com/p/lindenb/source/browse/trunk/src/xsl/pubchem2processing.xsl 
+
+
 -->
 
 <!-- ========================================================================= -->
 <xsl:output method='text' omit-xml-declaration="yes"/>
 
-<!-- ========================================================================= -->
-<!-- the margin of the SVG -->
-<xsl:param name="margin">100</xsl:param>
-<!-- the scale factor -->
-<xsl:param name="scale">30</xsl:param>
-<!-- the scale factor for atom radius-->
-<xsl:param name="xradius">1</xsl:param>
-<!-- show/hide bounds ? -->
-<xsl:param name="show-bounds">true</xsl:param>
 
-
-<!-- number of atoms-->
-<xsl:variable name="count"><xsl:value-of select="count(/c:PC-Compound/c:PC-Compound_atoms/c:PC-Atoms/c:PC-Atoms_aid/c:PC-Atoms_aid_E)"/></xsl:variable>
-<!-- number of bounds -->
-<xsl:variable name="count-bounds"><xsl:value-of select="count(/c:PC-Compound/c:PC-Compound_bonds/c:PC-Bonds/c:PC-Bonds_aid1/c:PC-Bonds_aid1_E)"/></xsl:variable>
 
 <!-- array of atoms -->
 <xsl:variable name="a_array" select="/c:PC-Compound/c:PC-Compound_atoms/c:PC-Atoms/c:PC-Atoms_element"/>
@@ -52,69 +37,9 @@ Parameters:
 <xsl:variable name="b_array" select="/c:PC-Compound/c:PC-Compound_bonds/c:PC-Bonds"/>
 <xsl:variable name="bound1_array" select="$b_array/c:PC-Bonds_aid1"/>
 <xsl:variable name="bound2_array" select="$b_array/c:PC-Bonds_aid2"/>
-<xsl:variable name="link_array" select="$b_array/c:PC-Bonds_order"/>
-
-<xsl:variable name="min-x">
-  <xsl:for-each select="$x_array/c:PC-Conformer_x_E">
-    <xsl:sort select="." data-type="number" order="ascending" />
-    <xsl:if test="position() = 1">
-      <xsl:value-of select="." />
-    </xsl:if>
-  </xsl:for-each>
-</xsl:variable>
-
-<xsl:variable name="max-x">
-  <xsl:for-each select="$x_array/c:PC-Conformer_x_E">
-    <xsl:sort select="." data-type="number" order="descending" />
-    <xsl:if test="position() = 1">
-      <xsl:value-of select="." />
-    </xsl:if>
-  </xsl:for-each>
-</xsl:variable>
-
-<xsl:variable name="min-y">
-  <xsl:for-each select="$y_array/c:PC-Conformer_y_E">
-    <xsl:sort select="." data-type="number" order="ascending" />
-    <xsl:if test="position() = 1">
-      <xsl:value-of select="." />
-    </xsl:if>
-  </xsl:for-each>
-</xsl:variable>
-
-<xsl:variable name="max-y">
-  <xsl:for-each select="$y_array/c:PC-Conformer_y_E">
-    <xsl:sort select="." data-type="number" order="descending" />
-    <xsl:if test="position() = 1">
-      <xsl:value-of select="." />
-    </xsl:if>
-  </xsl:for-each>
-</xsl:variable>
-
-<xsl:variable name="min-z">
-  <xsl:for-each select="$z_array/c:PC-Conformer_z_E">
-    <xsl:sort select="." data-type="number" order="ascending" />
-    <xsl:if test="position() = 1">
-      <xsl:value-of select="." />
-    </xsl:if>
-  </xsl:for-each>
-</xsl:variable>
-
-<xsl:variable name="max-z">
-  <xsl:for-each select="$z_array/c:PC-Conformer_z_E">
-    <xsl:sort select="." data-type="number" order="descending" />
-    <xsl:if test="position() = 1">
-      <xsl:value-of select="." />
-    </xsl:if>
-  </xsl:for-each>
-</xsl:variable>
-
-<xsl:variable name="length-x" select="$max-x - $min-x"/>
-<xsl:variable name="length-y" select="$max-y - $min-y"/>
-<xsl:variable name="length-z" select="$max-z - $min-z"/>
 
 
-<xsl:variable name="frame-width" select="($margin * 2 )+ ($length-x * $scale)"/>
-<xsl:variable name="frame-height" select="($margin * 2 )+ ($length-y * $scale)"/>
+
 
 <xsl:template match="/">
 <xsl:apply-templates select="c:PC-Compound"/>
@@ -127,42 +52,52 @@ Parameters:
  *	Author: Pierre Lindenbaum PhD plindenbaum@yahoo.fr
  *	http://plindenbaum.blogspot.com
  */
+ 
+//number of atoms
 static final int ATOM_COUNT=<xsl:value-of select="count($a_array/c:PC-Element)"/>;
 
+//array of X positions
 static final float array_x[]=new float[]{<xsl:for-each select="$x_array/c:PC-Conformer_x_E">
 		<xsl:if test="position() != 1"><xsl:text>f,</xsl:text></xsl:if>
 		<xsl:value-of select="." />
 	</xsl:for-each>};
 
+//array of Y positions
 static final float array_y[]=new float[]{<xsl:for-each select="$y_array/c:PC-Conformer_y_E">
 		<xsl:if test="position() != 1"><xsl:text>f,</xsl:text></xsl:if>
 		<xsl:value-of select="." />
 	</xsl:for-each>};
 	
+//array of Z positions
 static final float array_z[]=new float[]{<xsl:for-each select="$z_array/c:PC-Conformer_z_E">
 		<xsl:if test="position() != 1"><xsl:text>f,</xsl:text></xsl:if>
 		<xsl:value-of select="." />
 	</xsl:for-each>};
-	
+
+//array of atom names
 static final char array_c[]=new char[]{<xsl:for-each select="$a_array/c:PC-Element">
 	<xsl:if test="position() != 1"><xsl:text>,</xsl:text></xsl:if>
 		<xsl:text>&apos;</xsl:text><xsl:value-of select="@value" /><xsl:text>&apos;</xsl:text>
 	</xsl:for-each>};
 
+//number of bounds
 static final int BOUND_COUNT=<xsl:value-of select="count($bound1_array/c:PC-Bonds_aid1_E)"/>;
 
+//bound start index
 static final int bound_start[]=new int[]{<xsl:for-each select="$bound1_array/c:PC-Bonds_aid1_E">
 		<xsl:if test="position() != 1"><xsl:text>,</xsl:text></xsl:if>
 		<xsl:value-of select="number(.)-1" />
 	</xsl:for-each>};
+	
+//bound end index
 static final int bound_end[]=new int[]{<xsl:for-each select="$bound2_array/c:PC-Bonds_aid2_E">
 		<xsl:if test="position() != 1"><xsl:text>,</xsl:text></xsl:if>
 		<xsl:value-of select="number(.)-1" />
 	</xsl:for-each>};
-
-
-
+	
+//Name of this product
 static final String title= "<xsl:value-of select="c:PC-Compound_id/c:PC-CompoundType/c:PC-CompoundType_id/c:PC-CompoundType_id_cid"/>";
+
 
 float mid_x=0f;
 float mid_y=0f;
@@ -170,6 +105,7 @@ float mid_z=0f;
 float alpha=150;
 float zoom=10f;
 float zoomAtom=1.0f;
+boolean drawBounds=true;
 
 void setup()
   {
@@ -192,7 +128,7 @@ void draw()
   rotateY(map(mouseX, 0, width, 0, TWO_PI));
   rotateZ(map(mouseY, 0, height, 0, -TWO_PI));
  stroke(170, 0, 0);
-  for(int i=0;i&lt; BOUND_COUNT;++i)
+  for(int i=0;drawBounds &amp;&amp; i&lt; BOUND_COUNT;++i)
         {
         line(
                 xAngstrom(array_x[bound_start[i]] -mid_x ),
@@ -271,6 +207,7 @@ void keyPressed()
         case 's':case 'S':  if(zoom-zoomShift&gt;0) zoom-=zoomShift; break;
         case 'w':case 'W': zoomAtom+=zoomAtomShift; break;
         case 'x':case 'X':  if(zoomAtom-zoomAtomShift &gt;0) zoomAtom-=zoomAtomShift; break;
+        case 'd': drawBounds=!drawBounds;break;
         default:break;
         }
   }

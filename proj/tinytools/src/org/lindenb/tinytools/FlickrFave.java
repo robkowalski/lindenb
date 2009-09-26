@@ -32,6 +32,8 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.Properties;
 import java.util.Vector;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 import javax.imageio.ImageIO;
@@ -77,6 +79,7 @@ import com.hp.hpl.jena.vocabulary.RDF;
 
 public class FlickrFave
 {
+private static Logger LOG=Logger.getLogger(FlickrFave.class.getName());
 private static final String FLICKR="urn:flickr:";
 private static Model MODEL4PROPERTIES=ModelFactory.createDefaultModel();
 private static Resource isChannel= MODEL4PROPERTIES.createResource(FLICKR+"Channel");
@@ -89,10 +92,10 @@ private static Property image= MODEL4PROPERTIES.createProperty(FLICKR,"image");
 
 private class Item
 	{
-	String title;
-	String link;
-	String description;
-	String imageURL;
+	String title=null;
+	String link=null;
+	String description=null;
+	String imageURL=null;
 	String largeImageURL;
 	Date date;
 	
@@ -143,6 +146,11 @@ private class ItemAdapter extends MouseAdapter
 		}
 	}
 
+/**
+ * RssHandler
+ * @author pierre
+ *
+ */
 private class RssHandler
 	extends DefaultHandler
 	{
@@ -169,25 +177,37 @@ private class RssHandler
 		else if(localName.equals("thumbnail") && item!=null)
 			{
 			item.imageURL= attributes.getValue("url");
+			LOG.info("found imageURL:"+item.imageURL);
 			}
 		else if(localName.equals("link") && item!=null)
 			{
-			if(item.imageURL==null && "enclosure".equals(attributes.getValue("rel"))) item.imageURL= attributes.getValue("href");
-			if(item.link==null && "alternate".equals(attributes.getValue("rel"))) item.link= attributes.getValue("href");
+			if(item.imageURL==null && "enclosure".equals(attributes.getValue("rel")))
+				{
+				item.imageURL= attributes.getValue("href");
+				LOG.info("found imageURL:"+item.link);
+				}
+			if(item.link==null && "alternate".equals(attributes.getValue("rel")))
+				{
+				item.link= attributes.getValue("href");
+				LOG.info("found link:"+item.link);
+				}
 			}
 		}
 	@Override
 	public void endElement(String uri, String localName, String name)
 			throws SAXException
 		{
+		
 		if((localName.equals("item") || localName.equals("entry")) && item!=null)
 			{
+			LOG.info("item "+item.imageURL+" "+item.date+" "+this.lastDate+" "+item.date+" "+(this.lastDate.compareTo(item.date)<0));
 			if(item.imageURL!=null &&
 			   item.date!=null &&
 			   this.lastDate.compareTo(item.date)<0 &&
 			   (this.toDate==null || (this.toDate!=null && item.date.compareTo(this.toDate)<=0))
 				)
 				{
+				LOG.info("ok date");
 				if(this.item.largeImageURL==null)
 					{
 					this.item.largeImageURL=this.item.imageURL;
@@ -195,11 +215,19 @@ private class RssHandler
 				Resource subject= getModel().createResource(item.link);
 				if(!getModel().containsResource(subject))
 					{
-					//System.err.println(item);
+					LOG.info("Adding "+item);
 					this.items.add(item);
+					}
+				else
+					{
+					LOG.info("Model already contains "+subject);
 					}
 				}
 			item=null;
+			}
+		else if(localName.equals("item") || localName.equals("entry"))
+			{
+			LOG.info("failure");
 			}
 		else if(name.equals("title") && item!=null)
 			{
@@ -593,7 +621,7 @@ private class RssHandler
 			r.close();
 			}
 		
-			
+		
 		RssHandler handler=new RssHandler(lastDate,toDate);
 		ResIterator iter=getModel().listSubjectsWithProperty(RDF.type,isChannel);
 		while(iter.hasNext())
@@ -601,7 +629,6 @@ private class RssHandler
 			Resource subject = iter.nextResource();
 			try
 				{
-				//System.err.println(subject.getURI());
 				parse(this.parser,subject.getURI(), handler);
 				}
 			catch(IOException err)
@@ -630,6 +657,7 @@ private class RssHandler
 			BufferedImage icon=null;
 			try
 				{
+				LOG.info("reading "+item.imageURL);
 				io=openStream(item.imageURL);
 				icon=ImageIO.read(io);
 				}
@@ -694,6 +722,7 @@ private class RssHandler
 	public static void main(String[] args) {
 		try
 			{
+			LOG.setLevel(Level.OFF);
 			JDialog.setDefaultLookAndFeelDecorated(true);
 			int optind=0;
 			String filename=null;

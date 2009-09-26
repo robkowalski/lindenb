@@ -10,7 +10,7 @@ import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
 import com.sleepycat.je.Transaction;
 
-public abstract class PrimaryDB<K,V>
+public class PrimaryDB<K,V>
 	extends BerkeleyDB<K,V>
 	{
 	private Database database;

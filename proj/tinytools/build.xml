@@ -7,7 +7,7 @@
  <property name="compiledir" value="${builddir}/compile"/>
 
 
- <target name="all" depends="xsltstream,consequences,ffsurvey,sortpubmed,meshfreq,pictools,aboutrslist,java2dot,verticalize,findjar,gamonalisa,saxscript,xar,json2xml">
+ <target name="all" depends="wpsubcat,xsltstream,consequences,ffsurvey,sortpubmed,meshfreq,pictools,aboutrslist,java2dot,verticalize,findjar,gamonalisa,saxscript,xar,json2xml">
 </target>
 
  <target name="build-ant-tasks">
@@ -29,7 +29,12 @@
 		        <include name="*.jar"/>
 		</fileset>
 	</path>
-
+	<path id="bdbjepath">
+		<fileset dir="/usr/local/package/je-3.3.75/lib/">
+			<include name="*.jar"/>
+		</fileset>
+	</path>
+	
  
  <!-- =================================================================== -->
  <!-- =================================================================== -->
@@ -609,4 +614,55 @@
 	<target name="xsltstream" depends="declare-ant-tasks">
 		<compile appclass="StreamingXSLT" appjar="xsltstream" appname="Streaming XSLT"/>
 	</target>
+	
+	<!-- =================================================================== -->
+	<!-- =================================================================== -->
+	<!-- =================================================================== -->
+	<!-- =================================================================== -->
+	
+	<target name="wpsubcat" depends="declare-ant-tasks">
+		<mkdir dir="${compiledir}"/>
+		
+		
+		<copy todir="${compiledir}" includeEmptyDirs="false">
+			<fileset dir="src"/>
+			<fileset dir="${rootdir}/src/java">
+				<filename name="**/*.java"/>
+			</fileset>
+		</copy>
+		
+		<compileInfoTask
+			name="mwsubcat"
+			package="org.lindenb.util"
+			dir="${compiledir}"
+			/>
+		
+		
+		<javac srcdir="${compiledir}"
+		       destdir="${compiledir}"
+		       debug="true"
+		       source="1.6"
+		       target="1.6">
+			<include name="**/tinytools/WPSubCat.java"/>
+			<classpath>
+				<path refid="bdbjepath"/>
+			</classpath>
+		</javac>
+		
+		<delete includeEmptyDirs="true">
+			<fileset dir="${compiledir}" includes="**/*.java"/>
+		</delete>
+		<jar destfile="../../build/wpsubcat.jar"
+		     basedir="${compiledir}">
+			<manifest>
+				<attribute
+					  name="Main-Class"
+					  value="org.lindenb.tinytools.WPSubCat"
+					  />
+			</manifest>
+		</jar>
+		<delete dir="${compiledir}"/> 
+	 </target>
+	
+	
 </project>
