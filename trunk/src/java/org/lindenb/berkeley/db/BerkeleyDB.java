@@ -42,10 +42,10 @@ public abstract class BerkeleyDB<K,V>
 			TupleBinding<V> valueBinding
 			)
 		{
-		if(this.keyBinding==null) throw new NullPointerException("keyBinding is null");
-		if(this.valueBinding==null) throw new NullPointerException("valueBinding is null");
 		this.keyBinding=keyBinding;
 		this.valueBinding=valueBinding;
+		if(this.keyBinding==null) throw new NullPointerException("keyBinding is null");
+		if(this.valueBinding==null) throw new NullPointerException("valueBinding is null");
 		}
 	
 	public String getDefaultName()
