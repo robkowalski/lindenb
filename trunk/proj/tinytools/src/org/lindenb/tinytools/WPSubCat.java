@@ -2,6 +2,7 @@ package org.lindenb.tinytools;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -39,7 +40,8 @@ import com.sleepycat.je.Transaction;
 
 /**
  * WPSubCat
- * retrives the sub-categories of a given article in wikipedia
+ * Author: Pierre Lindenbaum
+ * retrieves the articles having a given category in wikipedia
  */
 public class WPSubCat
 	{
@@ -77,9 +79,22 @@ public class WPSubCat
 	 * OPen the BDB environement
 	 * @throws DatabaseException
 	 */
-	private void open() throws DatabaseException
+	private void open() throws DatabaseException,IOException
 		{
-		LOG.info("OPen "+dbHome);
+		LOG.info("Open "+dbHome);
+		if(!this.dbHome.exists())
+			{
+			LOG.info("Creating "+dbHome);
+			if(!this.dbHome.mkdir())
+				{
+				throw new FileNotFoundException("File not found "+this.dbHome);
+				}
+			}
+		if(!this.dbHome.isDirectory())
+			{
+			throw new IOException("Not a Directory "+this.dbHome);
+			}
+		
 		EnvironmentConfig envConfig= new EnvironmentConfig();
 		envConfig.setAllowCreate(true);
 		envConfig.setReadOnly(false);
@@ -112,7 +127,6 @@ public class WPSubCat
 		xmlInputFactory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, Boolean.FALSE);
 		xmlInputFactory.setProperty(XMLInputFactory.IS_COALESCING, Boolean.TRUE);
 		xmlInputFactory.setProperty(XMLInputFactory.IS_REPLACING_ENTITY_REFERENCES, Boolean.TRUE);
-		
 		}
 	/**
 	 * Close the BDB env
@@ -126,6 +140,7 @@ public class WPSubCat
 		this.environment.close();
 		}
 	
+	/** read starting articles from input stream */
 	private void read(BufferedReader in) throws IOException,DatabaseException
 		{
 		String line;
@@ -143,13 +158,19 @@ public class WPSubCat
 			}
 		}
 	
-
-	protected String escape(String entry) throws IOException
+	/** escapes WP title */
+	private String escape(String entry) throws IOException
 		{
 		return URLEncoder.encode(entry.replace(' ', '_'),"UTF-8");
 		}
 	
-	protected InputStream openStream(String url) throws IOException
+	/**
+	 * Open a URL to the given stream, retry 10 times if it fails
+	 * @param url
+	 * @return
+	 * @throws IOException
+	 */
+	private InputStream openStream(String url) throws IOException
 		{
 		final int tryNumber=10;
 		IOException lastError=null;
@@ -176,6 +197,14 @@ public class WPSubCat
 		throw lastError;
 		}
 	
+	/**
+	 * get each Article in this category
+	 * @param entry
+	 * @param level
+	 * @throws DatabaseException
+	 * @throws IOException
+	 * @throws XMLStreamException
+	 */
 	private void process(String entry,int level) throws DatabaseException,IOException,XMLStreamException
 		{
 		if(level>this.max_depth) return;
@@ -184,6 +213,7 @@ public class WPSubCat
 		final QName AttTitle=new QName("title");
 		String cmcontinue=null;
 		String cmnamespace="14";//default is 'Category'
+		int count=0;
 		
 		if(!this.cmnamespaces.isEmpty())
 			{
@@ -233,6 +263,7 @@ public class WPSubCat
 								{
 								LOG.info("adding "+rev+" level="+level);
 								categories.put(txn,rev,level+1);
+								++count;
 								}
 							}
 						}
@@ -249,12 +280,29 @@ public class WPSubCat
 			reader.close();
 			if(cmcontinue==null) break;
 			}
+		LOG.info("count("+entry+")="+count);
 		}
 	
+	/** main loop
+	 * loop over each depth, and call 'process' if a category
+	 * was not already processed
+	 * @throws DatabaseException
+	 * @throws XMLStreamException
+	 * @throws IOException
+	 */
 	private void run() throws DatabaseException,XMLStreamException,IOException
 		{
 		LOG.info("run");
-		for(int depth=0;depth<= this.max_depth;++depth)
+		/* we must iterate threw the steps, else we would be missing 
+		 * some results in the following case:
+		 * 
+		 *  first : C1 -> C2 -> C3 -> C4 
+		 *  second: C1 -> C4
+		 *  with depth=4, C4 would not be searched
+		 */
+		for(int depth=0;
+			depth<= this.max_depth;
+			++depth)
 			{
 			boolean done=false;
 			while(!done)
@@ -284,6 +332,7 @@ public class WPSubCat
 		LOG.info("end-run");
 		}
 	
+	/** dump the result to stdout */
 	private void dump() throws DatabaseException
 		{
 		LOG.info("dump");
@@ -295,6 +344,7 @@ public class WPSubCat
 		w.close();
 		LOG.info("end-dump");
 		}
+	
 	
 	public static void main(String[] args)
 		{
@@ -308,8 +358,8 @@ public class WPSubCat
 				{
 				if(args[optind].equals("-h"))
 					{
-					
 					System.err.println(Compilation.getLabel());
+					System.err.println("Download the articles having a defined category in wikipedia.");
 					System.err.println(Me.FIRST_NAME+" "+Me.LAST_NAME+" "+Me.MAIL+" "+Me.WWW);
 					System.err.println(" -debug-level <java.util.logging.Level> default:"+LOG.getLevel());
 					System.err.println(" -base <url> default:"+app.base);
