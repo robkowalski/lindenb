@@ -43,20 +43,40 @@ import com.sleepycat.je.Transaction;
  */
 public class WPSubCat
 	{
+	/** logger */
 	private static final Logger LOG= Logger.getLogger(WPSubCat.class.getName());
+	/** dummy transaction (not used) */
 	private Transaction txn=null;
+	/** berkeleyDB home */
 	private File dbHome=new File(
 			System.getProperty("java.io.tmpdir","/tmp"),
 			"bdb"
 			);
+	/** BDB env */
 	private Environment environment;
+	/** the categories we're searching */
 	private PrimaryDB<String, Integer> categories;
+	/** the articles we found */
 	private PrimaryDB<String, Boolean> processed;
+	/** xml parser factory */
 	private XMLInputFactory xmlInputFactory;
+	/** WP base URP */
 	private String base="http://en.wikipedia.org";
+	/** search depth sub-categories */
 	private int max_depth=3;
+	/** namespaces in WP we are looking, default is 14=categories */
 	private Set<Integer> cmnamespaces=new HashSet<Integer>();
 	
+	/** private/empty cstor */
+	private WPSubCat()
+		{
+		
+		}
+	
+	/**
+	 * OPen the BDB environement
+	 * @throws DatabaseException
+	 */
 	private void open() throws DatabaseException
 		{
 		LOG.info("OPen "+dbHome);
@@ -94,7 +114,10 @@ public class WPSubCat
 		xmlInputFactory.setProperty(XMLInputFactory.IS_REPLACING_ENTITY_REFERENCES, Boolean.TRUE);
 		
 		}
-	
+	/**
+	 * Close the BDB env
+	 * @throws DatabaseException
+	 */
 	private void close() throws DatabaseException
 		{
 		this.categories.close();
@@ -155,7 +178,6 @@ public class WPSubCat
 	
 	private void process(String entry,int level) throws DatabaseException,IOException,XMLStreamException
 		{
-		this.processed.put(txn, entry, true);
 		if(level>this.max_depth) return;
 		final int limit=500;
 		final QName AttClcontinue=new QName("cmcontinue");
@@ -231,34 +253,47 @@ public class WPSubCat
 	
 	private void run() throws DatabaseException,XMLStreamException,IOException
 		{
-		boolean done=false;
-		while(!done)
+		LOG.info("run");
+		for(int depth=0;depth<= this.max_depth;++depth)
 			{
-			done=true;
-			Walker<String, Integer> w=this.categories.openWalker(txn);
-			while(w.getNext()==OperationStatus.SUCCESS)
+			boolean done=false;
+			while(!done)
 				{
-				String cat= w.getKey();
-				
-				if(!this.processed.containsKey(txn, cat))
+				done=true;
+				Walker<String, Integer> w=this.categories.openWalker(txn);
+				while(w.getNext()==OperationStatus.SUCCESS)
 					{
-					done=false;
-					process(cat,w.getValue());
-					break;
+					int level= w.getValue();
+					if(level!=depth) continue;
+					String cat= w.getKey();
+					if(!this.processed.containsKey(txn, cat))
+						{
+						LOG.info(cat);
+						done=false;
+						this.processed.put(txn, cat, true);
+						w.close();
+						w=null;
+						process(cat,level);
+						break;
+						}
 					}
+				if(w!=null) w.close();
+				LOG.info("loop done:"+done+" depth:"+depth);
 				}
-			w.close();
 			}
+		LOG.info("end-run");
 		}
 	
 	private void dump() throws DatabaseException
 		{
+		LOG.info("dump");
 		Walker<String, Integer> w=this.categories.openWalker(txn);
 		while(w.getNext()==OperationStatus.SUCCESS)
 			{
 			System.out.println(w.getKey());
 			}
 		w.close();
+		LOG.info("end-dump");
 		}
 	
 	public static void main(String[] args)
@@ -276,13 +311,14 @@ public class WPSubCat
 					
 					System.err.println(Compilation.getLabel());
 					System.err.println(Me.FIRST_NAME+" "+Me.LAST_NAME+" "+Me.MAIL+" "+Me.WWW);
+					System.err.println(" -debug-level <java.util.logging.Level> default:"+LOG.getLevel());
 					System.err.println(" -base <url> default:"+app.base);
 					System.err.println(" -ns <int> restrict to given namespace default:14");
 					System.err.println(" -db-home BDB default directory:"+app.dbHome);
 					System.err.println(" -d <integer> max recursion depth default:"+app.max_depth);
 					System.err.println(" -add <category> add a starting article");
 					System.err.println(" OR");
-					System.err.println(" (stdin|files) containing article");
+					System.err.println(" (stdin|files) containing articles' titles");
 					return;
 					}
 				else if(args[optind].equals("-debug-level"))
@@ -354,8 +390,9 @@ public class WPSubCat
                             r.close();
                             }
                     }
-			LOG.info("run");
+			
           	app.run();
+          	
 			app.dump();
 			app.close();
 			} 
