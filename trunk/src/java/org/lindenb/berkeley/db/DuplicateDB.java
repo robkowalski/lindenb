@@ -14,7 +14,14 @@ import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
 import com.sleepycat.je.Transaction;
 
-public abstract class DuplicateDB<K,V>
+/**
+ * A Database allowing key duplicates
+ * @author pierre
+ *
+ * @param <K>
+ * @param <V>
+ */
+public class DuplicateDB<K,V>
 	extends BerkeleyDB<K,V>
 	{
 	private Database database;

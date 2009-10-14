@@ -21,12 +21,16 @@ import javax.xml.stream.events.Attribute;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 
+import org.lindenb.berkeley.db.DuplicateDB;
 import org.lindenb.berkeley.db.PrimaryDB;
 import org.lindenb.berkeley.db.Walker;
 import org.lindenb.io.IOUtils;
 import org.lindenb.me.Me;
+import org.lindenb.sw.vocabulary.RDF;
+import org.lindenb.sw.vocabulary.RDFS;
 import org.lindenb.util.Compilation;
 import org.lindenb.util.StringUtils;
+import org.lindenb.xml.XMLUtilities;
 
 import com.sleepycat.bind.tuple.BooleanBinding;
 import com.sleepycat.bind.tuple.IntegerBinding;
@@ -58,16 +62,21 @@ public class WPSubCat
 	private Environment environment;
 	/** the categories we're searching */
 	private PrimaryDB<String, Integer> categories;
+	/** the categories we're searching */
+	private DuplicateDB<String, String> subclass2class=null;
+	
 	/** the articles we found */
 	private PrimaryDB<String, Boolean> processed;
 	/** xml parser factory */
 	private XMLInputFactory xmlInputFactory;
 	/** WP base URP */
-	private String base="http://en.wikipedia.org";
+	private String base_api="http://en.wikipedia.org/w/api.php";
 	/** search depth sub-categories */
 	private int max_depth=3;
 	/** namespaces in WP we are looking, default is 14=categories */
 	private Set<Integer> cmnamespaces=new HashSet<Integer>();
+	/**  output is rdf schema ? */
+	private boolean echo_rdf=false;
 	
 	/** private/empty cstor */
 	private WPSubCat()
@@ -123,6 +132,24 @@ public class WPSubCat
 				new StringBinding(),
 				new BooleanBinding()
 			);
+		
+		if(this.echo_rdf)
+			{
+			cfg= new DatabaseConfig();
+			cfg.setAllowCreate(true);
+			cfg.setReadOnly(false);
+			cfg.setTemporary(true);
+			cfg.setSortedDuplicates(true);
+			this.subclass2class= new DuplicateDB<String,String>(
+					this.environment,
+					txn,
+					"subclass2class",
+					cfg,
+					new StringBinding(),
+					new StringBinding()
+				);
+			}
+		
 		xmlInputFactory = XMLInputFactory.newInstance();
 		xmlInputFactory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, Boolean.FALSE);
 		xmlInputFactory.setProperty(XMLInputFactory.IS_COALESCING, Boolean.TRUE);
@@ -134,6 +161,10 @@ public class WPSubCat
 	 */
 	private void close() throws DatabaseException
 		{
+		if(this.subclass2class!=null)
+			{
+			this.subclass2class.close();
+			}
 		this.categories.close();
 		this.processed.close();
 		this.environment.cleanLog();
@@ -197,6 +228,7 @@ public class WPSubCat
 		throw lastError;
 		}
 	
+	
 	/**
 	 * get each Article in this category
 	 * @param entry
@@ -230,7 +262,7 @@ public class WPSubCat
 
 		while(true)
 			{			
-			String url=	this.base+"/w/api.php?action=query" +
+			String url=	this.base_api+"?action=query" +
 					"&list=categorymembers" +
 					"&format=xml" +
 					"&cmnamespace="+cmnamespace +
@@ -263,6 +295,12 @@ public class WPSubCat
 								{
 								LOG.info("adding "+rev+" level="+level);
 								categories.put(txn,rev,level+1);
+								
+								if(subclass2class!=null)
+									{
+									subclass2class.put(txn, rev, entry);
+									}
+								
 								++count;
 								}
 							}
@@ -332,16 +370,65 @@ public class WPSubCat
 		LOG.info("end-run");
 		}
 	
+	private String getBase()
+		{
+		int i=base_api.indexOf("/w/api.php");
+		if(i==-1) return this.base_api;
+		return base_api.substring(0,i)+"/wiki/";
+		}
+	
 	/** dump the result to stdout */
-	private void dump() throws DatabaseException
+	private void dump() throws DatabaseException,IOException
 		{
 		LOG.info("dump");
-		Walker<String, Integer> w=this.categories.openWalker(txn);
-		while(w.getNext()==OperationStatus.SUCCESS)
+		if(echo_rdf)
 			{
-			System.out.println(w.getKey());
+			String prev=null;
+			Walker<String, String> w=this.subclass2class.openWalker(txn);
+			System.out.println("<rdf:RDF xmlns:rdf=\""+RDF.NS+" xmlns:rdfs=\""+RDFS.NS+"\">");
+			while(w.getNext()==OperationStatus.SUCCESS)
+				{
+				String entry= w.getKey();
+				if(prev==null || !prev.equals(entry))
+					{
+					prev=entry;
+					if(prev!=null)
+						{
+						System.out.println(" </rdfs:Class>");
+						}
+					
+					System.out.println(
+						" <rdfs:Class rdf:about=\""+getBase()+"/wiki/"+
+						URLEncoder.encode(entry.replace(' ', '_'),"UTF-8")+
+						"\">"
+						);
+					System.out.println("  <rdfs:label>"+
+						XMLUtilities.escape(entry.replace('_', ' '))+
+						"</rdfs:label>"
+						);
+					}
+				System.out.println("  <rdfs:subClassOf rdf:resource=\""+getBase()+"/wiki/"+
+						URLEncoder.encode(w.getValue().replace(' ', '_'),"UTF-8")+
+						"\"/>");
+				
+				
+				}
+			if(prev!=null)
+				{
+				System.out.println(" </rdfs:Class>");
+				}
+			System.out.println("</rdf:RDF>");
+			w.close();
 			}
-		w.close();
+		else
+			{
+			Walker<String, Integer> w=this.categories.openWalker(txn);
+			while(w.getNext()==OperationStatus.SUCCESS)
+				{
+				System.out.println(w.getKey());
+				}
+			w.close();
+			}
 		LOG.info("end-dump");
 		}
 	
@@ -362,7 +449,8 @@ public class WPSubCat
 					System.err.println("Download the articles having a defined category in wikipedia.");
 					System.err.println(Me.FIRST_NAME+" "+Me.LAST_NAME+" "+Me.MAIL+" "+Me.WWW);
 					System.err.println(" -debug-level <java.util.logging.Level> default:"+LOG.getLevel());
-					System.err.println(" -base <url> default:"+app.base);
+					System.err.println(" -api <url> default:"+app.base_api);
+					System.err.println(" -rdf echo RDF");
 					System.err.println(" -ns <int> restrict to given namespace default:14");
 					System.err.println(" -db-home BDB default directory:"+app.dbHome);
 					System.err.println(" -d <integer> max recursion depth default:"+app.max_depth);
@@ -375,13 +463,17 @@ public class WPSubCat
 					{
 					LOG.setLevel(Level.parse(args[++optind]));
 					}
+				else if(args[optind].equals("-rdf"))
+					{
+					app.echo_rdf=true;
+					}
 				else if(args[optind].equals("-ns"))
 					{
 					app.cmnamespaces.add(Integer.parseInt(args[++optind]));
 					}
-				else if(args[optind].equals("-base"))
+				else if(args[optind].equals("-api"))
 					{
-					app.base=args[++optind];
+					app.base_api=args[++optind];
 					}
 				else if(args[optind].equals("-d"))
 					{
