@@ -7,7 +7,7 @@
  <property name="compiledir" value="${builddir}/compile"/>
 
 
- <target name="all" depends="wpinterlinks,imagetool,wpuserstat,wpsubcat,xsltstream,consequences,ffsurvey,sortpubmed,meshfreq,pictools,aboutrslist,java2dot,verticalize,findjar,gamonalisa,saxscript,xar,json2xml">
+ <target name="all" depends="wpimages,wpcategories,wpinterlinks,imagetool,wpuserstat,wpsubcat,xsltstream,consequences,ffsurvey,sortpubmed,meshfreq,pictools,aboutrslist,java2dot,verticalize,findjar,gamonalisa,saxscript,xar,json2xml">
 </target>
 
  <target name="build-ant-tasks">
@@ -624,7 +624,12 @@
 	<target name="imagetool" depends="declare-ant-tasks">
 		<compile appclass="ImageTool" appjar="imagetool" appname="ImageTool"/>
 	</target>
-	
+	<target name="wpcategories" depends="declare-ant-tasks">
+		<compile appclass="WPCategories" appjar="wpcategories" appname="Wikipedia Categories"/>
+	</target>
+	<target name="wpimages" depends="declare-ant-tasks">
+		<compile appclass="WPImages" appjar="wpimages" appname="Wikipedia Images"/>
+	</target>
 	<!-- =================================================================== -->
 	<!-- =================================================================== -->
 	<!-- =================================================================== -->
