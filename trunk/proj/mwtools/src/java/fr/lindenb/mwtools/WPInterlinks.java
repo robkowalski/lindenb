@@ -26,14 +26,8 @@ import org.lindenb.util.Compilation;
  * anwsers if a page has been copied in another project of wikipedia
  */
 public class WPInterlinks
+	extends WPAbstractTool
 	{
-	/** logger */
-	private static final Logger LOG= Logger.getLogger(WPInterlinks.class.getName());
-
-	/** xml parser factory */
-	private XMLInputFactory xmlInputFactory;
-	/** WP base URP */
-	private String base_api="http://en.wikipedia.org/w/api.php";
 	/** lang */
 	private String lang="fr";
 	/** inverse selection  */
@@ -44,52 +38,9 @@ public class WPInterlinks
 	/** private/empty cstor */
 	private WPInterlinks()
 		{
-		xmlInputFactory = XMLInputFactory.newInstance();
-		xmlInputFactory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, Boolean.FALSE);
-		xmlInputFactory.setProperty(XMLInputFactory.IS_COALESCING, Boolean.TRUE);
-		xmlInputFactory.setProperty(XMLInputFactory.IS_REPLACING_ENTITY_REFERENCES, Boolean.TRUE);
 		}
 	
-	
-	
-	/** escapes WP title */
-	private String escape(String entry) throws IOException
-		{
-		return URLEncoder.encode(entry.replace(' ', '_'),"UTF-8");
-		}
-	
-	/**
-	 * Open a URL to the given stream, retry 10 times if it fails
-	 * @param url
-	 * @return
-	 * @throws IOException
-	 */
-	private InputStream openStream(String url) throws IOException
-		{
-		final int tryNumber=10;
-		IOException lastError=null;
-		URL net = new URL(url);
-		for(int i=0;i< tryNumber;++i)
-			{
-			try
-				{
-				InputStream in=net.openStream();
-				return in;
-				}
-			catch(IOException err)
-				{
-				lastError=err;
-				LOG.info("Trying "+i+" "+err.getMessage());
-				try {
-					Thread.sleep(10000);//sleep 10secs
-				} catch (Exception e) {
-					
-				}
-				continue;
-				}
-			}
-		throw lastError;
-		}
+
 	
 	
 	/**
