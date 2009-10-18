@@ -62,7 +62,8 @@
 	   			debug="true"
 	   			source="1.6"
 	   			target="1.6">
-	   			 <include name="**/tinytools/@{appclass}.java"/>
+				 <include name="**/mwtools/WPAbstractTool.java"/>
+	   			 <include name="**/mwtools/@{appclass}.java"/>
 	   		 </javac>
 	   		 
 	   		 <delete includeEmptyDirs="true">
@@ -78,6 +79,7 @@
 	   			 </manifest>
 	   		 </jar>
 	   		 <delete dir="${compiledir}"/> 
+			 <echo message="${rootdir}/build/@{appjar}.jar"/>
 	   </sequential>
 	</macrodef>
 
