@@ -1,4 +1,4 @@
-package org.lindenb.tinytools;
+package fr.lindenb.mwtools;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -6,10 +6,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.net.URLEncoder;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -22,59 +18,29 @@ import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 
 import org.lindenb.me.Me;
-import org.lindenb.util.C;
 import org.lindenb.util.Compilation;
 
 /**
  * WPUserStat
  * Author: Pierre Lindenbaum
- * retrieves informations about a given user's edits in wikipedia
+ * retrieves the categories of a given article  in wikipedia
  */
-public class WPUserStat
+public class WPCategories
 	{
 	/** logger */
-	private static final Logger LOG= Logger.getLogger(WPUserStat.class.getName());
+	private static final Logger LOG= Logger.getLogger(WPCategories.class.getName());
 
 	/** xml parser factory */
 	private XMLInputFactory xmlInputFactory;
 	/** WP base URP */
 	private String base_api="http://en.wikipedia.org/w/api.php";
-	/** namespaces */
-	private Set<Integer> ucnamespaces= new HashSet<Integer>();
-	/** use prefix */
-	private boolean use_prefix=false;
+
+
 	
-	
-	private static class Revision
-		{
-		Long id;
-		String user;
-		Long pageid;
-		Integer ns;
-		String title;
-		String timestamp;
-		String comment;
-		boolean is_new;
-		boolean is_minor;
-		boolean is_top;
-		
-		
-		public String toJSon()
-			{
-			return "{revid:"+id+",user:\""+user+"\",pageid:"+pageid+",ns:"+ns+",title:\""+
-			C.escape(title)+"\",date:\"+"+timestamp+"\",comment:\""+C.escape(comment)+"\",new:"+is_new+
-			",minor:"+is_minor+",top:"+is_top+"}";
-			}
-		
-		@Override
-		public String toString()
-			{
-			return toJSon();
-			}
-		}
+
 	
 	/** private/empty cstor */
-	private WPUserStat()
+	private WPCategories()
 		{
 		xmlInputFactory = XMLInputFactory.newInstance();
 		xmlInputFactory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, Boolean.FALSE);
@@ -131,47 +97,26 @@ public class WPUserStat
 	 * @throws IOException
 	 * @throws XMLStreamException
 	 */
-	private void process(String userName) throws IOException,XMLStreamException
+	private void process(String entryName) throws IOException,XMLStreamException
 		{
-		final int uclimit=500;
-		final QName Attucstart=new QName("ucstart");
-		final QName att_revid=new QName("revid");
-		final QName att_pageid=new QName("pageid");
-		final QName att_ns=new QName("ns");
+		final int cllimit=500;
+		final QName att_clcontinue=new QName("clcontinue");
+		
 		final QName att_title=new QName("title");
-		final QName att_timestamp=new QName("timestamp");
-		final QName att_comment=new QName("comment");
-		final QName att_new=new QName("new");
-		final QName att_top=new QName("top");
-		final QName att_minor=new QName("minor");
-		String ucstart=null;
-		String ucnamespace=null;//default is ALL
-
 		
-		if(!this.ucnamespaces.isEmpty())
-			{
-			StringBuilder sb= new StringBuilder();
-			for(Integer i:this.ucnamespaces)
-				{
-				if(sb.length()>0) sb.append("|");
-				sb.append(String.valueOf(i));
-				}
-			ucnamespace=sb.toString();
-			}
+		String clcontinue=null;
 		
-		List<Revision> revisions= new ArrayList<Revision>();
 		
 		while(true)
 			{			
 			String url=	this.base_api+"?action=query" +
-					"&list=usercontribs" +
+					"&prop=categories" +
 					"&format=xml" +
-					(ucnamespace==null?"":"&ucnamespace="+ucnamespace)+
-					(ucstart!=null?"&ucstart="+escape(ucstart):"")+
-					(this.use_prefix?"&ucuserprefix=":"&ucuser=")+escape(userName)+
-					"&uclimit="+uclimit
+					(clcontinue!=null?"&clcontinue="+escape(clcontinue):"")+
+					"&titles="+escape(entryName)+
+					"&cllimit="+cllimit
 					;
-			ucstart=null;
+			clcontinue=null;
 			
 			LOG.info(url);
 			XMLEventReader reader= this.xmlInputFactory.createXMLEventReader(
@@ -184,50 +129,28 @@ public class WPUserStat
 					{
 					StartElement e=event.asStartElement();
 					String name=e.getName().getLocalPart();
-					
-					if(name.equals("item"))
+					Attribute att=null;
+					if(name.equals("cl") &&
+					  (att=e.getAttributeByName(att_title))!=null)
 						{
-						Revision r=new Revision();
-						
-						
-						Attribute att=e.getAttributeByName(att_revid);
-						if(att!=null) r.id=Long.parseLong(att.getValue());
-						att=e.getAttributeByName(att_pageid);
-						if(att!=null) r.pageid=Long.parseLong(att.getValue());
-						att=e.getAttributeByName(att_ns);
-						if(att!=null) r.ns=Integer.parseInt(att.getValue());
-						att=e.getAttributeByName(att_title);
-						if(att!=null) r.title=att.getValue();
-						att=e.getAttributeByName(att_timestamp);
-						if(att!=null) r.timestamp=att.getValue();
-						att=e.getAttributeByName(att_comment);
-						if(att!=null) r.comment=att.getValue();
-						r.is_new=e.getAttributeByName(att_new)!=null;
-						r.is_top=e.getAttributeByName(att_top)!=null;
-						r.is_minor=e.getAttributeByName(att_minor)!=null;
-						LOG.info(r.toString());
-						revisions.add(r);
+						System.out.println(entryName+"\t"+att.getValue());
 						}
-					else if(name.equals("usercontribs"))
+					else if(name.equals("categories") &&
+							(att=e.getAttributeByName(att_clcontinue))!=null)
 						{
-						Attribute clcont= e.getAttributeByName(Attucstart);
-						if(clcont!=null)
-							{
-							ucstart=clcont.getValue();
-							}
+						clcontinue=att.getValue();
 						}
 					}
 				}
 			reader.close();
-			if(ucstart==null) break;
+			if(clcontinue==null) break;
 			}
-		LOG.info("count("+userName+")="+revisions.size());
 		}
 	
 	public static void main(String[] args)
 		{
 		LOG.setLevel(Level.OFF);
-		WPUserStat app= new WPUserStat();
+		WPCategories app= new WPCategories();
 		try
 			{
 			int optind=0;
@@ -236,18 +159,12 @@ public class WPUserStat
 				if(args[optind].equals("-h"))
 					{
 					System.err.println(Compilation.getLabel());
-					System.err.println("Return informations about a given user in wikipedia.");
+					System.err.println("Return categories about a given set of articles in wikipedia.");
 					System.err.println(Me.FIRST_NAME+" "+Me.LAST_NAME+" "+Me.MAIL+" "+Me.WWW);
 					System.err.println(" -log-level <java.util.logging.Level> default:"+LOG.getLevel());
 					System.err.println(" -api <url> default:"+app.base_api);
-					System.err.println(" -p  Retrieve contibutions for all users whose names begin with this value.");
-					System.err.println(" -ns <int> restrict to given namespace default:all");
-					System.err.println(" (stdin|user-names)");
+					System.err.println(" (stdin|articles-names)");
 					return;
-					}
-				else if(args[optind].equals("-ns"))
-					{
-					app.ucnamespaces.add(Integer.parseInt(args[++optind]));
 					}
 				else if(args[optind].equals("-log-level"))
 					{
@@ -256,10 +173,6 @@ public class WPUserStat
 				else if(args[optind].equals("-api"))
 					{
 					app.base_api=args[++optind];
-					}
-				else if(args[optind].equals("-p"))
-					{
-					app.use_prefix=true;
 					}
 				else if(args[optind].equals("--"))
 					{

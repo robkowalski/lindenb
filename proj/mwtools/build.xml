@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="wptools" default="all">
+ <property environment="env"/><!-- prefix for environnement properties -->
+ <property name="rootdir" value="../.."/>
+ <property name="builddir" value="${rootdir}/build"/>
+ <property name="compiledir" value="${builddir}/compile"/>
+
+
+ <target name="all" depends="wpsearch,wpimages,wpcategories,wpinterlinks,wpuserstat,wpsubcat">
+</target>
+
+ <target name="build-ant-tasks">
+	 <mkdir dir="${builddir}/ant"/>
+	 <javac destdir="${builddir}/ant">
+	 <src path="${rootdir}/src/java"/>
+	  <include name="org/lindenb/ant/*.java"/>
+	</javac>
+ </target>
+
+ <target name="declare-ant-tasks" depends="build-ant-tasks">
+    <taskdef name="compileInfoTask"
+        	 classname="org.lindenb.ant.CompileInfoTask"
+        	 classpath="../../build/ant"/>
+ </target>
+
+<path id="bdbjepath">
+	<fileset dir="/usr/local/package/je-3.3.75/lib/">
+		<include name="*.jar"/>
+	</fileset>
+</path>
+	
+ 
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ <!-- =================================================================== -->
+ 
+	
+	<macrodef name="compile">
+	   <attribute name="appname" default="NOT SET"/>
+	   <attribute name="appclass" default="NOT SET"/>
+	   <attribute name="appjar" default="NOT SET"/>
+	   <sequential>
+	    <mkdir dir="${compiledir}"/>
+	   		 <copy todir="${compiledir}" includeEmptyDirs="false">
+	   			 <fileset dir="src"/>
+	   			 <fileset dir="${rootdir}/src/java">
+	   				 <filename name="**/*.java"/>
+	   			 </fileset>
+	   		 </copy>
+	   		<echo message="@{appname}"/>	 
+	   	
+	   		 <compileInfoTask
+	   				 name="@{appname}"
+	   				 package="org.lindenb.util"
+	   				 dir="${compiledir}"
+	   				 />
+	   		 
+	   		 
+	   		 <javac srcdir="${compiledir}"
+	   			destdir="${compiledir}"
+	   			debug="true"
+	   			source="1.6"
+	   			target="1.6">
+	   			 <include name="**/tinytools/@{appclass}.java"/>
+	   		 </javac>
+	   		 
+	   		 <delete includeEmptyDirs="true">
+	   			 <fileset dir="${compiledir}" includes="**/*.java"/>
+	   		 </delete>
+	   		 <jar destfile="../../build/@{appjar}.jar"
+	   		      basedir="${compiledir}">
+	   			 <manifest>
+	   				 <attribute
+	   					   name="Main-Class"
+	   					   value="org.lindenb.mwtools.@{appclass}"
+	   					   />
+	   			 </manifest>
+	   		 </jar>
+	   		 <delete dir="${compiledir}"/> 
+	   </sequential>
+	</macrodef>
+
+	<target name="wpuserstat" depends="declare-ant-tasks">
+		<compile appclass="WPUserStat" appjar="wpuserstat" appname="Wikipedia User Stats"/>
+	</target>
+	<target name="wpinterlinks" depends="declare-ant-tasks">
+		<compile appclass="WPInterlinks" appjar="wpinterlinks" appname="Wikipedia Inter Links"/>
+	</target>
+	
+	<target name="wpcategories" depends="declare-ant-tasks">
+		<compile appclass="WPCategories" appjar="wpcategories" appname="Wikipedia Categories"/>
+	</target>
+	<target name="wpimages" depends="declare-ant-tasks">
+		<compile appclass="WPImages" appjar="wpimages" appname="Wikipedia Images"/>
+	</target>
+	<target name="wpsearch" depends="declare-ant-tasks">
+		<compile appclass="WPSearch" appjar="wpsearch" appname="Wikipedia Search"/>
+	</target>
+	<!-- =================================================================== -->
+	<!-- =================================================================== -->
+	<!-- =================================================================== -->
+	<!-- =================================================================== -->
+	
+	<target name="wpsubcat" depends="declare-ant-tasks">
+		<mkdir dir="${compiledir}"/>
+		
+		
+		<copy todir="${compiledir}" includeEmptyDirs="false">
+			<fileset dir="src"/>
+			<fileset dir="${rootdir}/src/java">
+				<filename name="**/*.java"/>
+			</fileset>
+		</copy>
+		
+		<compileInfoTask
+			name="mwsubcat"
+			package="org.lindenb.util"
+			dir="${compiledir}"
+			/>
+		
+		
+		<javac srcdir="${compiledir}"
+		       destdir="${compiledir}"
+		       debug="true"
+		       source="1.6"
+		       target="1.6">
+			<include name="**/wptools/WPSubCat.java"/>
+			<classpath>
+				<path refid="bdbjepath"/>
+			</classpath>
+		</javac>
+		
+		<delete includeEmptyDirs="true">
+			<fileset dir="${compiledir}" includes="**/*.java"/>
+		</delete>
+		<jar destfile="../../build/wpsubcat.jar"
+		     basedir="${compiledir}">
+			<manifest>
+				<attribute
+					  name="Main-Class"
+					  value="org.lindenb.wptools.WPSubCat"
+					  />
+			</manifest>
+		</jar>
+		<delete dir="${compiledir}"/> 
+	 </target>
+	
+	
+</project>

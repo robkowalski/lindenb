@@ -1,11 +1,11 @@
-package org.lindenb.tinytools;
+package fr.lindenb.mwtools;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -21,26 +21,27 @@ import org.lindenb.me.Me;
 import org.lindenb.util.Compilation;
 
 /**
- * WPUserStat
+ * WPSearch
  * Author: Pierre Lindenbaum
- * retrieves the categories of a given article  in wikipedia
+ *  Perform a full text search
  */
-public class WPCategories
+public class WPSearch
 	{
 	/** logger */
-	private static final Logger LOG= Logger.getLogger(WPCategories.class.getName());
+	private static final Logger LOG= Logger.getLogger(WPSearch.class.getName());
 
 	/** xml parser factory */
 	private XMLInputFactory xmlInputFactory;
 	/** WP base URP */
 	private String base_api="http://en.wikipedia.org/w/api.php";
-
-
+	/** namespaces in WP we are looking */
+	private Set<Integer> srnamespaces=new HashSet<Integer>();
 	
-
+	
+	
 	
 	/** private/empty cstor */
-	private WPCategories()
+	private WPSearch()
 		{
 		xmlInputFactory = XMLInputFactory.newInstance();
 		xmlInputFactory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, Boolean.FALSE);
@@ -48,13 +49,6 @@ public class WPCategories
 		xmlInputFactory.setProperty(XMLInputFactory.IS_REPLACING_ENTITY_REFERENCES, Boolean.TRUE);
 		}
 	
-	
-	
-	/** escapes WP title */
-	private String escape(String entry) throws IOException
-		{
-		return URLEncoder.encode(entry.replace(' ', '_'),"UTF-8");
-		}
 	
 	/**
 	 * Open a URL to the given stream, retry 10 times if it fails
@@ -91,33 +85,55 @@ public class WPCategories
 	
 	
 	/**
-	 * process user
+	 * process query
 	 * 
 	 * @throws DatabaseException
 	 * @throws IOException
 	 * @throws XMLStreamException
 	 */
-	private void process(String entryName) throws IOException,XMLStreamException
+	private void process(int optind,String args[]) throws IOException,XMLStreamException
 		{
-		final int cllimit=500;
-		final QName att_clcontinue=new QName("clcontinue");
+		final int srlimit=500;
+		
 		
 		final QName att_title=new QName("title");
+		final QName att_sroffset=new QName("sroffset");
+		String sroffset=null;
 		
-		String clcontinue=null;
+		String srnamespace=null;
+		
+		if(!this.srnamespaces.isEmpty())
+			{
+			StringBuilder sb= new StringBuilder();
+			for(Integer i:this.srnamespaces)
+				{
+				if(sb.length()>0) sb.append("|");
+				sb.append(String.valueOf(i));
+				}
+			srnamespace=sb.toString();
+			}
+
+		StringBuilder terms= new StringBuilder();
+		while(optind< args.length)
+			{
+			if(terms.length()>0) terms.append(" ");
+			terms.append(args[optind++]);
+			}
 		
 		
 		while(true)
-			{			
+			{
 			String url=	this.base_api+"?action=query" +
-					"&prop=categories" +
+					"&list=search" +
 					"&format=xml" +
-					(clcontinue!=null?"&clcontinue="+escape(clcontinue):"")+
-					"&titles="+escape(entryName)+
-					"&cllimit="+cllimit
+					"&srsearch="+URLEncoder.encode(terms.toString(),"UTF-8")+
+					(srnamespace!=null?"&srnamespace="+srnamespace:"")+
+					(sroffset==null?"":"&sroffset="+sroffset)+
+					"&srlimit="+srlimit+
+					"&srwhat=text&srprop=timestamp"
 					;
-			clcontinue=null;
 			
+			sroffset=null;
 			LOG.info(url);
 			XMLEventReader reader= this.xmlInputFactory.createXMLEventReader(
 					openStream(url));
@@ -129,28 +145,31 @@ public class WPCategories
 					{
 					StartElement e=event.asStartElement();
 					String name=e.getName().getLocalPart();
+					
 					Attribute att=null;
-					if(name.equals("cl") &&
-					  (att=e.getAttributeByName(att_title))!=null)
+					if(name.equals("p") &&
+						(att=e.getAttributeByName(att_title))!=null
+						)
 						{
-						System.out.println(entryName+"\t"+att.getValue());
+						System.out.println(att.getValue());
 						}
-					else if(name.equals("categories") &&
-							(att=e.getAttributeByName(att_clcontinue))!=null)
+					else if(name.equals("search") &&
+						(att=e.getAttributeByName(att_sroffset))!=null
+						)
 						{
-						clcontinue=att.getValue();
+						sroffset=att.getValue();
 						}
 					}
 				}
 			reader.close();
-			if(clcontinue==null) break;
+			if(sroffset==null) break;
 			}
 		}
 	
 	public static void main(String[] args)
 		{
 		LOG.setLevel(Level.OFF);
-		WPCategories app= new WPCategories();
+		WPSearch app= new WPSearch();
 		try
 			{
 			int optind=0;
@@ -159,12 +178,17 @@ public class WPCategories
 				if(args[optind].equals("-h"))
 					{
 					System.err.println(Compilation.getLabel());
-					System.err.println("Return categories about a given set of articles in wikipedia.");
+					System.err.println("Perform a full text search.");
 					System.err.println(Me.FIRST_NAME+" "+Me.LAST_NAME+" "+Me.MAIL+" "+Me.WWW);
 					System.err.println(" -log-level <java.util.logging.Level> default:"+LOG.getLevel());
 					System.err.println(" -api <url> default:"+app.base_api);
-					System.err.println(" (stdin|articles-names)");
+					System.err.println(" -ns  mediawiki namespaces.");
+					System.err.println(" query terms");
 					return;
+					}
+				else if(args[optind].equals("-ns"))
+					{
+					app.srnamespaces.add(Integer.parseInt(args[++optind]));
 					}
 				else if(args[optind].equals("-log-level"))
 					{
@@ -190,30 +214,14 @@ public class WPCategories
 				++optind;
 				}
 			
-			
-			
-			
 			if(optind==args.length)
                 {
-                String line;
-                LOG.info("read from stdin");
-                java.io.BufferedReader r= new BufferedReader(new InputStreamReader(System.in));
-                while(( line=r.readLine())!=null)
-                	{
-                	app.process(line);
-                	}
-                r.close();
+                System.err.println("Query missing");
                 }
             else
                 {
-                while(optind< args.length)
-                        {
-                        String fname=args[optind++];
-                        LOG.info("opening "+fname);
-                      	app.process(fname);
-                        }
+                app.process(optind, args);
                 }
-
 			} 
 		catch(Throwable err)
 			{
