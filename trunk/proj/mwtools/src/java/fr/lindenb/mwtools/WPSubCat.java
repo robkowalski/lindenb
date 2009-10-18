@@ -1,4 +1,4 @@
-package org.lindenb.tinytools;
+package fr.lindenb.mwtools;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -192,7 +192,9 @@ public class WPSubCat
 	/** escapes WP title */
 	private String escape(String entry) throws IOException
 		{
-		return URLEncoder.encode(entry.replace(' ', '_'),"UTF-8");
+		entry=entry.replace(' ', '_');
+		return entry;
+		//return URLEncoder.encode(entry.replace(' ', '_'),"UTF-8");
 		}
 	
 	/**

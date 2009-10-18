@@ -1,4 +1,4 @@
-package org.lindenb.tinytools;
+package fr.lindenb.mwtools;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -6,6 +6,10 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -18,31 +22,59 @@ import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 
 import org.lindenb.me.Me;
+import org.lindenb.util.C;
 import org.lindenb.util.Compilation;
 
 /**
  * WPUserStat
  * Author: Pierre Lindenbaum
- * anwsers if a page has been copied in another project of wikipedia
+ * retrieves informations about a given user's edits in wikipedia
  */
-public class WPInterlinks
+public class WPUserStat
 	{
 	/** logger */
-	private static final Logger LOG= Logger.getLogger(WPInterlinks.class.getName());
+	private static final Logger LOG= Logger.getLogger(WPUserStat.class.getName());
 
 	/** xml parser factory */
 	private XMLInputFactory xmlInputFactory;
 	/** WP base URP */
 	private String base_api="http://en.wikipedia.org/w/api.php";
-	/** lang */
-	private String lang="fr";
-	/** inverse selection  */
-	private boolean inverse_selection=false;
+	/** namespaces */
+	private Set<Integer> ucnamespaces= new HashSet<Integer>();
+	/** use prefix */
+	private boolean use_prefix=false;
 	
 	
+	private static class Revision
+		{
+		Long id;
+		String user;
+		Long pageid;
+		Integer ns;
+		String title;
+		String timestamp;
+		String comment;
+		boolean is_new;
+		boolean is_minor;
+		boolean is_top;
+		
+		
+		public String toJSon()
+			{
+			return "{revid:"+id+",user:\""+user+"\",pageid:"+pageid+",ns:"+ns+",title:\""+
+			C.escape(title)+"\",date:\"+"+timestamp+"\",comment:\""+C.escape(comment)+"\",new:"+is_new+
+			",minor:"+is_minor+",top:"+is_top+"}";
+			}
+		
+		@Override
+		public String toString()
+			{
+			return toJSon();
+			}
+		}
 	
 	/** private/empty cstor */
-	private WPInterlinks()
+	private WPUserStat()
 		{
 		xmlInputFactory = XMLInputFactory.newInstance();
 		xmlInputFactory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, Boolean.FALSE);
@@ -99,31 +131,47 @@ public class WPInterlinks
 	 * @throws IOException
 	 * @throws XMLStreamException
 	 */
-	private void process(String page) throws IOException,XMLStreamException
+	private void process(String userName) throws IOException,XMLStreamException
 		{
-		final int lllimit=500;
-		
-		
-		final QName att_lang=new QName("lang");
-		final QName att_llcontinue=new QName("llcontinue");
-		String llcontinue=null;
-		String found=null;
-		
-		
-		
+		final int uclimit=500;
+		final QName Attucstart=new QName("ucstart");
+		final QName att_revid=new QName("revid");
+		final QName att_pageid=new QName("pageid");
+		final QName att_ns=new QName("ns");
+		final QName att_title=new QName("title");
+		final QName att_timestamp=new QName("timestamp");
+		final QName att_comment=new QName("comment");
+		final QName att_new=new QName("new");
+		final QName att_top=new QName("top");
+		final QName att_minor=new QName("minor");
+		String ucstart=null;
+		String ucnamespace=null;//default is ALL
 
+		
+		if(!this.ucnamespaces.isEmpty())
+			{
+			StringBuilder sb= new StringBuilder();
+			for(Integer i:this.ucnamespaces)
+				{
+				if(sb.length()>0) sb.append("|");
+				sb.append(String.valueOf(i));
+				}
+			ucnamespace=sb.toString();
+			}
+		
+		List<Revision> revisions= new ArrayList<Revision>();
 		
 		while(true)
 			{			
 			String url=	this.base_api+"?action=query" +
-					"&prop=langlinks" +
+					"&list=usercontribs" +
 					"&format=xml" +
-					"&redirects"+
-					(llcontinue!=null?"&llcontinue="+escape(llcontinue):"")+
-					"&titles="+escape(page)+
-					"&lllimit="+lllimit
+					(ucnamespace==null?"":"&ucnamespace="+ucnamespace)+
+					(ucstart!=null?"&ucstart="+escape(ucstart):"")+
+					(this.use_prefix?"&ucuserprefix=":"&ucuser=")+escape(userName)+
+					"&uclimit="+uclimit
 					;
-			llcontinue=null;
+			ucstart=null;
 			
 			LOG.info(url);
 			XMLEventReader reader= this.xmlInputFactory.createXMLEventReader(
@@ -137,43 +185,49 @@ public class WPInterlinks
 					StartElement e=event.asStartElement();
 					String name=e.getName().getLocalPart();
 					
-					Attribute langAtt=null;
-					if(name.equals("ll") &&
-						(langAtt=e.getAttributeByName(att_lang))!=null &&
-						langAtt.getValue().equalsIgnoreCase(this.lang)
-						)
+					if(name.equals("item"))
 						{
-						found=reader.getElementText();
-						llcontinue=null;
-						break;
+						Revision r=new Revision();
+						
+						
+						Attribute att=e.getAttributeByName(att_revid);
+						if(att!=null) r.id=Long.parseLong(att.getValue());
+						att=e.getAttributeByName(att_pageid);
+						if(att!=null) r.pageid=Long.parseLong(att.getValue());
+						att=e.getAttributeByName(att_ns);
+						if(att!=null) r.ns=Integer.parseInt(att.getValue());
+						att=e.getAttributeByName(att_title);
+						if(att!=null) r.title=att.getValue();
+						att=e.getAttributeByName(att_timestamp);
+						if(att!=null) r.timestamp=att.getValue();
+						att=e.getAttributeByName(att_comment);
+						if(att!=null) r.comment=att.getValue();
+						r.is_new=e.getAttributeByName(att_new)!=null;
+						r.is_top=e.getAttributeByName(att_top)!=null;
+						r.is_minor=e.getAttributeByName(att_minor)!=null;
+						LOG.info(r.toString());
+						revisions.add(r);
 						}
-					else if(name.equals("langlinks"))
+					else if(name.equals("usercontribs"))
 						{
-						Attribute llcont= e.getAttributeByName(att_llcontinue);
-						if(llcont!=null)
+						Attribute clcont= e.getAttributeByName(Attucstart);
+						if(clcont!=null)
 							{
-							llcontinue=llcont.getValue();
+							ucstart=clcont.getValue();
 							}
 						}
 					}
 				}
 			reader.close();
-			if(llcontinue==null) break;
+			if(ucstart==null) break;
 			}
-		if(found!=null && !inverse_selection)
-			{
-			System.out.println(found);
-			}
-		else if(found==null && inverse_selection)
-			{
-			System.out.println(page);
-			}
+		LOG.info("count("+userName+")="+revisions.size());
 		}
 	
 	public static void main(String[] args)
 		{
 		LOG.setLevel(Level.OFF);
-		WPInterlinks app= new WPInterlinks();
+		WPUserStat app= new WPUserStat();
 		try
 			{
 			int optind=0;
@@ -182,18 +236,18 @@ public class WPInterlinks
 				if(args[optind].equals("-h"))
 					{
 					System.err.println(Compilation.getLabel());
-					System.err.println("Find if a page was translated in wikipedia.");
+					System.err.println("Return informations about a given user in wikipedia.");
 					System.err.println(Me.FIRST_NAME+" "+Me.LAST_NAME+" "+Me.MAIL+" "+Me.WWW);
 					System.err.println(" -log-level <java.util.logging.Level> default:"+LOG.getLevel());
 					System.err.println(" -api <url> default:"+app.base_api);
-					System.err.println(" -v  inverse selection.");
-					System.err.println(" -l <lang> language to observe default:"+app.lang);
-					System.err.println(" (stdin|pages-names)");
+					System.err.println(" -p  Retrieve contibutions for all users whose names begin with this value.");
+					System.err.println(" -ns <int> restrict to given namespace default:all");
+					System.err.println(" (stdin|user-names)");
 					return;
 					}
-				else if(args[optind].equals("-v"))
+				else if(args[optind].equals("-ns"))
 					{
-					app.inverse_selection=!app.inverse_selection;
+					app.ucnamespaces.add(Integer.parseInt(args[++optind]));
 					}
 				else if(args[optind].equals("-log-level"))
 					{
@@ -203,11 +257,9 @@ public class WPInterlinks
 					{
 					app.base_api=args[++optind];
 					}
-				else if(args[optind].equals("-l") ||
-						args[optind].equals("-lang") ||
-						args[optind].equals("-L"))
+				else if(args[optind].equals("-p"))
 					{
-					app.lang=args[++optind];
+					app.use_prefix=true;
 					}
 				else if(args[optind].equals("--"))
 					{
@@ -242,11 +294,11 @@ public class WPInterlinks
             else
                 {
                 while(optind< args.length)
-                    {
-                    String fname=args[optind++];
-                    LOG.info("processing "+fname);
-                  	app.process(fname);
-                    }
+                        {
+                        String fname=args[optind++];
+                        LOG.info("opening "+fname);
+                      	app.process(fname);
+                        }
                 }
 
 			} 

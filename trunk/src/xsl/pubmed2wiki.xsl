@@ -62,12 +62,14 @@ http://en.wikipedia.org/wiki/User:Plindenbaum
 |publisher= |location = <xsl:variable name="country" select="MedlineCitation/MedlineJournalInfo/Country"/><xsl:choose>
 <xsl:when test="$country='UNITED STATES'">[[United States]]</xsl:when>
 <xsl:when test="$country='ENGLAND'">[[United Kingdom]]</xsl:when>
+<xsl:when test="$country='ITALY'">[[Italy]]</xsl:when>
+<xsl:when test="$country='FRANCE'">[[France]]</xsl:when>
 <xsl:when test="$country='Not Available'"></xsl:when>
 <xsl:otherwise>[[<xsl:value-of select="$country"/>]]</xsl:otherwise>
 </xsl:choose>| issn = <xsl:value-of select="MedlineCitation/Article/Journal/ISSN[@IssnType=&apos;Print&apos;]"/>
 <xsl:apply-templates select=".//PMID"/>
 <xsl:apply-templates select=".//ArticleId[@IdType=&apos;doi&apos;]"/>
-| bibcode = | oclc =| id = | url = | <xsl:if test="PubmedData/ArticleIdList/ArticleId/@IdType='doi'"><xsl:value-of select="concat('doi = ',PubmedData/ArticleIdList/ArticleId[@IdType='doi'],' |')"/></xsl:if><xsl:if test="PubmedData/ArticleIdList/ArticleId/@IdType='pmc'"><xsl:value-of select="concat('pmc = ',PubmedData/ArticleIdList/ArticleId[@IdType='pmc'],' |')"/></xsl:if> language = <xsl:value-of select="MedlineCitation/Article/Language"/>| format = | accessdate = | laysummary = | laysource = | laydate = | quote = 
+| bibcode = | oclc =| id = | url = | <xsl:if test="PubmedData/ArticleIdList/ArticleId/@IdType='doi'"><xsl:value-of select="concat('doi = ',PubmedData/ArticleIdList/ArticleId[@IdType='doi'],' |')"/></xsl:if><xsl:if test="PubmedData/ArticleIdList/ArticleId/@IdType='pmc'"><xsl:value-of select="concat('pmc = ',PubmedData/ArticleIdList/ArticleId[@IdType='pmc'],' |')"/></xsl:if> language = <xsl:variable name="lang" select="MedlineCitation/Article/Language"/><xsl:choose><xsl:when test="$lang='' or $lang='en' or $lang='eng'"></xsl:when><xsl:when test="$lang='fr'">French</xsl:when><xsl:when test="$lang='it'">Italian</xsl:when><xsl:otherwise><xsl:value-of select="$lang"/></xsl:otherwise></xsl:choose>| format = | accessdate = | laysummary = | laysource = | laydate = | quote = 
  }}<xsl:choose><xsl:when test="$layout='ref'">&lt;/ref&gt;</xsl:when><xsl:otherwise><xsl:text>
 </xsl:text></xsl:otherwise></xsl:choose></xsl:template>
 
