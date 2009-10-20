@@ -6,7 +6,7 @@
  <property name="compiledir" value="${builddir}/compile"/>
 
 
- <target name="all" depends="wpsearch,wpimages,wpcategories,wpinterlinks,wpuserstat,wpsubcat">
+ <target name="all" depends="wpembeddedin,wpsearch,wpimages,wpcategories,wpinterlinks,wpuserstat,wpsubcat">
 </target>
 
  <target name="build-ant-tasks">
@@ -99,6 +99,9 @@
 	<target name="wpsearch" depends="declare-ant-tasks">
 		<compile appclass="WPSearch" appjar="wpsearch" appname="Wikipedia Search"/>
 	</target>
+	<target name="wpembeddedin" depends="declare-ant-tasks">
+		<compile appclass="WPEmbeddedIn" appjar="wpembeddedin" appname="Wikipedia Embeddedin"/>
+	</target>
 	<!-- =================================================================== -->
 	<!-- =================================================================== -->
 	<!-- =================================================================== -->
@@ -127,7 +130,8 @@
 		       debug="true"
 		       source="1.6"
 		       target="1.6">
-			<include name="**/wptools/WPSubCat.java"/>
+			<include name="**/mwtools/WPAbstractTool.java"/>
+			<include name="**/mwtools/WPSubCat.java"/>
 			<classpath>
 				<path refid="bdbjepath"/>
 			</classpath>
@@ -141,11 +145,11 @@
 			<manifest>
 				<attribute
 					  name="Main-Class"
-					  value="org.lindenb.wptools.WPSubCat"
+					  value="org.lindenb.mwtools.WPSubCat"
 					  />
 			</manifest>
 		</jar>
-		<delete dir="${compiledir}"/> 
+		<delete dir="${compiledir}"/>
 	 </target>
 	
 	

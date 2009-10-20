@@ -36,12 +36,7 @@ public class WPUserStat
 		{
 		}
 	
-	private String getAttr(StartElement e,String name)
-		{
-		Attribute att = e.getAttributeByName(new QName(name));
-		return att==null?"":att.getValue();
-		}
-	
+
 	
 	/**
 	 * process user
@@ -98,22 +93,18 @@ public class WPUserStat
 					
 					if(name.equals("item"))
 						{
-						
 						System.out.println(
 							userName+"\t"+
-							getAttr(e,"revid")+"\t"+
-							getAttr(e,"pageid")+"\t"+
-							getAttr(e,"ns")+"\t"+
-							getAttr(e,"title")+"\t"+
-							getAttr(e,"timestamp")+"\t"+
-							getAttr(e,"comment")+"\t"+
-							getAttr(e,"is_new")+"\t"+
-							getAttr(e,"is_top")+"\t"+
-							getAttr(e,"is_minor")+"\t"
+							attr(e,"revid")+"\t"+
+							attr(e,"pageid")+"\t"+
+							attr(e,"ns")+"\t"+
+							attr(e,"title")+"\t"+
+							attr(e,"timestamp")+"\t"+
+							attr(e,"comment")+"\t"+
+							attr(e,"is_new")+"\t"+
+							attr(e,"is_top")+"\t"+
+							attr(e,"is_minor")+"\t"
 							);
-						
-						
-					
 						}
 					else if(name.equals("usercontribs"))
 						{

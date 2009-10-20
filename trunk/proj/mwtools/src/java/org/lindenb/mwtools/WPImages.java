@@ -43,13 +43,6 @@ public class WPImages
 		{
 		}
 	
-	
-	static private String attr(StartElement e, String attName)
-		{
-		Attribute att=e.getAttributeByName(new QName(attName));
-		return att==null?"":att.getValue();
-		}
-	
 	/**
 	 * processImage
 	 * 

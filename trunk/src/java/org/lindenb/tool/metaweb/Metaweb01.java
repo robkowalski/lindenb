@@ -24,6 +24,8 @@ import java.util.Collections;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Vector;
 import java.util.regex.Pattern;
@@ -31,9 +33,8 @@ import java.util.regex.Pattern;
 import javax.imageio.ImageIO;
 
 import org.lindenb.io.IOUtils;
-import org.lindenb.json.JSONBuilder;
-import org.lindenb.json.JSONItem;
-import org.lindenb.json.JSONObject;
+import org.lindenb.json.JSONParser;
+import org.lindenb.json.ParseException;
 import org.lindenb.lang.ResourceUtils;
 import org.lindenb.sw.vocabulary.KML;
 import org.lindenb.util.C;
@@ -438,7 +439,7 @@ public class Metaweb01 {
 		}
     
     /** performs a query over www.rebase.com */
-    private JSONItem query(String json) throws IOException
+    private Object query(String json) throws IOException,ParseException
 	    {
     	
 	    String envelope = "{\"qname1\":{\"query\":" +json+ "}}";
@@ -457,11 +458,11 @@ public class Metaweb01 {
 	    con.connect();
 	    InputStream in=con.getInputStream();
 	    //parse JSON
-	    JSONItem item=JSONBuilder.newInstance().parse(
+	    Object item= new JSONParser(
 	    		echoRequest?
 	    		new EchoReader(in):
 	    		in
-	    		);
+	    		).object();
 	    in.close();
 	    //check for error
 	    String code=getString(item, "code");
@@ -478,19 +479,19 @@ public class Metaweb01 {
 	    }
 
     //run the program
-    private void run() throws IOException
+    private void run() throws IOException,ParseException
 		{
     	//get all object on freebase having type=/user/lindenb/default_domain/scientist
-	    JSONItem item=query("[{\"guid\":null,\"type\":\"/user/lindenb/default_domain/scientist\",\"limit\":"+this.limitNumberOfPerson+"}]");
+	    Object item=query("[{\"guid\":null,\"type\":\"/user/lindenb/default_domain/scientist\",\"limit\":"+this.limitNumberOfPerson+"}]");
 	    if(item==null) return;
 	    //get the result
-	    JSONItem json1=item.find("qname1.result");
-		if(!json1.isArray()) return;
+	    Object json1=find(item,"qname1.result");
+		if(!isArray(json1)) return;
 		//loop over all the results
-	    for(JSONItem i: json1.asArray())
+	    for(Object i: asArray(json1))
 	    	{
-	    	if(!i.isObject()) continue;
-	    	handlePerson(i.asObject());
+	    	if(!isObject(i)) continue;
+	    	handlePerson(asObject(i));
 	    	}
 	    
 	    //sort persons on birth-date/death-date
@@ -926,7 +927,8 @@ public class Metaweb01 {
     		return convertDate2Pixel(endDate==null?new EndDate():endDate);
     		}
 
-    	boolean intersect(Person o)
+    	@SuppressWarnings("unused")
+		boolean intersect(Person o)
     		{
     		final int margin=5;
     		if(o==this || this.y!=o.y) return false;
@@ -1062,21 +1064,21 @@ private String escape(String s)
 		return getScreenWidthInPixel()*((d.dayValue()-minDate.dayValue())/(this.maxDate.dayValue()-this.minDate.dayValue()));
 		}
     
-    private void handlePerson(JSONObject object) throws IOException
+    private void handlePerson(Map<String, ?> object) throws IOException,ParseException
     	{
     	if(!object.containsKey("guid")) return;
     	Person person= new Person();
-    	person.set("guid",object.get("guid").asString());
+    	person.set("guid",asString(object.get("guid")));
 
     	/** find types about this person */
-    	JSONItem q =query("{\"guid\":\""+person.get("guid")+"\",\"type\":[]}");
-    	JSONItem json=q.find("qname1.result.type");
-    	for(JSONItem i2: json.asArray())
+    	Object q =query("{\"guid\":\""+person.get("guid")+"\",\"type\":[]}");
+    	Object json=find(q,"qname1.result.type");
+    	for(Object i2: asArray(json))
 			{
-    		String type=i2.asString();
+    		String type=asString(i2);
 			//System.out.println("types  = "+type);
 			/** find information about this type */
-			JSONItem q3 =query("{\"guid\":\""+person.get("guid")+"\",\"*\":null,\"type\":\""+type+"\"}");
+			Object q3 =query("{\"guid\":\""+person.get("guid")+"\",\"*\":null,\"type\":\""+type+"\"}");
 			//System.err.println(q3);
 			if(type.equals("/user/lindenb/default_domain/scientist"))
 				{
@@ -1129,22 +1131,22 @@ private String escape(String s)
 				}
 			else if(type.equals("/award/award_winner"))
 				{
-				JSONItem q4 =query("{\"id\":\""+person.get("guid")+"\",\"awards_won\":[{\"*\":null}],\"type\":\""+type+"\"}");
-				JSONItem i5=q4.find("qname1.result.awards_won");
+				Object q4 =query("{\"id\":\""+person.get("guid")+"\",\"awards_won\":[{\"*\":null}],\"type\":\""+type+"\"}");
+				Object i5=find(q4,"qname1.result.awards_won");
 				
-				if(i5!=null && i5.isArray())
+				if(i5!=null && isArray(i5))
 					{
-					for(JSONItem i6: i5.asArray())
+					for(Object i6:  asArray(i5))
 						{
 						
-						if(i6==null || !i6.isObject()) continue;
+						if(i6==null || !isObject(i6)) continue;
 						
-						JSONObject i7=i6.asObject();
-						JSONItem i8= i7.get("award");
-						String awardName= (i8!=null && i8.isString()?i8.asString():null);
+						Map<String,Object> i7=asObject(i6);
+						Object i8= i7.get("award");
+						String awardName= (i8!=null && isString(i8)?asString(i8):null);
 						if(awardName==null) continue;
 						i8= i7.get("year");
-						Integer year= (i8!=null && i8.isConstant()?new Integer(i8.asString()):null);
+						Integer year= (i8!=null && isConstant(i8)?new Integer(asString(i8)):null);
 						Award award= new Award();
 						award.name=awardName;
 						award.year=year;
@@ -1164,39 +1166,39 @@ private String escape(String s)
     	//System.out.println("##");
     	}
     
-    private Place handlePlace(String place) throws IOException
+    private Place handlePlace(String place) throws IOException,ParseException
     	{
     	
-    	JSONItem q =query("[{\"name\":\""+escape(place)+"\",\"type\":\"/location/location\",\"geolocation\": {\"*\" : null },\"*\":null}]");
-    	JSONItem i=q.find("qname1.result[0].geolocation");
-    	if(i==null || !i.isObject())
+    	Object q =query("[{\"name\":\""+escape(place)+"\",\"type\":\"/location/location\",\"geolocation\": {\"*\" : null },\"*\":null}]");
+    	Object i=find(q,"qname1.result[0].geolocation");
+    	if(i==null || !isObject(i))
 			{
 			return null;
 			}
-    	JSONObject geoloc= i.asObject();
+    	Map<String,Object> geoloc= asObject(i);
     	if(!(geoloc.containsKey("longitude") && geoloc.containsKey("latitude")))
 			{
 			if(isDebugging()) System.err.println("Cannot get lon/lat");
 			return null;
 			}
     	Place coord= new Place();
-    	coord.longitude= geoloc.get("longitude").asDouble();
-    	coord.latitude= geoloc.get("latitude").asDouble();
+    	coord.longitude= asDouble(geoloc.get("longitude"));
+    	coord.latitude= asDouble(geoloc.get("latitude"));
     	//System.err.println("ok found "+coord);
     	return coord;
     	}
     
-    private File handleImage(String imageName,String person) throws IOException
+    private File handleImage(String imageName,String person) throws IOException,ParseException
 		{
-    	JSONItem q =query("[{\"name\":\""+escape(imageName)+"\",\"type\":\"/common/image\",\"appears_in_topic_gallery\":\""+ escape(person) +"\",\"*\":null}]");
-    	JSONItem result= q.find("qname1.result");
-    	if(result==null || !result.isArray()) return null;
-    	for(JSONItem item: result.asArray())
+    	Object q =query("[{\"name\":\""+escape(imageName)+"\",\"type\":\"/common/image\",\"appears_in_topic_gallery\":\""+ escape(person) +"\",\"*\":null}]");
+    	Object result= find(q,"qname1.result");
+    	if(result==null || !isArray(result)) return null;
+    	for(Object item: asArray(result))
     		{
-    		if(item==null || !item.isObject()) continue;
-    		JSONItem id= item.asObject().get("guid");
+    		if(item==null || !isObject(item)) continue;
+    		Object id= asObject(item).get("guid");
     		if(id==null) continue;
-    		String uid= id.asString();
+    		String uid= asString(id);
     		if(uid.startsWith("#")) uid=uid.substring(1);
     		File iconFile=makeIcon(uid);
     		if(iconFile!=null) return iconFile;
@@ -1204,10 +1206,10 @@ private String escape(String s)
 	    return null;
 		}
     
-    private String getString(JSONItem root,String path)
+    private String getString(Object root,String path)
     	{
-    	JSONItem item=root.find(path);
-    	if(item==null ||  !item.isString())
+    	Object item=find(root,path);
+    	if(item==null ||  !isString(item))
     		{
     		if(isDebugging()) System.err.println("Cannot get "+path +" in "+root);
     		return null;
@@ -1215,20 +1217,20 @@ private String escape(String s)
     	return item.toString();
     	}
     
-    private Collection<String> getArray(JSONItem root,String path)
+    private Collection<String> getArray(Object root,String path)
     	{
-    	JSONItem item=root.find(path);
-    	if(item==null ||  !item.isArray())
+    	Object item=find(root,path);
+    	if(item==null ||  !isArray(item))
     		{
     		if(isDebugging()) System.err.println("Cannot get "+path +" in "+root);
     		return null;
     		}
-    	Vector<String> array=new Vector<String>(item.asArray().size());
-    	for(int i=0;i<  item.asArray().size();++i)
+    	Vector<String> array=new Vector<String>(asArray(item).size());
+    	for(int i=0;i<  asArray(item).size();++i)
     		{
-    		JSONItem x= item.asArray().elementAt(i);
-    		if(x==null || !x.isConstant()) continue;
-    		array.addElement(x.asString());
+    		Object x= asArray(item).get(i);
+    		if(x==null || !isConstant(x)) continue;
+    		array.addElement(asString(x));
     		}
     	return array;
     	}
@@ -1237,6 +1239,50 @@ private String escape(String s)
     	{
     	return this.metawebCookie;
     	}
+    public Double asDouble(Object o)
+    	{
+    	throw new UnsupportedOperationException();
+    	}
+    public boolean isArray(Object o)
+    	{
+    	throw new UnsupportedOperationException();
+    	}
+    
+    public boolean isString(Object o)
+    	{
+    	throw new UnsupportedOperationException();
+    	}
+    
+    public String asString(Object o)
+    	{
+    	throw new UnsupportedOperationException();
+    	}
+    
+    
+    public Map<String,Object> asObject(Object o)
+    	{
+    	throw new UnsupportedOperationException();
+    	}
+    
+    public List<Object> asArray(Object o)
+		{
+		throw new UnsupportedOperationException();
+		}
+    
+    public boolean isObject(Object o)
+    	{
+    	throw new UnsupportedOperationException();
+    	}
+    public boolean isConstant(Object o)
+    	{
+    	throw new UnsupportedOperationException();
+    	}
+    
+    public Object find(Object o,String query)
+    	{
+    	throw new UnsupportedOperationException();
+    	}
+    
     
 	/**
 	 * @param args
