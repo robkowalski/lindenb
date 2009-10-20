@@ -1,204 +1,114 @@
 package org.lindenb.json;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.StreamTokenizer;
-import java.io.StringReader;
+import java.io.StringWriter;
+import java.io.Writer;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
+import org.lindenb.util.C;
 
 /**
  * JSONBuilder
- * builds a JSON tree from an input
  * @author pierre
  *
  */
 public class JSONBuilder
 	{
-	private StreamTokenizer st;
+	private Map<String,Object> map= new TreeMap<String,Object>();
 	
-	/** constructor */
-	public JSONBuilder()
+	public JSONBuilder put(String key,Object value)
 		{
-		
+		if(key==null) throw new NullPointerException("key is null");
+		if(map.containsKey(key)) throw new IllegalArgumentException("duplicate key:"+key);
+		this.map.put(key, value);
+		return this;
 		}
 	
-	/** create a new instance of builder */
-	public static JSONBuilder newInstance()
+
+	
+	public String getString()
 		{
-		return new JSONBuilder();
-		}
-	
-	/** parse an inputstream */
-	public JSONItem parse(InputStream in) throws IOException
-		{
-		return parse(new InputStreamReader(in));
-		}
-	
-	/** parse a string */
-	public JSONItem parse(String s) throws IOException
-		{
-		return parse(new StringReader(s));
-		}
-	
-	/** parse a reader */
-	public JSONItem parse(Reader in) throws IOException
-		{
-		this.st= new StreamTokenizer(in);
-		st.quoteChar('\'');
-		st.quoteChar('\"');
-		st.wordChars('_', '_');
-	
-		st.eolIsSignificant(false);
-		st.parseNumbers();
-		return nextElement();
-		}
-	
-	@SuppressWarnings("fallthrough")
-	private JSONItem nextElement() throws IOException
-		{
-		int tt= this.st.nextToken();
-	
-		switch(tt)
+		try
 			{
-			
-			case StreamTokenizer.TT_EOF: return null;
-			case StreamTokenizer.TT_NUMBER: return createConstant(st.nval);
-			case StreamTokenizer.TT_WORD:
-				{
-				if(this.st.sval.equals("null"))
-					{
-					return createConstant(null);
-					}
-				else if(this.st.sval.equals("true"))
-					{
-					return createConstant(Boolean.TRUE);
-					}
-				else if(this.st.sval.equals("false"))
-					{
-					return createConstant(Boolean.FALSE);
-					}
-				else throw new IOException("Illegal word:"+st.sval);
-				}
-			case '\"':  //threw
-			case '\'': return createConstant(this.st.sval);
-			case '[': return parseJSONArray();
-			case '{': return parseJSONObject();
-			default: throw new IOException("Syntax Error");
+			StringWriter s=new StringWriter();
+			write(s);
+			s.flush();
+			return s.toString();
+			}
+		catch(IOException err)
+			{
+			throw new RuntimeException(err);
 			}
 		}
 	
+	public void write(Writer out) throws IOException
+		{
+		_json(out,this.map);
+		}
 	
-	//parse an array
-	private JSONArray parseJSONArray() throws IOException
+	private Writer _json(Writer b,Object o) throws IOException
+		{
+		if(o ==null)
 			{
-	
-			JSONArray json= createArray();
-			int tt;
-			while(true)
-				{
-				tt= st.nextToken();
-	
-				if(tt==']')
-					{
-					return json;
-					}
-				else if(json.isEmpty())
-					{
-					st.pushBack();
-					json.addElement(nextElement());
-					}
-				else if(tt==',')
-					{
-					json.addElement(nextElement());
-					}
-				else
-					{
-					throw new IOException("Bad array "+json);
-					}
-				}
+			b.append("null");
 			}
-	
-	//parse an object
-	private JSONObject parseJSONObject() throws IOException
+		else if(o instanceof JSONable)
 			{
-	
-			JSONObject json= createObject();
-			int tt;
-			while(true)
-				{
-				tt=st.nextToken();
-				if(tt=='}')
-					{
-					return json;
-					}
-				else if(tt=='\"' || tt=='\'' || tt==StreamTokenizer.TT_WORD)
-					{
-					String key= st.sval;
-					if(!(tt=='\"' || tt=='\''))
-						{
-						if( key.equals("null") ||
-							key.equals("false") ||
-							key.equals("true"))
-							{
-							throw new IOException("Illegal key "+key);
-							}
-						}
-					
-					
-					if(st.nextToken()!=':')
-						{
-						throw new IOException("Expected : after "+key);
-						}
-					
-					json.put(key,nextElement());
-					
-	
-					
-					tt=st.nextToken();
-					if(tt=='}') return json;
-					if(tt!=',') throw new IOException("Expected , or }");
-					}
-				else
-					{
-					throw new IOException("Expected \'\"\' but found \'"+(char)tt+"\' line:"+st.lineno());
-					}
-				}
+			b.append(JSONable.class.cast(o).toJSON());
 			}
+		else if((o instanceof Boolean) || (o instanceof Number))
+			{
+			b.append(o.toString());
+			}
+		else if((o instanceof Map<?,?>))
+			{
+			Map<?,?> _map=Map.class.cast(o);
+			boolean found=false;
+			b.append("{");
+			for(Object k:_map.keySet())
+				{
+				String key= k.toString();
+				if(found) b.append(",");
+				found=true;
+				b.append("\'"+C.escape(key)+"\':");
+				_json(b,_map.get(key));
+				}
+			b.append("}");
+			}
+		else if(o.getClass().isArray())
+			{
+			Object list[]=(Object[])o;
+			b.append("[");
+			for(int i=0;i< list.length;++i )
+				{
+				if(i!=0) b.append(",");
+				_json(b,list[i]);
+				}
+			b.append("]");
+			}
+		else if((o instanceof List<?>))
+			{
+			List<?> list=List.class.cast(o);
+			b.append("[");
+			for(int i=0;i< list.size();++i )
+				{
+				if(i!=0) b.append(",");
+				_json(b,list.get(i));
+				}
+			b.append("]");
+			}
+		else
+			{
+			b.append("\'").append(C.escape(o.toString())).append("\'");
+			}
+		return b;
+		}
 	
-	/** create a new JSONArray. May be overloaded with extended builder */
-	protected JSONArray createArray()
+	@Override
+	public String toString()
 		{
-		return new JSONArray();
+		return getString();
 		}
-	
-	/** create a new JSONConstant. May be overloaded with extended builder */
-	protected JSONConstant createConstant(Object value)
-		{
-		if(value==null) return null;
-		else if(Boolean.TRUE.equals(value)) return JSONConstant.TRUE;
-		else if(Boolean.FALSE.equals(value)) return JSONConstant.FALSE;
-		return new JSONConstant(value);
-		}
-	
-	/** create a new JSONObject. May be overloaded with extended builder */
-	protected JSONObject createObject()
-		{
-		return new JSONObject();
-		}
-	
-	
-	public static void main(String[] args) {
-		try {
-			String q1="{ 'status': '200 OK', 'qname': { 'status': '/mql/status/error', 'messages': [ { 'status': '/mql/status/result_error', 'info': { 'count': 100, 'result': [ { 'guid': [ '#9202a8c04000641f800000000000001f' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000023' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000027' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f800000000000002b' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f800000000000002f' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000033' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000037' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f800000000000003b' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f800000000000003f' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000043' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000047' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f800000000000004b' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f800000000000004f' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000053' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000057' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f800000000000005b' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000000000a3' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000012' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000010' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000000000ba' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000000000be' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000000000c2' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000000000c6' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f800000000000053f' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000553' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000559' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f800000000000055f' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000565' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f800000000000056b' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000583' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000669' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f800000000000066f' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000675' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f800000000000067b' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000681' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000687' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f800000000000068d' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000693' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000699' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f800000000000069f' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f800000000000077f' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000785' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000791' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f800000000000079d' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000000007a9' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000000007b5' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000000007c1' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000000007cd' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000000007d9' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000000007e5' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000000007f1' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000803' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f800000000000080f' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000815' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f800000000000081b' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000ab0' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000bd3' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000bd9' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000bdf' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000be5' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000beb' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000ca8' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000cae' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000cb4' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000cba' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000cc0' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000cc6' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000ccc' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000cd2' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000db5' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000000dbb' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000001237' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000001243' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000001249' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f800000000000124f' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000001255' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f800000000000125b' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f800000000000130d' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000001313' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000000001319' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f800000000000131f' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000001047a8c' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000001047a99' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000001047ba4' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000001047bba' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000001047d88' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f8000000001047d8e' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000010c2ca7' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000010c2e9b' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000010c2eb9' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000010c2ec0' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000010c3000' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000010c3172' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000010c319b' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000010c3213' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000010c3221' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000010c322f' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000010c323d' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000010c326e' ], 'type': '/type/type' }, { 'guid': [ '#9202a8c04000641f80000000010c3471' ], 'type': '/type/type' } ] }, 'path': '', 'query': { 'guid': [], 'type': '/type/type', 'error_inside': '.' }, 'message': 'Unique query may have at most one result. Got 100', 'type': '/mql/error' } ] }}";
-			
-			JSONItem item=new JSONBuilder().parse(q1);
-			item.print(System.out);
-			System.err.println("ok "+item);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		
-		}
-}
+	}

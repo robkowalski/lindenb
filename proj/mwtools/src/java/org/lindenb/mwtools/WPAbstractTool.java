@@ -5,7 +5,10 @@ import java.io.InputStream;
 import java.net.URL;
 import java.util.logging.Logger;
 
+import javax.xml.namespace.QName;
 import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.events.Attribute;
+import javax.xml.stream.events.StartElement;
 
 public abstract class WPAbstractTool
 	{
@@ -27,6 +30,12 @@ public abstract class WPAbstractTool
 	protected String escape(String entry) throws IOException
 		{
 		return entry.replace(' ', '_');
+		}
+	
+	protected String attr(StartElement e, String attName)
+		{
+		Attribute att=e.getAttributeByName(new QName(attName));
+		return att==null?"":att.getValue();
 		}
 	
 	/**
