@@ -124,7 +124,9 @@ public class MeshFrequencies
 		{
 		int pmid;
 		String title="";
+		@SuppressWarnings("unused")
 		String journal="";
+		@SuppressWarnings("unused")
 		int year=0;
 		@Override
 		public int hashCode() {

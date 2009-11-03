@@ -3,6 +3,7 @@ package org.lindenb.json;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -17,7 +18,7 @@ import org.lindenb.util.C;
 public class JSONBuilder
 	{
 	private Map<String,Object> map= new TreeMap<String,Object>();
-	
+	private char quote='\'';
 	public JSONBuilder put(String key,Object value)
 		{
 		if(key==null) throw new NullPointerException("key is null");
@@ -26,7 +27,15 @@ public class JSONBuilder
 		return this;
 		}
 	
-
+	public void setDoubleQuote()
+		{
+		this.quote = '\"';
+		}
+	
+	public void setSimpleQuote()
+		{
+		this.quote = '\'';
+		}
 	
 	public String getString()
 		{
@@ -45,10 +54,10 @@ public class JSONBuilder
 	
 	public void write(Writer out) throws IOException
 		{
-		_json(out,this.map);
+		write(out,this.map);
 		}
 	
-	private Writer _json(Writer b,Object o) throws IOException
+	public void write(Writer b,Object o) throws IOException
 		{
 		if(o ==null)
 			{
@@ -62,6 +71,7 @@ public class JSONBuilder
 			{
 			b.append(o.toString());
 			}
+		
 		else if((o instanceof Map<?,?>))
 			{
 			Map<?,?> _map=Map.class.cast(o);
@@ -72,8 +82,11 @@ public class JSONBuilder
 				String key= k.toString();
 				if(found) b.append(",");
 				found=true;
-				b.append("\'"+C.escape(key)+"\':");
-				_json(b,_map.get(key));
+				b.append(this.quote);
+				b.append(C.escape(key));
+				b.append(this.quote);
+				b.append(':');
+				write(b,_map.get(key));
 				}
 			b.append("}");
 			}
@@ -84,7 +97,7 @@ public class JSONBuilder
 			for(int i=0;i< list.length;++i )
 				{
 				if(i!=0) b.append(",");
-				_json(b,list[i]);
+				write(b,list[i]);
 				}
 			b.append("]");
 			}
@@ -95,15 +108,29 @@ public class JSONBuilder
 			for(int i=0;i< list.size();++i )
 				{
 				if(i!=0) b.append(",");
-				_json(b,list.get(i));
+				write(b,list.get(i));
 				}
 			b.append("]");
 			}
+		else if((o instanceof Calendar))
+			{
+			Calendar c=Calendar.class.cast(o);
+			b.append("{");
+			b.append(quote).append("year").append(quote).append(String.valueOf(c.get(Calendar.YEAR))).append(",");
+			b.append(quote).append("month").append(quote).append(String.valueOf(1+c.get(Calendar.MONTH))).append(",");
+			b.append(quote).append("day").append(quote).append(String.valueOf(c.get(Calendar.DAY_OF_MONTH))).append(",");
+			b.append(quote).append("hour").append(quote).append(String.valueOf(c.get(Calendar.HOUR_OF_DAY))).append(",");
+			b.append(quote).append("min").append(quote).append(String.valueOf(c.get(Calendar.MINUTE))).append(",");
+			b.append(quote).append("sec").append(quote).append(String.valueOf(c.get(Calendar.SECOND)));
+			b.append("}");
+			}
 		else
 			{
-			b.append("\'").append(C.escape(o.toString())).append("\'");
+			b.append(quote).
+			  append(C.escape(o.toString())).
+			  append(quote)
+			  ;
 			}
-		return b;
 		}
 	
 	@Override

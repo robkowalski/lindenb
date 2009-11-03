@@ -312,7 +312,8 @@ public class Consequences
     		return getKnownGene().exonEnd(this.arrayIndex);
     		}
     	
-    	public int length()
+    	@SuppressWarnings("unused")
+		public int length()
     		{
     		return getEnd()-getStart();
     		}
