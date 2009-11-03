@@ -2,18 +2,19 @@ package org.lindenb.mwtools;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintStream;
 import java.net.URL;
-import java.util.logging.Logger;
 
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.events.Attribute;
 import javax.xml.stream.events.StartElement;
 
+import org.lindenb.util.AbstractApplication;
+
 public abstract class WPAbstractTool
+	extends AbstractApplication
 	{
-	/** logger */
-	protected static final Logger LOG= Logger.getLogger("fr.lindenb.mwtools");
 	/** xml parser factory */
 	protected XMLInputFactory xmlInputFactory;
 	/** WP base URP */
@@ -69,6 +70,24 @@ public abstract class WPAbstractTool
 				}
 			}
 		throw lastError;
+		}
+	
+	@Override
+	protected void usage(PrintStream out)
+		{
+		super.usage(out);
+		System.err.println(" -api <url> default:"+this.base_api);
+		}
+	
+	@Override
+	protected int processArg(String[] args, int optind)
+		{
+		if(args[optind].equals("-api"))
+			{
+			this.base_api= args[++optind];
+			return optind;
+			}
+		return super.processArg(args, optind);
 		}
 	
 	}

@@ -18,7 +18,6 @@ import java.io.InputStream;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
-import java.util.HashMap;
 import org.lindenb.io.IOUtils;
 import org.lindenb.util.C;
 
@@ -30,6 +29,33 @@ import org.lindenb.util.C;
 @SuppressWarnings("unchecked")
 public class JSONParser
 {
+private boolean allowLangModifiers=false;
+private boolean allowUnquotedFields=false;
+
+/** are we allowing unquoted fields for JSON objects */
+public boolean isAllowingUnquotedFields()
+	{
+	return allowUnquotedFields;
+	}	
+	
+/** allow unquoted fields for JSON objects */
+public void setAllowingUnquotedFields(boolean allowUnquotedFields)
+	{
+	this.allowUnquotedFields=allowUnquotedFields;
+	}	
+
+/** are we allowing unquoted fields for JSON objects */
+public boolean isAllowingLangModifiers()
+	{
+	return allowLangModifiers;
+	}	
+	
+/** allow unquoted fields for JSON objects */
+public void setAllowingLangModifiers(boolean allowLangModifiers)
+	{
+	this.allowLangModifiers=allowLangModifiers;
+	}
+
 /** creates an integer from a parsed text */
 protected Number createInteger(String image)
 	{
@@ -41,7 +67,52 @@ protected Number createFloating(String image)
 	{
 	return new java.math.BigDecimal(image);
 	}
+
+/** creates a List */
+protected List<Object> createArray()
+	{
+	return new ArrayList<Object>();
+	}
 	
+/** create a Map */
+protected Map<String,Object> createMap()
+	{
+	return new java.util.HashMap<String,Object>();
+	}
+	
+/** create a literal string */
+protected Map<String,Object> createLiteral(String text,String lang)
+	{
+	 Map<String,Object> m=createMap();
+	 m.put("str",text);
+	 m.put("lang",lang);
+	 return m;
+	}
+
+/** go to EOF, check that there are only some blanks chars */
+public void eof() throws ParseException
+	{
+	Token t=null;
+	while((t=this.token_source.getNextToken())!=null)
+		{
+		if(t.kind==JSONParserConstants.EOF) break;
+		if(t.image.trim().isEmpty()) continue;
+		throw new ParseException("Expected only blank characters at the end but found :\""+ t.image+"\"");
+		}
+	}
+
+/** invoke a function ParseException
+ * default behavior: throws a 
+ * @param functionName name of this function
+ * @param params parameters
+ * @throws ParseException
+ */
+protected Object invoke(String functionName,List<Object> params)
+	 throws ParseException
+	{
+	throw new ParseException("syntax error: \""+functionName+"( \"..." );
+	}
+
 /** just a test */
 public static void main(String args[])
 	{
@@ -89,12 +160,25 @@ SKIP :
 | "\t"
 | "\n"
 | "\r"
+| <"//" (~["\n"])* "\n">
+| <"/*">: INSIDE_COMMENT
 }
+
+<INSIDE_COMMENT>
+SKIP:
+{
+        <"*/">: DEFAULT
+|       <~[]>
+}
+
 
 
 TOKEN : /* LITERALS */
 {
-<#LETTER: ["_","a"-"z","A"-"Z"] >
+  <TRUE: "true">
+| <FALSE: "false">
+| <NULL: "null">
+| <#LETTER: ["_","a"-"z","A"-"Z"] >
 | <#DIGIT: ["0"-"9"] >
 | <#SIGN: ["-","+"]>
 | <#EXPONENT: ("E"|"e") (<SIGN>)? (<DIGIT>)+ >
@@ -118,6 +202,15 @@ TOKEN : /* LITERALS */
 )*
 "\""
 >
+| <ARRAY_OPEN: "[">
+| <ARRAY_CLOSE: "]">
+| <COMMA: ",">
+| <OBJECT_OPEN: "{">
+| <OBJECT_CLOSE: "}">
+| <PAR_OPEN: "(">
+| <PAR_CLOSE: ")">
+| <DOTDOT: ":">
+| <AROBASE: "@">
 }
 
 
@@ -134,7 +227,14 @@ public Object any():
 	}
 
 public Object identifier():
-	{Token t;}
+	{
+	Token t;
+	String s;
+	Boolean b;
+	Object o;
+	String L=null;
+	List<Object> params=null;
+	}
 	{
 	(
 	t=<FLOATING_NUMBER>
@@ -145,46 +245,62 @@ public Object identifier():
 		{
 		return createInteger(t.image);
 		}
-	| t=<IDENTIFIER>
+	| <TRUE> { return Boolean.TRUE;}
+	| <FALSE> { return Boolean.FALSE;}
+	| <NULL> { return null; }
+	| t=<IDENTIFIER> ( <PAR_OPEN> (o=any() { params=new ArrayList<Object>(); params.add(o);} (<COMMA> o=any() { params.add(o);})*)?<PAR_CLOSE> )?
 		{
-		if(t.image.equals("true"))
+		if(params==null)
 			{
-			return Boolean.TRUE;
+			if(!isAllowingUnquotedFields())
+				{
+				throw new ParseException("unquoted fields are not allowed :'"+t.image+"'" );
+				}
+			return t.image;
 			}
-		else if(t.image.equals("false"))
-			{
-			return Boolean.FALSE;
-			}
-		else if(t.image.equals("null"))
-			{
-			return null;
-			}
-		return t.image;
+		return invoke(t.image,params);	
 		}
-	| t=<SIMPLE_QUOTE_LITERAL>
+	| t=<SIMPLE_QUOTE_LITERAL> (L=lang())?
 		{
+		if(L!=null) return createLiteral(t.image,L);
 		return  C.unescape(C.unquote(t.image));
 		}
-	| t=<DOUBLE_QUOTE_LITERAL>
+	| t=<DOUBLE_QUOTE_LITERAL>  (L=lang())?
 		{
+		if(L!=null) return createLiteral(t.image,L);
 		return C.unescape(C.unquote(t.image));
 		}
 	)
 	}
 
-public List<Object> array():
-	{List<Object> vector= new ArrayList<Object>(); Object o;}
+private String lang():
 	{
-	"[" ( o=any() {vector.add(o);} ("," o=any() {vector.add(o);} ) * )? "]"
+	Token t;
+	}
+	{
+	<AROBASE> t=<IDENTIFIER>
+		{
+		if(!isAllowingLangModifiers())
+			{
+			throw new ParseException("syntax error : found '@"+t.image+"'" );
+			}
+		return t.image;
+		}
+	}
+
+public List<Object> array():
+	{List<Object> vector= createArray(); Object o;}
+	{
+	<ARRAY_OPEN> ( o=any() {vector.add(o);} (<COMMA> o=any() {vector.add(o);} ) * )? <ARRAY_CLOSE>
 		{
 		return vector;
 		}
 	}
 
 public Map<String,Object> object():
-	{Map<String,Object> map= new HashMap<String,Object>(); }
+	{Map<String,Object> map= createMap(); }
 	{
-	"{" ( keyValue(map) ("," keyValue(map))*)? "}"
+	<OBJECT_OPEN> ( keyValue(map) (<COMMA> keyValue(map))*)? <OBJECT_CLOSE>
 		{
 		return map;
 		}
@@ -193,7 +309,7 @@ public Map<String,Object> object():
 private void keyValue( Map<String,Object> map):
 {Object k; Object v;}
 	{
-	(k=identifier() ":" v=any())
+	(k=identifier() <DOTDOT> v=any())
 		{
 		if(k==null) throw new ParseException("null cannot be used as key in object");
 		if(k.getClass()!=String.class) throw new ParseException(k.toString()+"("+k.getClass()+") cannot be used as key in object");

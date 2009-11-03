@@ -20,11 +20,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Map.Entry;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.zip.GZIPOutputStream;
 
 import org.lindenb.io.IOUtils;
+import org.lindenb.json.JSONBuilder;
+import org.lindenb.json.JSONable;
 import org.lindenb.lang.ResourceUtils;
+import org.lindenb.util.AbstractApplication;
 import org.lindenb.util.Cast;
 
 import com.sun.net.httpserver.Headers;
@@ -39,6 +41,7 @@ import com.sun.net.httpserver.HttpServer;
  *
  */
 public abstract class AbstractHttpHandler
+	extends AbstractApplication
 	implements HttpHandler
 	{
 	/** ok http code */
@@ -46,12 +49,14 @@ public abstract class AbstractHttpHandler
 	public static final int SC_NOT_FOUND=404;
 	public static final int SC_TEMPORARILY_UNAVAILABLE=504;
 	
-	private static final Logger LOG= Logger.getLogger(HttpHandler.class.getName());
 	/** HttpServer */
 	private HttpServer server;
+	/** max length input */
+	private long max_length_input=Long.MAX_VALUE;
 	
 	/** a basic wrapper for request parameters */
 	public static abstract class Parameters
+		implements JSONable
 		{
 		/** returns all the parameters names */
 		public abstract Set<String> getParameterNames();
@@ -104,22 +109,21 @@ public abstract class AbstractHttpHandler
 			return Cast.Short.cast(getParameter(name));
 			}
 		
-		
+		@Override
+		public String toJSON()
+			{
+			JSONBuilder b= new JSONBuilder();
+			for(String s:getParameterNames())
+				{
+				b.put(s, getParameters(s));
+				}
+			return b.toString();
+			}
 		
 		@Override
 		public String toString()
 			{
-			StringBuilder b= new StringBuilder();
-			for(String n:getParameterNames())
-				{
-				b.append(n).append(":");
-				for(String v: getParameters(n))
-					{
-					b.append(" "+v);
-					}
-				b.append("\n");
-				}
-			return b.toString();
+			return toJSON();
 			}
 		}
 	
@@ -136,7 +140,13 @@ public abstract class AbstractHttpHandler
 			}
 		}
 	
-	protected static class ParametersImpl extends Parameters
+	/**
+	 * ParametersImpl
+	 * @author pierre
+	 *
+	 */
+	protected static class ParametersImpl
+		extends Parameters
 		{
 		private Map<String, List<String>> paramMap= new HashMap<String, List<String>>();
 		
@@ -178,6 +188,7 @@ public abstract class AbstractHttpHandler
 			{
 			super(in);
 			}
+		
 		
 		}
 	
@@ -253,6 +264,10 @@ public abstract class AbstractHttpHandler
 				in.close();
 				}
 			}
+		else
+			{
+			throw new IOException("Method not supported "+http.getRequestMethod());
+			}
 		
 		if(query!=null)
 			{
@@ -276,7 +291,7 @@ public abstract class AbstractHttpHandler
 	
 	protected long getMaxLengthInput()
 		{
-		return Integer.MAX_VALUE;
+		return max_length_input;
 		}
 	
 	
