@@ -1,0 +1,156 @@
+options {
+STATIC=false;
+DEBUG_PARSER=false;
+DEBUG_TOKEN_MANAGER=false;
+
+}
+
+PARSER_BEGIN(BibtexParser)
+/**
+ * Quick and dirty Javacc code for a Bibtex parser
+ * created for @enroweb
+ * works with *MY* files :-)
+ * Author:Pierre Lindenbaum PhD http://plindenbaum.blogspot.com
+ */
+package org.lindenb.tinytools;
+import java.util.*;
+import java.util.regex.*;
+
+/**
+ * BibtexParser
+ */
+public class BibtexParser
+        {
+        private static int ID_GENERATOR=0;
+        private static final Pattern AND_PATTERN =Pattern.compile("\\s+and\\s+",Pattern.CASE_INSENSITIVE);
+        public class Entry
+        	{
+        	int id;
+        	Map<String,String> fields= new HashMap<String,String>(10);
+        	public String get(String key)
+        		{
+        		String s=fields.get(key);
+        		return s==null?"N/A":s;
+        		}
+        	public String authors()
+        		{
+        		return get("author");
+        		}
+        	public  String firstAuthor()
+        		{
+        		String s= get("author");
+        		s=AND_PATTERN.split(s)[0];
+        		s=s.replaceAll("[,\\.]"," ").replaceAll("[ ]+"," ").trim();
+        		return s;
+        		}	
+        	void echo()
+        		{
+        		System.out.println(id);
+        		System.out.println(firstAuthor());
+        		System.out.println(get("year"));
+        		System.out.println(get("volume"));
+        		System.out.println(get("pages"));
+        		}
+        	}
+        public static void main(String args[])
+            {
+            try
+                    {
+                    BibtexParser parser = new BibtexParser(System.in);
+                    parser.articles();
+                    }
+            catch(Throwable err)
+                    {
+                    err.printStackTrace();
+                    }
+            }
+        }
+
+
+PARSER_END(BibtexParser)
+
+<IN_ARTICLE,DEFAULT>
+SKIP :
+{
+  " "
+| "\t"
+| "\n"
+| "\r"
+}
+
+TOKEN :
+{
+  <ARTICLE: "@article">
+| <OBJECT_OPEN: ["{"]>:IN_ARTICLE
+
+}
+
+<IN_ARTICLE>
+TOKEN:
+{
+  <#LETTER: ["_","a"-"z","A"-"Z"] >
+| <#DIGIT: ["0"-"9"] >
+| <#SCORE: (<DIGIT>)* "."(<DIGIT>)* >
+| <ID: (<SCORE>|"*/*") >
+| <IDENTIFIER: <LETTER> (<LETTER>|<DIGIT>)* >
+| <STRING_OPEN: "{">  :IN_STRING
+| <OBJECT_CLOSE: "}"> :DEFAULT
+| <COMMA: ",">
+| <EQ: "=">
+}
+
+<IN_STRING>
+TOKEN:
+{
+  <CONTENT: (~["}"]|"{" (["a"-"z"])* "}")*>
+| <STRING_CLOSE: "}">  : IN_ARTICLE
+}
+
+void articles():
+	{
+	
+	}
+	{
+	( article() )*
+		{
+		
+		}
+	}
+
+private Entry article():
+	{
+	Token t;
+	Entry entry=new Entry();
+	}
+	{
+	<ARTICLE> <OBJECT_OPEN> (<ID> <COMMA> )? (field(entry.fields) (<COMMA> field(entry.fields) )*)? <OBJECT_CLOSE>
+		{
+		entry.id=(++ID_GENERATOR);
+		entry.echo();
+		return entry;
+		}
+	}
+
+private void field(Map<String,String> map):
+	{
+	Token key;
+	String value;
+	}
+	{
+	key=<IDENTIFIER> <EQ> value=str()
+		{
+		map.put(key.image,value);
+		}
+	}
+
+private String str():
+	{
+	Token value=null;
+	}
+	{
+	<STRING_OPEN> (value=<CONTENT>)? <STRING_CLOSE>
+		{
+		return value==null?"":value.image;
+		}
+	}
+

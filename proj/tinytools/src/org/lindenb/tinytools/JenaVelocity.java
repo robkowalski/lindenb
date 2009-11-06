@@ -37,6 +37,12 @@ import com.hp.hpl.jena.sparql.engine.http.QueryExceptionHTTP;
 import com.hp.hpl.jena.sparql.resultset.ResultsFormat;
 import com.hp.hpl.jena.sparql.util.QueryExecUtils;
 
+/**
+ * JenaVelocity
+ * http://plindenbaum.blogspot.com
+ * @author pierre
+ *
+ */
 public class JenaVelocity extends AbstractApplication
 	{
 	private PrintWriter out;
@@ -45,6 +51,7 @@ public class JenaVelocity extends AbstractApplication
 	private List<RDFStore> stores= new ArrayList<RDFStore>();
 	private Map<String,Object> mapOfInstances= new HashMap<String,Object>();
 	
+	/** SPARQL utility */
 	public class Sparql
 		{
 		public List<Object> select(String serviceURL,String query)
