@@ -89,17 +89,7 @@ protected Map<String,Object> createLiteral(String text,String lang)
 	 return m;
 	}
 
-/** go to EOF, check that there are only some blanks chars */
-public void eof() throws ParseException
-	{
-	Token t=null;
-	while((t=this.token_source.getNextToken())!=null)
-		{
-		if(t.kind==JSONParserConstants.EOF) break;
-		if(t.image.trim().isEmpty()) continue;
-		throw new ParseException("Expected only blank characters at the end but found :\""+ t.image+"\"");
-		}
-	}
+
 
 /** invoke a function ParseException
  * default behavior: throws a 
@@ -291,7 +281,7 @@ private String lang():
 public List<Object> array():
 	{List<Object> vector= createArray(); Object o;}
 	{
-	<ARRAY_OPEN> ( o=any() {vector.add(o);} (<COMMA> o=any() {vector.add(o);} ) * )? <ARRAY_CLOSE>
+	startArray() ( o=any() {vector.add(o);} (comma() o=any() {vector.add(o);} ) * )? closeArray()
 		{
 		return vector;
 		}
@@ -300,7 +290,7 @@ public List<Object> array():
 public Map<String,Object> object():
 	{Map<String,Object> map= createMap(); }
 	{
-	<OBJECT_OPEN> ( keyValue(map) (<COMMA> keyValue(map))*)? <OBJECT_CLOSE>
+	startObject() ( keyValue(map) (comma() keyValue(map))*)? closeObject()
 		{
 		return map;
 		}
@@ -318,3 +308,66 @@ private void keyValue( Map<String,Object> map):
 		map.put(key,v);
 		}
 	}
+	
+/** function for streaming big object/array */
+public void startObject():{}
+	{
+	<OBJECT_OPEN>
+	}
+
+/** function for streaming big object/array */
+public void closeObject():{}
+	{
+	<OBJECT_CLOSE>
+	}
+
+/** function for streaming big object/array */
+public void startArray():{}
+	{
+	<ARRAY_OPEN>
+	}
+
+/** function for streaming big object/array */
+public void closeArray():{}
+	{
+	<ARRAY_CLOSE>
+	}
+
+/** function for streaming big object/array */
+public void comma():{}
+	{
+	<COMMA>
+	}
+
+/** function for streaming big object/array */
+public char commaOrCloseArray():{char c;}
+	{
+	( comma() {c=',';} | closeArray() { c=']';})
+		{
+		return c;
+		}
+	}
+
+/** function for streaming big object/array */
+public char commaOrCloseObject():{char c;}
+	{
+	( comma() {c=',';} | closeObject() { c='}';})
+		{
+		return c;
+		}
+	}
+/** function for streaming big object/array */
+public char startObjectOrArray():{char c;}
+	{
+	( startArray() {c='[';} | startObject() { c='{';})
+		{
+		return c;
+		}
+	}
+
+/** go to EOF, check that there are only some blanks chars */
+public void eof():{}
+	{
+	<EOF>
+	}	
+	
