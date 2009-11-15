@@ -94,16 +94,9 @@ public class IOUtils
 				uri.startsWith("ftp://")
 	    		)
 	    		{
-	    		URL url= new URL(uri);
-	    		if(uri.endsWith(".gz"))
-	        		{
-	        		return new BufferedReader(new InputStreamReader(new GZIPInputStream(url.openStream())));
-	        		}
-	        	else
-	        		{
-	        		return new BufferedReader(new InputStreamReader(url.openStream()));
-	        		}
-	    		}
+	    		InputStream in= openInputStream(uri);
+	    		return new BufferedReader(new InputStreamReader(in));
+	        	}
 	    	else
 	        	{
 	        	return openFile( new File(uri));
@@ -120,6 +113,7 @@ public class IOUtils
 	 */
 	public static InputStream openInputStream(String uri) throws IOException
 		{
+		InputStream in=null;
 		if(	uri.startsWith("http://") ||
 				uri.startsWith("https://") ||
 				uri.startsWith("file://") ||
@@ -127,26 +121,17 @@ public class IOUtils
 	    		)
 	    		{
 	    		URL url= new URL(uri);
-	    		if(uri.endsWith(".gz"))
-	        		{
-	        		return new GZIPInputStream(url.openStream());
-	        		}
-	        	else
-	        		{
-	        		return url.openStream();
-	        		}
+	    		in = url.openStream();
 	    		}
 	    	else
 	        	{
-	    		if(uri.endsWith(".gz"))
-	        		{
-	        		return new GZIPInputStream(new FileInputStream(uri));
-	        		}
-	        	else
-	        		{
-	        		return new FileInputStream(uri);
-	        		}
+	    		in=new FileInputStream(uri);
 	        	}
+			if(uri.toLowerCase().endsWith(".gz"))
+	    		{
+	    		return new GZIPInputStream(in);
+	    		}
+			return in;
 			}
 	
 	

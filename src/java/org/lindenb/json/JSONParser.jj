@@ -14,13 +14,12 @@ package org.lindenb.json;
  * See http://plindenbaum.blogspot.com/2008/07/parsing-json-with-javacc-my-notebook.html
  *
  */
-import java.io.InputStream;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
 import org.lindenb.io.IOUtils;
 import org.lindenb.util.C;
-
+import org.lindenb.util.StringUtils;
 /**
  *
  * JSONParser
@@ -118,7 +117,7 @@ public static void main(String args[])
 	    	{
 	    	while(optind< args.length)
 	    		{
-	    		InputStream in=null;
+	    		java.io.InputStream in=null;
 	    		try {
 					in=  IOUtils.openInputStream(args[optind++]);
 					new JSONParser(System.in).any();
@@ -253,12 +252,12 @@ public Object identifier():
 	| t=<SIMPLE_QUOTE_LITERAL> (L=lang())?
 		{
 		if(L!=null) return createLiteral(t.image,L);
-		return  C.unescape(C.unquote(t.image));
+		return  C.unescape(StringUtils.unquote(t.image));
 		}
 	| t=<DOUBLE_QUOTE_LITERAL>  (L=lang())?
 		{
 		if(L!=null) return createLiteral(t.image,L);
-		return C.unescape(C.unquote(t.image));
+		return C.unescape(StringUtils.unquote(t.image));
 		}
 	)
 	}
