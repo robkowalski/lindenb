@@ -101,7 +101,7 @@ public class ObjectBinding extends TupleBinding<Object>
 			}
 		else if(object instanceof Short)
 			{
-			out.writeByte(OP_CODE_LONG);
+			out.writeByte(OP_CODE_SHORT);
 			out.writeShort(Short.class.cast(object));
 			}
 		else if(object instanceof String)

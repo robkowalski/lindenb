@@ -1,16 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="lindenb" default="all">
- <property environment="env"/><!-- prefix for environnement properties -->
- <property name="derby.lib" value="${env.JAVA_HOME}/db/lib"/>
 
+ <property environment="env"/><!-- prefix for environnement properties -->
+ <property name="rootdir" value="."/>
+ <property name="builddir" value="${rootdir}/build"/>
+ <property name="compiledir" value="${builddir}/compile"/>
+ <property file="${rootdir}/build.properties"/>
+
+ <path id="berkeleydb.je">
+	 <pathelement path="${berkeleydb.je.lib}"/>
+ </path>
+ 
+ <path id="jenapath">
+	 <fileset dir="${jena.lib}">
+		 <include name="*.jar"/>
+	 </fileset>
+</path>
+	
  <target name="build-ant-tasks">
-	<mkdir dir="build/ant"/>
-	<javac destdir="build/ant">
+	<mkdir dir="${builddir}/ant"/>
+	<javac destdir="${builddir}/ant">
 	  <src path="src/java"/>
 	  <include name="org/lindenb/ant/*.java"/>
 	</javac>
  </target>
-
+ 
  <target name="declare-ant-tasks" depends="build-ant-tasks">
     <taskdef name="compileInfoTask"
         	 classname="org.lindenb.ant.CompileInfoTask"
@@ -27,45 +41,32 @@
  </target>
 
  
+ <target name="calljavacc">
+	 <dirname property="jj.dir" file="${jjfile}"/>
+	 <delete file="${jj.dir}/TokenMgrError.java"/>
+	 <delete file="${jj.dir}/ParseException.java"/>
+	 <delete file="${jj.dir}/Token.java"/>
+	 <delete file="${jj.dir}/SimpleCharStream.java"/>
+	 <exec executable="${javacc.bin}">
+		 <arg value="-OUTPUT_DIRECTORY=${jj.dir}"/>
+		 <arg value="${jjfile}"/>
+	 </exec>
+ </target>
+ 
+ <target name="jsonparser">
+	 <antcall target="calljavacc" inheritAll="true" inheritRefs="true">
+		 <param name="jjfile" value="${rootdir}/src/java/org/lindenb/json/JSONParser.jj"/>
+	</antcall>
+ </target>
+ 
+
+
+ 
+ 
  <target name="all" depends="pubmed2wikipedia,scifoaf,pivot,freebase,connotea2delicious,xul4wikipedia,krobar">
 </target>
 
-<target name="archive"
-        description="create a tar.gz archive to store the whole projet"
-        >
-        <tar destfile="lindenb.tar">
-         <tarfileset dir="." prefix="lindenb/">
-                <exclude name="**/java/bin/**"/> <!--  eclipse output -->
-                <exclude name="build/**"/>
-                <exclude name="**/CVS/**"/>
-                <exclude name="**/*.class"/>
-                <exclude name="**/*.jar"/>
-                <exclude name="**/*~"/>
-                <exclude name="build"/>
-                <exclude name="lib"/>
-                <exclude name="lib/**"/>
-                <exclude name="**/jeter*"/>
-                <exclude name="lindenb.tar"/>
-                <exclude name="lindenb.tar.gz"/>
-                <exclude name="**/.*"/> <!-- hidden files  -->
-         </tarfileset>
-        </tar>
-        <gzip zipfile="lindenb.tar.gz" src="lindenb.tar"/>
-        <delete file="lindenb.tar"/>
-</target>
 
-<target name="tango" depends="declare-ant-tasks">
-  <mkdir dir="build/tango"/>
-  <wget url="http://tango-project.org/releases/tango-icon-theme-0.8.1.tar.gz"
-	todir="build/tango" />
-  <gunzip src="build/tango/tango-icon-theme-0.8.1.tar.gz"/>
-  <untar src="build/tango/tango-icon-theme-0.8.1.tar" dest="build/tango"/>
-</target> 
- <!-- =================================================================== -->
- <!-- =================================================================== -->
- <!-- =================================================================== -->
- <!-- =================================================================== -->
- 
  <target name="pubmed2wikipedia" depends="declare-ant-tasks">
 	 <mkdir dir="build/compile"/>
 	 <mkdir dir="build/compile/images"/>
