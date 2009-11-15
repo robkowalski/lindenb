@@ -35,8 +35,9 @@ public class WPImages
 	/** html output */
 	private Mode output_type=Mode.text;
 	/** image width for html */
-	private int iiurlwidth=64;
-
+	private int iiurlwidth=-1;
+	/** image height for html */
+	private int iiurlheight=-1;
 	
 	/** private/empty cstor */
 	private WPImages()
@@ -52,12 +53,18 @@ public class WPImages
 	 */
 	private void processImage(String entryName,String imageTitle) throws IOException,XMLStreamException
 		{
+		int height=this.iiurlheight;
+		if(height==-1 && this.iiurlwidth!=-1)
+			{
+			height= this.iiurlwidth;
+			}
 		
-		LOG.info(entryName+" "+imageTitle);
+		LOG.info(entryName+" "+imageTitle+" width:"+iiurlwidth);
 		boolean found=false;
 		String url=	this.base_api+"?action=query" +
 				"&prop=imageinfo" +
-				(output_type==Mode.xhtml?"&iiurlwidth="+iiurlwidth:"")+
+				(iiurlwidth!=-1?"&iiurlwidth="+iiurlwidth:"")+
+				(height!=-1?"&iiurlheight="+height:"")+
 				"&format=xml" +
 				"&titles="+escape(imageTitle)+
 				"&iiprop=timestamp|user|comment|url|size|dimensions|mime|archivename|bitdepth"
@@ -88,6 +95,7 @@ public class WPImages
 							System.out.print(attr(e,"width")+"\t");
 							System.out.print(attr(e,"height")+"\t");
 							System.out.print(attr(e,"url")+"\t");
+							System.out.print(attr(e,"thumburl")+"\t");
 							System.out.print(attr(e,"descriptionurl"));
 							System.out.println();
 							break;
@@ -216,18 +224,24 @@ public class WPImages
 					System.err.println(" -html HTML output");
 					System.err.println(" -wiki mediawiki gallery");
 					System.err.println(" -w <int> image width for html output");
+					System.err.println(" -H <int> image height for html output");
 					System.err.println(" -log-level <java.util.logging.Level> default:"+LOG.getLevel());
 					System.err.println(" -api <url> default:"+app.base_api);
 					System.err.println(" (stdin|articles-names)");
 					return;
 					}
-				else if(args[optind].equals("-log-level"))
+				else if(args[optind].equals("-log-level") ||
+				        args[optind].equals("-debug-level"))
 					{
 					LOG.setLevel(Level.parse(args[++optind]));
 					}
 				else if(args[optind].equals("-w"))
 					{
 					app.iiurlwidth= Integer.parseInt(args[++optind]);
+					}
+				else if(args[optind].equals("-H"))
+					{
+					app.iiurlheight= Integer.parseInt(args[++optind]);
 					}
 				else if(args[optind].equals("-html"))
 					{
@@ -256,7 +270,7 @@ public class WPImages
 					}
 				++optind;
 				}
-			
+
 			
 			
 			if(app.output_type==Mode.xhtml)
@@ -267,6 +281,7 @@ public class WPImages
 				}
 			else if(app.output_type==Mode.wiki)
 				{
+				if(app.iiurlwidth<=0)  app.iiurlwidth=64;
 				System.out.println("{{Gallery\n" +
 					"|title=\n"+
 					"|width= "+ app.iiurlwidth +"\n"+

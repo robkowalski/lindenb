@@ -412,7 +412,8 @@ public class WPSubCat
 					System.err.println(" (stdin|files) containing articles' titles");
 					return;
 					}
-				else if(args[optind].equals("-debug-level"))
+				else if(args[optind].equals("-debug-level") ||
+					args[optind].equals("-log-level"))
 					{
 					LOG.setLevel(Level.parse(args[++optind]));
 					}

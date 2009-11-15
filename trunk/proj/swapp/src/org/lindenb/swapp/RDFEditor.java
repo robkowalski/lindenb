@@ -20,7 +20,7 @@ public abstract class RDFEditor
     /** schema for this editor */
     private Schema schema=null;
     /** model */
-    private AbstractJSONDBApplication model=null;
+    private Model model=null;
     
     protected RDFEditor()
     	{    	
@@ -61,12 +61,12 @@ public abstract class RDFEditor
     	}
     
     /** get RDF Model */
-    public AbstractJSONDBApplication getModel()
+    public Model getModel()
     	{
     	return model;
     	}
     
-    public void setModel(AbstractJSONDBApplication model) {
+    public void setModel(Model model) {
 		this.model = model;
 		}
     
