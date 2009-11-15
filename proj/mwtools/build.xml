@@ -24,7 +24,7 @@
  </target>
 
 <path id="bdbjepath">
-	<fileset dir="/usr/local/package/je-3.3.75/lib/">
+	<fileset dir="/usr/local/package/je-4.0.71/lib/">
 		<include name="*.jar"/>
 	</fileset>
 </path>
