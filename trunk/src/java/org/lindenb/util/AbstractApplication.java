@@ -37,7 +37,8 @@ public class AbstractApplication
                  usage(System.out);
                  System.exit(0);
                  }
-         else if(args[optind].equals("-log-level"))
+         else if(args[optind].equals("-log-level") ||
+        		 args[optind].equals("-debug-level"))
                  {
                  Level L=Level.parse(args[++optind]);
                  if(L==null) throw new IllegalArgumentException("Bad level:"+args[optind]);

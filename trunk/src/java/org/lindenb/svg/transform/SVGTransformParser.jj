@@ -2,8 +2,8 @@
 options {
 STATIC=false;
 IGNORE_CASE=true;
-DEBUG_PARSER=true;
-DEBUG_TOKEN_MANAGER=true;
+DEBUG_PARSER=false;
+DEBUG_TOKEN_MANAGER=false;
 LOOKAHEAD=2;
 }
 

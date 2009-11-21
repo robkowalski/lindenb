@@ -4,6 +4,7 @@ import java.awt.Shape;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.PathIterator;
+
 import java.io.PrintWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
@@ -11,7 +12,6 @@ import java.io.Writer;
 import java.util.Scanner;
 import java.util.StringTokenizer;
 import java.util.logging.Logger;
-
 import org.lindenb.awt.Dimension2D;
 import org.lindenb.lang.InvalidXMLException;
 import org.lindenb.sw.vocabulary.SVG;
@@ -28,7 +28,7 @@ import org.w3c.dom.Element;
  */
 public class SVGUtils extends SVG
 {
-	protected static final Logger LOG=Logger.getLogger(SVGUtils.class.getName()); 
+	protected static final Logger LOG=Logger.getLogger("org.lindenb"); 
 	
 	public static double castUnit(String s)
 		{
@@ -54,12 +54,14 @@ public class SVGUtils extends SVG
 		try
 			{
 			Dimension2D.Double srcSize=new Dimension2D.Double(0,0);
-			Attr att= svgRoot.getAttributeNode("width");
-			if(att==null) throw new InvalidXMLException(svgRoot,"@width missing");
-			srcSize.width= castUnit(att.getValue());
-			att= svgRoot.getAttributeNode("height");
-			if(att==null) throw new InvalidXMLException(svgRoot,"@height missing");
-			srcSize.height= castUnit(att.getValue());
+			Attr width= svgRoot.getAttributeNode("width");
+			Attr height= svgRoot.getAttributeNode("height");
+			
+			if(width==null) throw new InvalidXMLException(svgRoot,"@width missing");
+			srcSize.width= castUnit(width.getValue());
+			
+			if(height==null) throw new InvalidXMLException(svgRoot,"@height missing");
+			srcSize.height= castUnit(height.getValue());
 			return srcSize;
 			}
 		catch(NumberFormatException err)
@@ -284,9 +286,10 @@ public class SVGUtils extends SVG
 	}
 
 	private static float getPathFloat(StringTokenizer t)
-	{
+		{
 		float pathFloat;
 		String tempBuffer = t.nextToken();
+		
 		while (tempBuffer.equals(",")|| tempBuffer.equals(" ")){
 			tempBuffer = t.nextToken();
 		}
@@ -298,6 +301,8 @@ public class SVGUtils extends SVG
 		}
 		return(pathFloat);
 	}
+	
+		
 	
 	public static GeneralPath polygonToShape(String lineString )
 		{
@@ -351,11 +356,15 @@ public class SVGUtils extends SVG
 	{
 		float fx=0,fy=0,fx1=0,fx2=0,fy1=0,fy2=0,oldfx=0,oldfy=0;
 		GeneralPath p = new GeneralPath(GeneralPath.WIND_EVEN_ODD);
+		
 
+		
 		StringTokenizer t = new StringTokenizer(pathString.trim().replaceAll("[ ]+"," ")," ,MmLlCczArSsHhVvDdEeFfGgJjQqTtz-",true);
+		
+		//boolean negate=false;
 		while(t.hasMoreElements()){
 			String tempBuffer = t.nextToken();
-			//boolean negate=false;
+			
 			switch (tempBuffer.charAt(0)){
 			case 'M': //Move To
 				fx = getPathFloat(t);
@@ -416,7 +425,7 @@ public class SVGUtils extends SVG
 				fx+=oldfx;
 				fy+=oldfy;
 				fx1+=oldfx;
-				fy1=oldfy;
+				fy1+=oldfy;
 				fx2+=oldfx;
 				fy2+=oldfy;
 				p.curveTo(fx,fy,fx1,fy1,fx2,fy2);
@@ -546,6 +555,7 @@ public class SVGUtils extends SVG
 				break;
 
 			case '-':
+				//negate=true;
 				LOG.warning("Cannot handle Negative value");
 				break;
 

@@ -1,0 +1,428 @@
+
+options {
+STATIC=false;
+DEBUG_PARSER=false;
+DEBUG_TOKEN_MANAGER=false;
+LOOKAHEAD=2;
+}
+
+
+PARSER_BEGIN(SVGPathParser)
+package org.lindenb.svg.path;
+import java.awt.Shape;
+import java.awt.geom.GeneralPath;
+import java.awt.geom.Point2D;
+
+/**
+ * 
+ * http://www.w3.org/TR/SVG11/paths.html#PathDataBNF
+ */
+public class SVGPathParser
+	{
+	private Point2D.Double start=null;
+	private Point2D.Double last=null;
+	
+	public SVGPathParser(String s)
+		{
+		this(new java.io.StringReader(s));
+		System.err.println(s);
+		}
+	
+	public static Shape parse(String s)
+		{
+		try
+			{
+			return new SVGPathParser(s).path();
+			}
+		catch(ParseException err)
+			{
+			throw new IllegalArgumentException(err);
+			}
+		}
+	
+	public static void main(String args[])
+		throws Exception
+		{
+		for(String s:args)
+			{
+			parse(s);
+			}
+		}
+	}
+PARSER_END(SVGPathParser)
+
+TOKEN:
+	{
+	  <DOT: "." >
+	| <PLUS: "+" >
+	| <MINUS: "-" >
+	| <#DIGIT: ["0"-"9"] >
+	| <POSITIVE_INTEGER: (<DIGIT>)+ >
+	| <SIGN: (<PLUS> | <MINUS>) >
+	| <#EXPONENT: ("E"|"e") (<SIGN>)? <POSITIVE_INTEGER> >
+	| <FLOATING_NUMBER:(<SIGN>)?
+	         ( 
+		  (<DIGIT>)* <DOT> (<DIGIT>)* (<EXPONENT>)?
+		| <POSITIVE_INTEGER> (<EXPONENT>)
+		)
+		 >
+
+	| <WS: (" "|"\n"|"\t"|"\r")>
+	| <EXP: ("E"|"e") >
+	| <COMMA: ",">
+	| <MOVETO: ("M"|"m")>
+	| <LINEH: ("H"|"h")>
+	| <LINEV: ("V"|"v")>
+	| <LINETO: ("L"|"l")>
+	| <CLOSEPATH: ("Z"|"z")>
+	| <CUBICBEZIER: ("C"|"c")>
+	| <SMOOTHCUBICBEZIER: ("S"|"s")>
+	| <QUADRATICCURVE: ("Q"|"q")>
+	| <QUADRATICSMOOTH: ("T"|"t")>
+	| <ELLIPTICARC: ("A"|"a")>
+	}
+
+public Shape path():{GeneralPath shape=new GeneralPath();}
+	{
+	(
+	(wsp())*
+	( moveTo(shape) drawtoCommands(shape) )+
+	(wsp())*
+	<EOF>
+	)
+		{
+		return shape;
+		}
+	}
+
+
+/**
+Start a new sub-path at the given (x,y) coordinate.
+M (uppercase) indicates that absolute coordinates will follow; m (lowercase) indicates that relative coordinates will follow. If a relative moveto (m) appears as the first element of the path, then it is treated as a pair of absolute coordinates. If a moveto is followed by multiple pairs of coordinates, the subsequent pairs are treated as implicit lineto commands.
+*/
+private void moveTo(GeneralPath shape):{boolean relative;Token t;Point2D.Double p;}
+	{
+	(
+	t=<MOVETO>{ relative=t.image.equals("m");}
+	separator()
+	p=coords()
+		{
+		if(last==null || !relative)
+			{
+			last=p;
+			}
+		else
+			{
+			last.x+=p.getX();
+			last.y+=p.getY();
+			}
+		shape.moveTo(last.getX(),last.getY());
+		this.start=this.last;
+		}
+	(lineToSequence(shape,relative))?
+	)
+	}
+	
+void drawtoCommands(GeneralPath shape):{}	
+	{
+	( separator() drawtoCommand(shape) )*
+	}
+	
+void drawtoCommand(GeneralPath shape):{}
+    {
+    (
+    closePath(shape)
+    | lineTo(shape)
+    | lineH(shape)
+    | lineV(shape)
+    | cubicBezier(shape)
+    | smoothCubicBezier(shape)
+    | quadraticCurve(shape)
+    | smootQuadraticCurve(shape)
+    | ellipticArc(shape)
+    )
+    }
+	
+/**
+ Draw a line from the current point to the given (x,y) coordinate which becomes the new current point. L (uppercase) indicates that absolute coordinates will follow; l (lowercase) indicates that relative coordinates will follow. A number of coordinates pairs may be specified to draw a polyline. At the end of the command, the new current point is set to the final set of coordinates provided.
+ */
+private void lineTo(GeneralPath shape):{boolean relative;Token t;Point2D.Double p;}
+	{
+	t=<LINETO>{ relative=t.image.equals("l");}
+	lineToSequence(shape,relative)
+	}
+
+private void lineToSequence(GeneralPath shape,boolean relative):{Point2D.Double p;}
+	{
+	(separator() p=coords()
+		{
+		if(!relative)
+			{
+			this.last=p;
+			}
+		else
+			{
+			this.last.x+=p.getX();
+			this.last.y+=p.getY();
+			}
+		shape.lineTo(this.last.getX(),this.last.getY());
+		})+
+	}
+
+/**
+Draws a horizontal line from the current point (cpx, cpy) to (x, cpy). H (uppercase) indicates that absolute coordinates will follow; h  (lowercase) indicates that relative coordinates will follow. Multiple x values can be provided (although usually this doesn't make sense). At the end of the command, the new current point becomes (x, cpy) for the final value of x.*/
+
+private void lineH(GeneralPath shape):{boolean relative;Token t;}
+	{
+	t=<LINEH>{ relative=t.image.equals("h");}
+	( lineHSequence(shape,relative) )
+	}	
+
+private void lineHSequence(GeneralPath shape,boolean relative):{double v;}
+	{
+	( separator() v=coordinate()
+		{
+		if(!relative)
+			{
+			this.last.x=v;
+			}
+		else
+			{
+			this.last.x+=v;
+			}
+		shape.lineTo(this.last.getX(),this.last.getY());
+		})+
+	}
+
+/**
+Draws a vertical line from the current point (cpx, cpy) to (cpx, y). V (uppercase) indicates that absolute coordinates will follow; v  (lowercase) indicates that relative coordinates will follow. Multiple y values can be provided (although usually this doesn't make sense). At the end of the command, the new current point becomes (cpx, y) for the final value of y.*/
+private void lineV(GeneralPath shape):{boolean relative;Token t;double v;}
+	{
+	t=<LINEV>{ relative=t.image.equals("v");}
+	(lineVSequence(shape,relative))
+	}
+	
+private void lineVSequence(GeneralPath shape,boolean relative):{double v;}
+	{
+	( separator() v=coordinate()
+		{
+		 if(!relative)
+			{
+			this.last.y=v;
+			}
+		else
+			{
+			this.last.y+=v;
+			}
+		shape.lineTo(this.last.getX(),this.last.getY());
+		})+
+	}
+
+
+/**
+Close the current subpath by drawing a straight line from the current point to current subpath's initial point.
+*/
+private void closePath(GeneralPath shape):{}
+	{
+	<CLOSEPATH>
+		{
+		shape.closePath();
+		this.last=this.start;
+		}
+	}
+/** Draws a cubic Bézier curve from the current point to (x,y) using (x1,y1) as the control point at the beginning of the curve and (x2,y2) as the control point at the end of the curve. C (uppercase) indicates that absolute coordinates will follow; c (lowercase) indicates that relative coordinates will follow. Multiple sets of coordinates may be specified to draw a polybézier. At the end of the command, the new current point becomes the final (x,y) coordinate pair used in the polybézier */
+private void cubicBezier(GeneralPath shape):
+	{
+	Token t;
+	boolean relative;
+	Point2D.Double p1,p2,p3;
+	}
+	{
+	t=<CUBICBEZIER>{ relative=t.image.equals("c");}
+			((
+		separator()
+		p1=coords()
+		separator()
+		p2=coords()
+		separator()
+		p3=coords()
+		){
+		if(relative)
+			{
+			p1.x+=last.x;
+			p1.y+=last.y;
+			p2.x+=last.x;
+			p2.y+=last.y;
+			p3.x+=last.x;
+			p3.y+=last.y;
+			}
+		shape.curveTo(p1.getX(),p1.getY(),p2.getX(),p2.getY(),p3.getX(),p3.getY());
+		this.last=p3;
+		})+
+	}
+
+/**
+ *Draws a cubic Bézier curve from the current point to (x,y). The first control point is assumed to be the reflection of the second control point on the previous command relative to the current point. (If there is no previous command or if the previous command was not an C, c, S or s, assume the first control point is coincident with the current point.) (x2,y2) is the second control point (i.e., the control point at the end of the curve). S (uppercase) indicates that absolute coordinates will follow; s (lowercase) indicates that relative coordinates will follow. Multiple sets of coordinates may be specified to draw a polybézier. At the end of the command, the new current point becomes the final (x,y) coordinate pair used in the polybézier.
+ */
+private void smoothCubicBezier(GeneralPath shape):
+	{
+	Token t;
+	boolean relative;
+	Point2D.Double p1,p2;
+	}
+	{
+	t=<SMOOTHCUBICBEZIER>{ relative=t.image.equals("s");}
+			((
+		separator()
+		p1=coords()
+		separator()
+		p2=coords()
+		){
+		if(relative)
+			{
+			p1.x+=last.x;
+			p1.y+=last.y;
+			p2.x+=last.x;
+			p2.y+=last.y;
+			}
+		//WRONG TODO
+		shape.curveTo(last.getX(),last.getY(),p1.getX(),p1.getY(),p2.getX(),p2.getY());
+		this.last=p2;
+		})+
+	}
+/**
+Draws a quadratic Bézier curve from the current point to (x,y) using (x1,y1) as the control point. Q (uppercase) indicates that absolute coordinates will follow; q (lowercase) indicates that relative coordinates will follow. Multiple sets of coordinates may be specified to draw a polybézier. At the end of the command, the new current point becomes the final (x,y) coordinate pair used in the polybézier.
+*/
+private void quadraticCurve(GeneralPath shape):
+	{
+	Token t;
+	boolean relative;
+	Point2D.Double p1,p2;
+	}
+	{
+	t=<QUADRATICCURVE>{ relative=t.image.equals("q");}
+			((
+		separator()
+		p1=coords()
+		separator()
+		p2=coords()
+		){
+		if(relative)
+			{
+			p1.x+=last.x;
+			p1.y+=last.y;
+			p2.x+=last.x;
+			p2.y+=last.y;
+			}
+		//WRONG TODO
+		shape.quadTo(p1.getX(),p1.getY(),p2.getX(),p2.getY());
+		this.last=p2;
+		})+
+	}
+	
+	
+private void smootQuadraticCurve(GeneralPath shape):
+	{
+	Token t;
+	boolean relative;
+	Point2D.Double p1;
+	}
+	{
+	t=<QUADRATICSMOOTH>{ relative=t.image.equals("q");}
+			((
+		separator()
+		p1=coords()
+		){
+		if(relative)
+			{
+			p1.x+=last.x;
+			p1.y+=last.y;
+			}
+		//WRONG TODO
+		shape.quadTo(last.getX(),last.getY(),p1.getX(),p1.getY());
+		this.last=p1;
+		})+
+	}
+
+/** Draws an elliptical arc from the current point to (x, y). The size and orientation of the ellipse are defined by two radii (rx, ry) and an x-axis-rotation, which indicates how the ellipse as a whole is rotated relative to the current coordinate system. The center (cx, cy) of the ellipse is calculated automatically to satisfy the constraints imposed by the other parameters. large-arc-flag and sweep-flag contribute to the automatic calculations and help determine how the arc is drawn.*/
+private void ellipticArc(GeneralPath shape):
+	{
+	Token t;
+	boolean relative;
+	Point2D.Double p1;
+	double rx,ry;
+	double x_axis_rotation;
+	int larg_arc_flag;
+	int sweep_flag;
+	}
+	{
+	t=<ELLIPTICARC>{ relative=t.image.equals("a");}
+			((
+		separator()
+		rx=coordinate()
+		separator()
+		ry=coordinate()
+		separator()
+		x_axis_rotation=number()
+		separator()
+		larg_arc_flag=integer()
+		separator()
+		sweep_flag=integer()
+		){
+		//TODO
+		})+
+	}
+	
+private Point2D.Double coords():{double x;double y;}
+	{
+	(x=coordinate() separator() y=coordinate())
+		{
+		return new Point2D.Double(x,y);
+		}
+	}
+
+private double coordinate():{double n;}
+	{
+	(n=number())
+		{
+		return n;
+		}
+	}
+
+private double number():{double f;}
+	{
+	(f=integer()|f=floating())
+		{
+		return f;
+		}
+	}
+
+private double floating():{Token t;}
+	{
+	t=<FLOATING_NUMBER> { return Double.parseDouble(t.image);}
+	}
+
+private int integer():{int n;int sig=1;}
+	{
+	(<PLUS>{sig=1;} | <MINUS>{sig=-1;})? n=positiveInteger() { return n*sig;}
+	}
+
+private int positiveInteger():{Token t;}
+	{
+	t=<POSITIVE_INTEGER> { return Integer.parseInt(t.image);}
+	}
+
+private void separator():{}
+	{
+    	( (wsp())* ( comma()  (wsp())* )? )
+	}
+
+private void wsp():{}
+	{
+	<WS>
+	}
+private void comma():{}
+	{
+	<COMMA>
+	}
+
