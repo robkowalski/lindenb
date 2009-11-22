@@ -31,9 +31,8 @@ public class AbstractApplication
         	args[optind].equals("--help") ||
         	args[optind].equals("-?"))
                  {
-                 System.out.println(Compilation.getName());
-                 System.out.println(Me.FIRST_NAME+" "+Me.LAST_NAME+" "+Me.MAIL+" "+Me.WWW);
                  System.out.println(Compilation.getLabel());
+                 System.out.println(Me.FIRST_NAME+" "+Me.LAST_NAME+" "+Me.MAIL+" "+Me.WWW);
                  usage(System.out);
                  System.exit(0);
                  }

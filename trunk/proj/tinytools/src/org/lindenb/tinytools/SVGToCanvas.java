@@ -9,9 +9,11 @@ import java.awt.geom.Line2D;
 import java.awt.geom.PathIterator;
 import java.awt.geom.Rectangle2D;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Formatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +27,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import org.lindenb.awt.Dimension2D;
 import org.lindenb.io.IOUtils;
 import org.lindenb.lang.InvalidXMLException;
+import org.lindenb.me.Me;
 import org.lindenb.svg.SVGUtils;
 import org.lindenb.svg.path.ParseException;
 import org.lindenb.svg.path.SVGPathParser;
@@ -49,7 +52,7 @@ import org.w3c.dom.Node;
 public class SVGToCanvas
 	extends AbstractApplication
 	{
-	
+	private int precision=2;
 	private static long ID_GENERATOR=System.currentTimeMillis();
 	
 	public SVGToCanvas()
@@ -368,6 +371,12 @@ public class SVGToCanvas
 			this.fileout=new File(args[++optind]);
 			return optind;
 			}
+		else if(args[optind].equals("-p"))
+			{
+			this.precision=Integer.parseInt(args[++optind]);
+			if(this.precision<0) throw new IllegalArgumentException("Bad precision "+this.precision);
+			return optind;
+			}
 		return super.processArg(args, optind);
 		}
 	
@@ -378,6 +387,10 @@ public class SVGToCanvas
 	
 	private void endHTML()
 		{
+		print("<div><i>Author: "+Me.FIRST_NAME+" "+Me.LAST_NAME+" ( <a href='mailto:"+Me.MAIL+"'>"+
+			Me.MAIL+"</a> ) <a href='"+Me.WWW+"'>"	+
+			Me.WWW+"</a></i>"+
+			"</div>");
 		print("</body></html>");
 		}
 	
@@ -393,7 +406,11 @@ public class SVGToCanvas
 	
 	void print(String s)
 		{
-		output.println(s);
+		output.print(s);
+		if(LOG.getLevel()!=Level.OFF)
+			{
+			output.println();
+			}
 		}
 	
 	/**
@@ -555,20 +572,20 @@ public class SVGToCanvas
 						{
 						case PathIterator.SEG_MOVETO:
 							{
-							this.print("c.moveTo("+coords[0]+","+coords[1]+");");
+							this.print("c.moveTo("+fmt(coords[0])+","+fmt(coords[1])+");");
 							break;
 							}
 						case PathIterator.SEG_LINETO:
 							{
-							this.print("c.lineTo("+coords[0]+","+coords[1]+");");
+							this.print("c.lineTo("+fmt(coords[0])+","+fmt(coords[1])+");");
 							break;
 							}
 						case PathIterator.SEG_QUADTO:
 							{
 							this.print(
 								"c.quadraticCurveTo("+
-								coords[0]+","+coords[1]+","+
-								coords[2]+","+coords[3]+");"
+								fmt(coords[0])+","+fmt(coords[1])+","+
+								fmt(coords[2])+","+fmt(coords[3])+");"
 								);
 							break;
 							}
@@ -576,9 +593,9 @@ public class SVGToCanvas
 							{
 							this.print(
 								"c.bezierCurveTo("+
-								coords[0]+","+coords[1]+","+
-								coords[2]+","+coords[3]+","+
-								coords[4]+","+coords[5]+
+								fmt(coords[0])+","+fmt(coords[1])+","+
+								fmt(coords[2])+","+fmt(coords[3])+","+
+								fmt(coords[4])+","+fmt(coords[5])+
 								");"
 								);
 							break;
@@ -596,32 +613,6 @@ public class SVGToCanvas
 				if(do_stroke) this.print("c.stroke();");
 				
 				}
-			/*
-			
-			for(Selector sel:Selector.values())
-				{
-				
-					
-					this.print("c.lineWidth="+unit(step.value)+";");
-					}
-				else if(step.key.equals("lineCap"))
-					{
-					this.print("c.lineCap=\""+step.value+"\";");
-					}
-				else if(step.key.equals("lineJoin"))
-					{
-					this.print("c.lineJoin=\""+step.value+"\";");
-					}
-				else if(step.key.equals("miterLimit"))
-					{
-					this.print("c.miterLimit=\""+step.value+"\";");
-					}
-				
-				
-				}*/
-			
-			
-			
 			}
 		
 		
@@ -651,7 +642,14 @@ public class SVGToCanvas
 			}
 		
 		}
-		
+	
+	private String fmt(final double f)
+		{
+		StringBuilder sb = new StringBuilder();
+		Formatter formatter= new Formatter(sb);
+		formatter.format("%."+this.precision+"f", f);
+		return sb.toString();
+		}
 	
 	private void paintDocument(Document dom)
 		throws InvalidXMLException
@@ -705,7 +703,32 @@ public class SVGToCanvas
 		this.print("</div>");
 		}
 	
+	@Override
+	protected void usage(PrintStream out)
+		{
+		out.println("SVG2Canvas 2009."+Me.FIRST_NAME+" "+Me.LAST_NAME+" "+Me.LAST_NAME+" "+Me.WWW);
+		out.println("usage:\n\tsvg2canvas [options] (stdin| <svg files>+ )");
+		out.println("options:");
+		out.println(" -o <fileout>");
+		out.println(" -p <integer> precision default:"+this.precision);
+		super.usage(out);
+		}
 	
+	public static void transform(Document dom,PrintStream out)
+		throws IOException
+		{
+		try
+			{
+			SVGToCanvas app= new SVGToCanvas();
+			app.output=out;
+			app.paintDocument(dom);
+			out.flush();
+			}
+		catch (Exception e)
+			{
+			throw new IOException(e);
+			}
+		}
 	
 	@Override
 	protected int processArgs(String[] args)
@@ -747,6 +770,7 @@ public class SVGToCanvas
                         }
 			
 			endHTML();
+			this.output.print("\n");
 			this.output.flush();
 			
 			if(fileout!=null)

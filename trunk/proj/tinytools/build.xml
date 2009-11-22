@@ -7,7 +7,7 @@
  <property name="compiledir" value="${builddir}/compile"/>
 
 
- <target name="all" depends="imagetool,xsltstream,consequences,ffsurvey,sortpubmed,meshfreq,pictools,aboutrslist,java2dot,verticalize,findjar,gamonalisa,saxscript,xar,json2xml">
+ <target name="all" depends="svg2canvas,imagetool,xsltstream,consequences,ffsurvey,sortpubmed,meshfreq,pictools,aboutrslist,java2dot,verticalize,findjar,gamonalisa,saxscript,xar,json2xml">
 </target>
 
  <target name="build-ant-tasks">
@@ -522,6 +522,10 @@
 
 	<target name="json2xml" depends="declare-ant-tasks">
 		<compile appclass="JSON2Xml" appjar="json2xml" appname="JSON2Xml"/>
+	</target>
+	
+	<target name="svg2canvas" depends="declare-ant-tasks">
+		<compile appclass="SVGToCanvas" appjar="svg2canvas" appname="SVGToCanvas"/>
 	</target>
 
 	 <target name="emblstring" depends="declare-ant-tasks">
