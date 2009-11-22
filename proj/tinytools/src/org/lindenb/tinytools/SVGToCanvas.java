@@ -6,7 +6,6 @@ import java.awt.Shape;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Line2D;
-import java.awt.geom.NoninvertibleTransformException;
 import java.awt.geom.PathIterator;
 import java.awt.geom.Rectangle2D;
 import java.io.File;
@@ -16,6 +15,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
 
 
 import javax.xml.parsers.DocumentBuilder;
@@ -25,7 +25,6 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import org.lindenb.awt.Dimension2D;
 import org.lindenb.io.IOUtils;
 import org.lindenb.lang.InvalidXMLException;
-//import org.lindenb.svg.SVGUtils;
 import org.lindenb.svg.SVGUtils;
 import org.lindenb.svg.path.ParseException;
 import org.lindenb.svg.path.SVGPathParser;
@@ -131,7 +130,7 @@ public class SVGToCanvas
 	
 
 	
-	private PrintStream out= System.out;
+	private PrintStream output= System.out;
 	private File fileout=null;
 	
 	private void parse(
@@ -282,7 +281,8 @@ public class SVGToCanvas
 				state.shape=shape;
 				}
 			}
-		else if(StringUtils.isIn(shapeName,"title","defs","desc","metadata"))
+		else if(StringUtils.isIn(shapeName,
+			"title","defs","desc","metadata","flowRoot"))
 			{
 			//ignore
 			}
@@ -357,9 +357,7 @@ public class SVGToCanvas
 				}
 			}
 		if(StringUtils.isIn(key, "x","y","width","height","id")) return;
-		System.err.println("Not handled :"+key+"="+value);
-		
-		
+	    LOG.info("Not handled :"+key+"="+value);
 		}
 	
 	@Override
@@ -375,12 +373,12 @@ public class SVGToCanvas
 	
 	private void startHTML()
 		{
-		out.println("<html><body>");
+		print("<html><body>");
 		}
 	
 	private void endHTML()
 		{
-		out.println("</body></html>");
+		print("</body></html>");
 		}
 	
 	private String unit(String s)
@@ -393,6 +391,11 @@ public class SVGToCanvas
 		return s;
 		}
 	
+	void print(String s)
+		{
+		output.println(s);
+		}
+	
 	/**
 	 * generateCode
 	 */
@@ -402,7 +405,7 @@ public class SVGToCanvas
 			{
 			double f[]=new double[6];
 			state.getTransform().getMatrix(f);
-			out.println("c.setTransform("+
+			print("c.setTransform("+
 					f[0]+","+f[1]+","+
 					f[2]+","+f[3]+","+
 					f[4]+","+f[5]+");"
@@ -418,13 +421,13 @@ public class SVGToCanvas
 		
 		if(!fill.equals(current.get(Selector.FILL)))
 			{
-			if(!fill.equals("none")) out.println("c.fillStyle=\""+fill+"\";");
+			if(!fill.equals("none")) print("c.fillStyle=\""+fill+"\";");
 			current.put(Selector.FILL, fill);
 			}
 		
 		if(!stroke.equals(current.get(Selector.STROKE)))
 			{
-			if(!stroke.equals("none")) out.println("c.strokeStyle=\""+stroke+"\";");
+			if(!stroke.equals("none")) print("c.strokeStyle=\""+stroke+"\";");
 			current.put(Selector.STROKE, stroke);
 			}
 		
@@ -432,35 +435,35 @@ public class SVGToCanvas
 		
 		if(!opacity.equals(current.get(Selector.OPACITY)))
 			{
-			out.println("c.globalAlpha=\""+opacity+"\";");
+			this.print("c.globalAlpha=\""+opacity+"\";");
 			current.put(Selector.OPACITY, opacity);
 			}		
 		
 		String strokeWidth= state.get(Selector.STROKE_WIDTH);
 		if(!strokeWidth.equals(current.get(Selector.STROKE_WIDTH)))
 			{
-			out.println("c.lineWidth=\""+unit(strokeWidth)+"\";");
+			this.print("c.lineWidth=\""+unit(strokeWidth)+"\";");
 			current.put(Selector.STROKE_WIDTH, strokeWidth);
 			}
 		
 		String lineCap = state.get(Selector.STROKE_LINECAP);
 		if(!lineCap.equals(current.get(Selector.STROKE_LINECAP)))
 			{
-			out.println("c.lineCap=\""+lineCap+"\";");
+			this.print("c.lineCap=\""+lineCap+"\";");
 			current.put(Selector.STROKE_LINECAP, lineCap);
 			}
 		
 		String lineJoin = state.get(Selector.STROKE_LINEJOIN);
 		if(!lineJoin.equals(current.get(Selector.STROKE_LINEJOIN)))
 			{
-			out.println("c.lineJoin=\""+lineJoin+"\";");
+			this.print("c.lineJoin=\""+lineJoin+"\";");
 			current.put(Selector.STROKE_LINEJOIN, lineJoin);
 			}
 		
 		String mitterLimit = state.get(Selector.STROKE_MITERLIMIT);
 		if(!mitterLimit.equals(current.get(Selector.STROKE_MITERLIMIT)))
 			{
-			out.println("c.mitterLimit=\""+mitterLimit+"\";");
+			this.print("c.mitterLimit=\""+mitterLimit+"\";");
 			current.put(Selector.STROKE_MITERLIMIT, mitterLimit);
 			}
 		
@@ -496,14 +499,14 @@ public class SVGToCanvas
 		String textAnchor = state.get(Selector.TEXT_ANCHOR);
 		if(!textAnchor.equals(current.get(Selector.TEXT_ANCHOR)))
 			{
-			out.println("c.textAnchor=\""+textAnchor+"\";");
+			this.print("c.textAnchor=\""+textAnchor+"\";");
 			current.put(Selector.TEXT_ANCHOR, textAnchor);
 			}
 		
 		//textalign
 		if(font_changed)
 			{
-			out.print("c.font=\""+fontStyle+" "+fontWeight+" "+fontSize+" "+fontFamily+"\";");
+			this.print("c.font=\""+fontStyle+" "+fontWeight+" "+fontSize+" "+fontFamily+"\";");
 			}
 		
 		
@@ -511,14 +514,14 @@ public class SVGToCanvas
 			{
 			if(do_stroke)
 				{
-				out.println("c.strokeText(\""+
+				this.print("c.strokeText(\""+
 					C.escape(state.text.text)+"\","+
 					state.text.x+","+state.text.y+");");
 				}
 			
 			if(do_fill)
 				{
-				out.println("c.fillText(\""+
+				this.print("c.fillText(\""+
 					C.escape(state.text.text)+"\","+
 					state.text.x+","+state.text.y+");");
 				}
@@ -538,12 +541,12 @@ public class SVGToCanvas
 						(int)r.getY()+","+
 						(int)r.getWidth()+","+
 						(int)r.getHeight();
-				if(do_fill) out.println("c.fillRect("+tmp+");");
-				if(do_stroke) out.println("c.strokeRect("+tmp+");");
+				if(do_fill) this.print("c.fillRect("+tmp+");");
+				if(do_stroke) this.print("c.strokeRect("+tmp+");");
 				}
 			else
 				{
-				out.print("c.beginPath();");
+				this.print("c.beginPath();");
 				PathIterator iter= state.shape.getPathIterator(null);
 				float coords[]=new float[6];
 				while(!iter.isDone())
@@ -552,17 +555,17 @@ public class SVGToCanvas
 						{
 						case PathIterator.SEG_MOVETO:
 							{
-							out.print("c.moveTo("+coords[0]+","+coords[1]+");");
+							this.print("c.moveTo("+coords[0]+","+coords[1]+");");
 							break;
 							}
 						case PathIterator.SEG_LINETO:
 							{
-							out.print("c.lineTo("+coords[0]+","+coords[1]+");");
+							this.print("c.lineTo("+coords[0]+","+coords[1]+");");
 							break;
 							}
 						case PathIterator.SEG_QUADTO:
 							{
-							out.print(
+							this.print(
 								"c.quadraticCurveTo("+
 								coords[0]+","+coords[1]+","+
 								coords[2]+","+coords[3]+");"
@@ -571,7 +574,7 @@ public class SVGToCanvas
 							}
 						case PathIterator.SEG_CUBICTO:
 							{
-							out.print(
+							this.print(
 								"c.bezierCurveTo("+
 								coords[0]+","+coords[1]+","+
 								coords[2]+","+coords[3]+","+
@@ -582,15 +585,15 @@ public class SVGToCanvas
 							}
 						case PathIterator.SEG_CLOSE:
 							{
-							out.print("c.closePath();");
+							this.print("c.closePath();");
 							break;
 							}
 						}
 					
 					iter.next();
 					}
-				if(do_fill) out.println("c.fill();");
-				if(do_stroke) out.println("c.stroke();");
+				if(do_fill) this.print("c.fill();");
+				if(do_stroke) this.print("c.stroke();");
 				
 				}
 			/*
@@ -599,19 +602,19 @@ public class SVGToCanvas
 				{
 				
 					
-					out.println("c.lineWidth="+unit(step.value)+";");
+					this.print("c.lineWidth="+unit(step.value)+";");
 					}
 				else if(step.key.equals("lineCap"))
 					{
-					out.println("c.lineCap=\""+step.value+"\";");
+					this.print("c.lineCap=\""+step.value+"\";");
 					}
 				else if(step.key.equals("lineJoin"))
 					{
-					out.println("c.lineJoin=\""+step.value+"\";");
+					this.print("c.lineJoin=\""+step.value+"\";");
 					}
 				else if(step.key.equals("miterLimit"))
 					{
-					out.println("c.miterLimit=\""+step.value+"\";");
+					this.print("c.miterLimit=\""+step.value+"\";");
 					}
 				
 				
@@ -640,7 +643,7 @@ public class SVGToCanvas
 				throw new RuntimeException(e);
 				}*/
 			tr.getMatrix(f);
-			out.println("c.setTransform("+
+			this.print("c.setTransform("+
 					f[0]+","+f[1]+","+
 					f[2]+","+f[3]+","+
 					f[4]+","+f[5]+");"
@@ -681,14 +684,14 @@ public class SVGToCanvas
 		
 		Dimension2D size=SVGUtils.getSize(root);
 		long id=(++ID_GENERATOR);
-		out.print("<div>");
-		out.print(
+		this.print("<div>");
+		this.print(
 			"<canvas id='ctx"+id+"' " +
 				"width='"+size.getWidth()+"' " +
 				"height='"+size.getHeight()+"'></canvas>");
-		out.print("<script>");
+		this.print("<script>");
 		
-		out.print("function paint"+id+"(){" +
+		this.print("function paint"+id+"(){" +
 			"var canvas=document.getElementById('ctx"+id+"');" +
 			"if (!canvas.getContext) return;"+
 			"var c=canvas.getContext('2d');");
@@ -697,9 +700,9 @@ public class SVGToCanvas
 		
 		generateCode(init,new HashMap<Selector, String>());
 		
-		out.print("}paint"+id+"();</script>");
+		this.print("}paint"+id+"();</script>");
 		
-		out.println("</div>");
+		this.print("</div>");
 		}
 	
 	
@@ -721,7 +724,7 @@ public class SVGToCanvas
 			
 			if(fileout!=null)
 				{
-				this.out=new PrintStream(this.fileout);
+				this.output=new PrintStream(this.fileout);
 				}
 			
 			startHTML();
@@ -744,13 +747,13 @@ public class SVGToCanvas
                         }
 			
 			endHTML();
-			this.out.flush();
+			this.output.flush();
 			
 			if(fileout!=null)
 				{
-				this.out.close();
+				this.output.close();
 				}
-			this.out=System.out;
+			this.output=System.out;
 		} catch (Exception e)
 			{
 			e.printStackTrace();
@@ -764,6 +767,7 @@ public class SVGToCanvas
 	
 	public static void main(String[] args)
 		{
+		LOG.setLevel(Level.OFF);
 		try
 			{
 			new SVGToCanvas().processArgs(args);

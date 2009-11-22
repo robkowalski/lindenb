@@ -4,6 +4,7 @@ STATIC=false;
 DEBUG_PARSER=false;
 DEBUG_TOKEN_MANAGER=false;
 LOOKAHEAD=2;
+FORCE_LA_CHECK=true;
 }
 
 
@@ -25,7 +26,6 @@ public class SVGPathParser
 	public SVGPathParser(String s)
 		{
 		this(new java.io.StringReader(s));
-		System.err.println(s);
 		}
 	
 	public static Shape parse(String s)
@@ -66,10 +66,7 @@ TOKEN:
 		| <POSITIVE_INTEGER> (<EXPONENT>)
 		)
 		 >
-
-	| <WS: (" "|"\n"|"\t"|"\r")>
 	| <EXP: ("E"|"e") >
-	| <COMMA: ",">
 	| <MOVETO: ("M"|"m")>
 	| <LINEH: ("H"|"h")>
 	| <LINEV: ("V"|"v")>
@@ -82,14 +79,20 @@ TOKEN:
 	| <ELLIPTICARC: ("A"|"a")>
 	}
 
+
+SKIP :
+	{
+	" "
+	| "\t"
+	| "\n"
+	| "\r"
+	| "," /* comma */
+	}
+
 public Shape path():{GeneralPath shape=new GeneralPath();}
 	{
-	(
-	(wsp())*
 	( moveTo(shape) drawtoCommands(shape) )+
-	(wsp())*
 	<EOF>
-	)
 		{
 		return shape;
 		}
@@ -104,7 +107,7 @@ private void moveTo(GeneralPath shape):{boolean relative;Token t;Point2D.Double 
 	{
 	(
 	t=<MOVETO>{ relative=t.image.equals("m");}
-	separator()
+
 	p=coords()
 		{
 		if(last==null || !relative)
@@ -125,7 +128,7 @@ private void moveTo(GeneralPath shape):{boolean relative;Token t;Point2D.Double 
 	
 void drawtoCommands(GeneralPath shape):{}	
 	{
-	( separator() drawtoCommand(shape) )*
+	(drawtoCommand(shape))*
 	}
 	
 void drawtoCommand(GeneralPath shape):{}
@@ -154,7 +157,7 @@ private void lineTo(GeneralPath shape):{boolean relative;Token t;Point2D.Double 
 
 private void lineToSequence(GeneralPath shape,boolean relative):{Point2D.Double p;}
 	{
-	(separator() p=coords()
+	(p=coords()
 		{
 		if(!relative)
 			{
@@ -180,7 +183,7 @@ private void lineH(GeneralPath shape):{boolean relative;Token t;}
 
 private void lineHSequence(GeneralPath shape,boolean relative):{double v;}
 	{
-	( separator() v=coordinate()
+	( v=coordinate()
 		{
 		if(!relative)
 			{
@@ -204,7 +207,7 @@ private void lineV(GeneralPath shape):{boolean relative;Token t;double v;}
 	
 private void lineVSequence(GeneralPath shape,boolean relative):{double v;}
 	{
-	( separator() v=coordinate()
+	( v=coordinate()
 		{
 		 if(!relative)
 			{
@@ -240,11 +243,8 @@ private void cubicBezier(GeneralPath shape):
 	{
 	t=<CUBICBEZIER>{ relative=t.image.equals("c");}
 			((
-		separator()
 		p1=coords()
-		separator()
 		p2=coords()
-		separator()
 		p3=coords()
 		){
 		if(relative)
@@ -273,9 +273,7 @@ private void smoothCubicBezier(GeneralPath shape):
 	{
 	t=<SMOOTHCUBICBEZIER>{ relative=t.image.equals("s");}
 			((
-		separator()
 		p1=coords()
-		separator()
 		p2=coords()
 		){
 		if(relative)
@@ -302,9 +300,7 @@ private void quadraticCurve(GeneralPath shape):
 	{
 	t=<QUADRATICCURVE>{ relative=t.image.equals("q");}
 			((
-		separator()
 		p1=coords()
-		separator()
 		p2=coords()
 		){
 		if(relative)
@@ -330,7 +326,6 @@ private void smootQuadraticCurve(GeneralPath shape):
 	{
 	t=<QUADRATICSMOOTH>{ relative=t.image.equals("q");}
 			((
-		separator()
 		p1=coords()
 		){
 		if(relative)
@@ -358,15 +353,10 @@ private void ellipticArc(GeneralPath shape):
 	{
 	t=<ELLIPTICARC>{ relative=t.image.equals("a");}
 			((
-		separator()
 		rx=coordinate()
-		separator()
 		ry=coordinate()
-		separator()
 		x_axis_rotation=number()
-		separator()
 		larg_arc_flag=integer()
-		separator()
 		sweep_flag=integer()
 		){
 		//TODO
@@ -375,7 +365,7 @@ private void ellipticArc(GeneralPath shape):
 	
 private Point2D.Double coords():{double x;double y;}
 	{
-	(x=coordinate() separator() y=coordinate())
+	(x=coordinate()  y=coordinate())
 		{
 		return new Point2D.Double(x,y);
 		}
@@ -412,17 +402,4 @@ private int positiveInteger():{Token t;}
 	t=<POSITIVE_INTEGER> { return Integer.parseInt(t.image);}
 	}
 
-private void separator():{}
-	{
-    	( (wsp())* ( comma()  (wsp())* )? )
-	}
-
-private void wsp():{}
-	{
-	<WS>
-	}
-private void comma():{}
-	{
-	<COMMA>
-	}
 
