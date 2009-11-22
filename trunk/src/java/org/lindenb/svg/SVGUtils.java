@@ -14,6 +14,7 @@ import java.util.StringTokenizer;
 import java.util.logging.Logger;
 import org.lindenb.awt.Dimension2D;
 import org.lindenb.lang.InvalidXMLException;
+import org.lindenb.svg.path.SVGPathParser;
 import org.lindenb.sw.vocabulary.SVG;
 import org.lindenb.util.StringUtils;
 import org.lindenb.xml.XMLUtilities;
@@ -285,24 +286,6 @@ public class SVGUtils extends SVG
 		path.flush();
 	}
 
-	private static float getPathFloat(StringTokenizer t)
-		{
-		float pathFloat;
-		String tempBuffer = t.nextToken();
-		
-		while (tempBuffer.equals(",")|| tempBuffer.equals(" ")){
-			tempBuffer = t.nextToken();
-		}
-		if (tempBuffer.equals("-")){
-			pathFloat =(float) -1.0 * new Float(t.nextToken()).floatValue();
-		}
-		else{
-			pathFloat = new Float(tempBuffer).floatValue();
-		}
-		return(pathFloat);
-	}
-	
-		
 	
 	public static GeneralPath polygonToShape(String lineString )
 		{
@@ -347,225 +330,13 @@ public class SVGUtils extends SVG
 		}
 	
 	/**
-	 * pathToShape
-	 * inspired from http://www.blackdirt.com/graphics/svg/svgImage.java
 	 * @param pathString the path string
 	 * @return
 	 */
-	public static GeneralPath pathToShape(String pathString )
-	{
-		float fx=0,fy=0,fx1=0,fx2=0,fy1=0,fy2=0,oldfx=0,oldfy=0;
-		GeneralPath p = new GeneralPath(GeneralPath.WIND_EVEN_ODD);
-		
-
-		
-		StringTokenizer t = new StringTokenizer(pathString.trim().replaceAll("[ ]+"," ")," ,MmLlCczArSsHhVvDdEeFfGgJjQqTtz-",true);
-		
-		//boolean negate=false;
-		while(t.hasMoreElements()){
-			String tempBuffer = t.nextToken();
-			
-			switch (tempBuffer.charAt(0)){
-			case 'M': //Move To
-				fx = getPathFloat(t);
-				fy = getPathFloat(t);
-				oldfx=fx;
-				oldfy=fy;
-				p.moveTo(fx, fy);
-				break;
-			case 'm':
-				fx = getPathFloat(t);
-				fy = getPathFloat(t);
-				fx+=oldfx;
-				fy+=oldfy;
-				oldfx=fx;
-				oldfy=fy;
-				p.moveTo(fx, fy);
-				break;
-
-			case 'L': // Line to
-				fx = getPathFloat(t);
-				fy = getPathFloat(t);
-				oldfx=fx;
-				oldfy=fy;
-				p.lineTo(fx, fy);
-				break;
-			case 'l':
-				fx = getPathFloat(t);
-				fy = getPathFloat(t);
-				fx+=oldfx;
-				fy+=oldfy;
-				oldfx=fx;
-				oldfy=fy;
-				p.lineTo(fx, fy);
-				break;
-			case 'C':
-
-				fx = getPathFloat(t);
-				fy = getPathFloat(t);
-				fx1 = getPathFloat(t);
-				fy1 = getPathFloat(t);
-				fx2 = getPathFloat(t);
-				fy2 = getPathFloat(t);
-				p.curveTo(fx,fy,fx1,fy1,fx2,fy2);
-				oldfx= fx2;
-				oldfy= fy2;
-
-
-
-				break;
-			case 'c':
-
-				fx = getPathFloat(t);
-				fy = getPathFloat(t);
-				fx1 = getPathFloat(t);
-				fy1 = getPathFloat(t);
-				fx2 = getPathFloat(t);
-				fy2 = getPathFloat(t);
-				fx+=oldfx;
-				fy+=oldfy;
-				fx1+=oldfx;
-				fy1+=oldfy;
-				fx2+=oldfx;
-				fy2+=oldfy;
-				p.curveTo(fx,fy,fx1,fy1,fx2,fy2);
-				oldfx= fx2;
-				oldfy= fy2;
-
-				break;
-
-			case 'z':
-				//                   System.out.println("closepath");
-				break;
-
-			case 'A':
-				LOG.warning("Cannot handle Absolute");
-				break;
-			case 'r':
-				LOG.warning("Cannot handle relative");
-				break;
-
-			case 'S':
-				LOG.warning("Cannot handle Smooth curve");
-				break;
-
-			case 's':
-				LOG.warning("Cannot handle relative smooth curve");
-				break;
-
-
-			case 'H':
-				fy = getPathFloat(t);
-				oldfy=fy;
-				p.lineTo(oldfx, fy);
-
-
-				break;
-
-			case 'h':
-				fy = getPathFloat(t);
-				fy+=oldfy;
-				oldfy=fy;
-				p.lineTo(oldfx, fy);
-
-				break;
-
-			case 'V':
-				fx = getPathFloat(t);
-				oldfx=fx;
-				p.lineTo(fx, oldfy);
-
-				break;
-
-			case 'v':
-				fx = getPathFloat(t);
-				fx+=oldfx;
-				oldfx=fx;
-				p.lineTo(fx, oldfy);
-
-				break;
-
-			case 'D':
-				LOG.warning("Cannot handle arc 1 - see spec");
-				break;
-
-			case 'd':
-				LOG.warning("Cannot handle relative arc 1");
-				break;
-			case 'E':
-				LOG.warning("Cannot handle arc 2 - with line");
-				break;
-
-			case 'e':
-				LOG.warning("Cannot handle relative arc 2");
-				break;
-			case 'F':
-				LOG.warning("Cannot handle arc 3");
-				break;
-
-			case 'f':
-				LOG.warning("Cannot handle relative arc 3");
-				break;
-			case 'G':
-				LOG.warning("Cannot handle arc 4");
-				break;
-
-			case 'g':
-				LOG.warning("Cannot handle relative arc 4");
-				break;
-
-
-			case 'J':
-				LOG.warning("Cannot handle elliptical quadrant");
-				break;
-
-			case 'j':
-				LOG.warning("Cannot handle relative elliptical quadrant");
-				break;
-			case 'Q':
-				fx = getPathFloat(t);
-				fy = getPathFloat(t);
-				fx1 = getPathFloat(t);
-				fy1 = getPathFloat(t);
-				p.quadTo(fx,fy,fx1,fy1);
-				oldfx= fx2;
-				oldfy= fy2;
-
-
-				/*
-
-    quadTo(float x1, float y1, float x2, float y2) 
-              Adds a curved segment, defined by two new points, to the path by drawing a Quadratic curve that
-    intersects both the current coordinates and the coordinates (x2, y2), using the specified point (x1, y1) as a
-    quadratic parametric control point.
-
-				 */
-
-				break;
-
-			case 'q':
-				LOG.warning("Cannot handle relative quadratic bezier curve to");
-				break;
-			case 'T':
-				LOG.warning("Cannot handle True Type quadratic bezier curve ");
-				break;
-
-			case 't':
-				LOG.warning("Cannot handle relative True Type quadratic bezier curve");
-				break;
-
-			case '-':
-				//negate=true;
-				LOG.warning("Cannot handle Negative value");
-				break;
-
-			}
-
-
+	public static Shape pathToShape(String pathString )
+		{
+		return SVGPathParser.parse(pathString);
 		}
-
-		return p;
-	}
 
 }
 
