@@ -24,6 +24,7 @@ import org.lindenb.util.AbstractApplication;
 public class WebAppIsDown extends AbstractApplication
 	{
 	private static final String J2EE="http://java.sun.com/xml/ns/javaee";
+	private static final String XSI="http://www.w3.org/2001/XMLSchema-instance";
 	private File fileout;
 	private File messageFile=null;
 	private String messageString=null;
@@ -80,15 +81,16 @@ public class WebAppIsDown extends AbstractApplication
 		w.writeStartDocument("UTF-8","1.0");
 		w.writeStartElement("web-app");
 		w.writeAttribute("xsi",
-				"http://www.w3.org/2001/XMLSchema-instance",
+				XSI,
 				"schemaLocation",
 				"http://java.sun.com/xml/ns/javaee http://java.sun.com/xml /ns/javaee/web-app_2_5.xsd");
 		
 		w.writeAttribute("version","2.5");
 		w.writeAttribute("xmlns",J2EE);
+		w.writeAttribute("xmlns:xsi",XSI);
 
 		w.writeStartElement("description");
-		w.writeCharacters("Site maintenance for \""+appName+"\"");
+		w.writeCharacters("Site maintenance for "+appName);
 		w.writeEndElement();
 		
 		w.writeStartElement("display-name");
@@ -101,7 +103,7 @@ public class WebAppIsDown extends AbstractApplication
 			w.writeEndElement();//servlet-name
 			
 			w.writeStartElement("jsp-file");
-			w.writeCharacters("WEB-INF/jsp/down.jsp");
+			w.writeCharacters("/WEB-INF/jsp/down.jsp");
 			w.writeEndElement();//servlet-class
 		w.writeEndElement();//servlet
 		
@@ -135,7 +137,7 @@ public class WebAppIsDown extends AbstractApplication
 			}
 		else
 			{
-			w.print("<html><body><b>"+appName+"</b> is down for maintenance.</body></html>");
+			w.print("<html><body><div style='text-align:center;font-size:500%;'>Oh No !<br/><b>"+appName+"</b><br/>is down for maintenance!</div></body></html>");
 			}
 		w.flush();
 		zout.closeEntry();
