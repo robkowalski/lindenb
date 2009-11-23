@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Module>
+<ModulePrefs
+	title="Search NCBI/__UP_db__"
+	directory_title="Search NCBI/__UP_db__"
+	description="Search Pubmed/Genbank at the National Center for Biotechnology Information (NCBI)"
+	author="Pierre Lindenbaum PhD"
+	author_email="plindenbaum@yahoo.fr"
+	title_url="__FIX_THIS__/index.html"
+	author_affiliation="Pierre Lindenbaum"
+	author_location="France"
+	height="200"
+	width="320"
+	scrolling="true"
+	singleton="true"
+	screenshot="__FIX_THIS__/ncbi_screenshot.png"
+	thumbnail="__FIX_THIS__/ncbi_thumbnail.png"
+	author_photo="http://4.bp.blogspot.com/_19HRU-hRDtc/SMGGE5T10nI/AAAAAAAAAmU/R_mbNx_oN4E/S220/photoIG.jpg"
+	author_link="http://plindenbaum.blogspot.com"
+	author_aboutme="Bioinformatician at CEPH"
+	author_quote="A child of five would understand this. Send someone to fetch a child of five. "
+	>
+    <Locale lang="en"/>
+    <Locale lang="ja"/>
+    <Locale lang="fr"/>
+    <Locale lang="de"/>
+    <Locale lang="zn-cn"/>
+    <Locale lang="zh-tw"/>
+</ModulePrefs>
+<UserPref name="term"
+	display_name="Your Query"
+	datatype="string"
+	required="true"
+	default_value="Rotavirus"
+	/>
+<UserPref name="db"
+	display_name="Database"
+	datatype="enum"
+	required="true"
+	default_value="pubmed">
+	<EnumValue value="pubmed" display_value="Pubmed"/>
+	<EnumValue value="nucleotide" display_value="Nucleotide"/>
+	<EnumValue value="protein" display_value="Protein"/>
+</UserPref>
+<UserPref name="retmax"
+	  display_name="Number of items retrieved"
+	  datatype="enum"
+	  required="true"
+	  default_value="10">
+	<EnumValue value="1" display_value="1"/>
+	<EnumValue value="2" display_value="2"/>
+	<EnumValue value="10" display_value="10"/>
+	<EnumValue value="15" display_value="15"/>
+	<EnumValue value="20" display_value="20"/>
+	<EnumValue value="25" display_value="25"/>
+	<EnumValue value="50" display_value="50"/>
+	<EnumValue value="100" display_value="100"/>
+</UserPref>
+<Content type="html"><![CDATA[
+<style>
+#content__MODULE_ID__ {
+	font-size: 9pt;
+	margin: 5px; 
+	background-color: #FFFFBF;
+	}
+dt	{
+	font-size: 9pt;
+	}
+dd	{
+	font-size: 7pt;
+	}
+
+</style>
+<div id="content__MODULE_ID__"></div>
+<script type="text/javascript">
+
+var prefs__MODULE_ID__ = new _IG_Prefs(__MODULE_ID__);
+
+function dom1__MODULE_ID__(node,tag)
+{
+if(node==null || tag==null) return null;
+var n=node.firstChild;
+while(n!=null)
+{
+if(n.nodeName==tag) return n;
+n=n.nextSibling;
+}
+return null;
+}
+
+function dom2__MODULE_ID__(node)
+{
+if(node==null) return "undefined";
+var c= node.firstChild;
+if(c==null) return "undefined";
+return c.nodeValue;
+}
+
+function pubmed__MODULE_ID__(response)
+{
+var nodes = response.getElementsByTagName("PubmedArticle");
+var html="<div><dl>";
+for (var i = 0; i < nodes.length ; i++)
+{
+var MedlineCitation= dom1__MODULE_ID__(nodes.item(i),"MedlineCitation");
+var PMID= dom1__MODULE_ID__(MedlineCitation,"PMID");
+var Article = dom1__MODULE_ID__(MedlineCitation,"Article");
+var ArticleTitle = dom1__MODULE_ID__(Article,"ArticleTitle");
+var Title = dom1__MODULE_ID__(dom1__MODULE_ID__(MedlineCitation,"MedlineJournalInfo"),"MedlineTA");
+var AuthorList = dom1__MODULE_ID__(Article,"AuthorList");
+var Author = dom1__MODULE_ID__(AuthorList,"Author");
+var LastName = dom1__MODULE_ID__(Author,"LastName");
+
+html+='<dt><a title=\"show this Article\" href=\"http://www.ncbi.nlm.nih.gov/entrez/query.fcgi?db=pubmed&amp;cmd=Retrieve&amp;dopt=AbstractPlus&amp;list_uids='+dom2__MODULE_ID__(PMID)+
+	'\" target=\"pubmed'+dom2__MODULE_ID__(PMID)+
+	'\">'+dom2__MODULE_ID__(ArticleTitle)+'</a></dt>';
+html+='<dd><i>'+dom2__MODULE_ID__(Title)+'</i>. <u>'+dom2__MODULE_ID__(LastName)+'</u> &amp; al.</dd>';
+}
+
+html+="</dl></div>";
+_gel("content__MODULE_ID__").innerHTML = html; 
+
+}
+
+function sequence__MODULE_ID__(response)
+{
+var nodes = response.getElementsByTagName("TSeq");
+var html="<div><dl>";
+for (var i = 0; i < nodes.length ; i++)
+{
+var c=nodes.item(i);
+var TSeq_seqtype = dom1__MODULE_ID__(c,"TSeq_seqtype");
+var TSeq_gi = dom1__MODULE_ID__(c,"TSeq_gi");
+var TSeq_accver = dom1__MODULE_ID__(c,"TSeq_accver");
+var TSeq_orgname = dom1__MODULE_ID__(c,"TSeq_orgname");
+var TSeq_defline = dom1__MODULE_ID__(c,"TSeq_defline");
+var TSeq_length = dom1__MODULE_ID__(c,"TSeq_length");
+
+html+='<dt><a title=\"Show this Sequence\" href=\"http://www.ncbi.nlm.nih.gov/entrez/viewer.fcgi?db='+
+	TSeq_seqtype.getAttribute("value")+
+	'&amp;val='+dom2__MODULE_ID__(TSeq_gi)+
+	'\" target=\"seq'+dom2__MODULE_ID__(TSeq_gi)+
+	'\">'+dom2__MODULE_ID__(TSeq_defline)+'</a></dt>'+
+	'<dd><i>'+
+        dom2__MODULE_ID__(TSeq_accver)+
+         '</i>. <i>'+dom2__MODULE_ID__(TSeq_orgname)+'</i>. (length:'+dom2__MODULE_ID__(TSeq_length)+')</dd>';
+}
+
+html+="</dl></div>";
+
+
+_gel("content__MODULE_ID__").innerHTML = html; 
+}
+
+
+function dofetch__MODULE_ID__(response)
+{
+ if (response == null ||
+     typeof(response) != "object" || 
+     response.firstChild == null)
+     {
+     _gel("content__MODULE_ID__").innerHTML = "<i>Invalid data for efetch</i>";
+     return;
+     }
+if(prefs__MODULE_ID__.getString("db")=="pubmed")
+{
+pubmed__MODULE_ID__(response);
+}
+else
+{
+sequence__MODULE_ID__(response);
+}
+}
+
+function doesearch__MODULE_ID__(response)
+{
+
+ if (response == null ||
+     typeof(response) != "object" || 
+     response.firstChild == null)
+     {
+     _gel("content__MODULE_ID__").innerHTML = "<i>Invalid data for search</i>";
+     return;
+     }
+var nodes = response.getElementsByTagName("QueryKey");
+if(nodes==null || nodes.length!=1)
+	{
+     	_gel("content__MODULE_ID__").innerHTML = "<i>Error with QueryKey</i>";
+      	return;	
+	}
+var QueryKey=nodes.item(0).firstChild.nodeValue;
+nodes = response.getElementsByTagName("WebEnv");
+if(nodes==null || nodes.length!=1)
+	{
+     	_gel("content__MODULE_ID__").innerHTML = "<i>Error with WebEnv</i>";
+      	return;	
+	}
+var WebEnv=nodes.item(0).firstChild.nodeValue;
+var url= "http://www.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db="+
+	prefs__MODULE_ID__.getString("db")+
+	"&WebEnv="+escape(WebEnv)+
+	"&query_key="+escape(QueryKey)+
+	"&tool=gadget4ncbi"+
+	"&retmode=xml"+
+	"&usehistory=y"+
+	"&retmax="+prefs__MODULE_ID__.getString("retmax");
+
+if(prefs__MODULE_ID__.getString("db")!="pubmed")
+	{
+	url+="&rettype=fasta";
+	}
+
+_IG_FetchXmlContent(url,dofetch__MODULE_ID__);
+}
+
+function dogadget__MODULE_ID__()
+{
+var url= "http://www.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db="+
+	prefs__MODULE_ID__.getString("db")+
+	"&term="+escape(prefs__MODULE_ID__.getString("term"))+
+	"&tool=gadget4ncbi"+
+	"&retmode=xml"+
+	"&usehistory=y"+
+	"&retmax="+prefs__MODULE_ID__.getString("retmax");
+_IG_FetchXmlContent(url,doesearch__MODULE_ID__);
+}
+
+_IG_RegisterOnloadHandler(dogadget__MODULE_ID__);
+
+</script>
+]]></Content>
+</Module>
