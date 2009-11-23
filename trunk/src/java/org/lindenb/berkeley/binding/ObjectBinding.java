@@ -7,12 +7,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.sleepycat.bind.tuple.TupleBinding;
 import com.sleepycat.bind.tuple.TupleInput;
 import com.sleepycat.bind.tuple.TupleOutput;
 
 /** simple serialization object */
-public class ObjectBinding extends TupleBinding<Object>
+public class ObjectBinding extends XTupleBinding<Object>
 	{
 	private final static byte OP_CODE_NULL=0;
 	private final static byte OP_CODE_BOOLEAN=1;
@@ -30,6 +29,7 @@ public class ObjectBinding extends TupleBinding<Object>
 	private final static byte OP_CODE_BIG_DECIMAL=13;
 	
 	
+	@SuppressWarnings("unchecked")
 	@Override
 	public Object entryToObject(TupleInput in)
 		{
@@ -49,7 +49,7 @@ public class ObjectBinding extends TupleBinding<Object>
 		case OP_CODE_LIST:
 			{
 			int n=in.readInt();
-			List<Object> array= new ArrayList<Object>(n);
+			List<Object> array= createList(n);
 			for(int i=0;i<n;++i)
 				{
 				array.add(entryToObject(in));
@@ -59,11 +59,12 @@ public class ObjectBinding extends TupleBinding<Object>
 		case OP_CODE_MAP:
 			{
 			int n=in.readInt();
-			Map<String,Object> map= new HashMap<String,Object>(n);
+			Map map= createMap(n);
 			for(int i=0;i<n;++i)
 				{
+				Object key= entryToObject(in);
 				map.put(
-					in.readString(),	
+					key,	
 					entryToObject(in)
 					);
 				}
@@ -166,7 +167,7 @@ public class ObjectBinding extends TupleBinding<Object>
 			out.writeInt(m.size());
 			for(Object o:m.keySet())
 				{
-				out.writeString(String.valueOf(o));
+				objectToEntry(o,out);
 				objectToEntry(m.get(o),out);
 				}
 			}
@@ -177,5 +178,14 @@ public class ObjectBinding extends TupleBinding<Object>
 				);
 			}
 		}
-
+	@SuppressWarnings("unchecked")
+	protected Map createMap(int capacity)
+		{
+		return new HashMap(capacity);
+		}
+	@SuppressWarnings("unchecked")
+	protected List createList(int capacity)
+		{
+		return new ArrayList(capacity);
+		}
 	}
