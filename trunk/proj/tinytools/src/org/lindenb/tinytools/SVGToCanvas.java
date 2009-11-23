@@ -46,7 +46,7 @@ import org.w3c.dom.Node;
 /**
  * Transforms a Scalable Vector Graphics SVG
  * to javascript/Canvas
- * @author lindenb
+ * @author Pierre Lindenbaum
  *
  */
 public class SVGToCanvas
@@ -685,9 +685,9 @@ public class SVGToCanvas
 		this.print("<div>");
 		this.print(
 			"<canvas id='ctx"+id+"' " +
-				"width='"+size.getWidth()+"' " +
-				"height='"+size.getHeight()+"'></canvas>");
-		this.print("<script>");
+				"width='"+(int)(size.getWidth())+"' " +
+				"height='"+(int)(size.getHeight())+"'></canvas>");
+		this.print("<script>/* generated with svg2canvas by Pierre Lindenbaum http://plindenbaum.blogspot.com plindenbaum@yahoo.fr */");
 		
 		this.print("function paint"+id+"(){" +
 			"var canvas=document.getElementById('ctx"+id+"');" +
