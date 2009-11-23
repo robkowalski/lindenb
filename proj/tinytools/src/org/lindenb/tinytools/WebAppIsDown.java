@@ -6,6 +6,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.util.logging.Level;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -78,7 +79,7 @@ public class WebAppIsDown extends AbstractApplication
 		
 		XMLOutputFactory factory= XMLOutputFactory.newInstance();
 		XMLStreamWriter w= factory.createXMLStreamWriter(zout);
-		w.writeStartDocument("UTF-8","1.0");
+		w.writeStartDocument("ASCII","1.0");
 		w.writeStartElement("web-app");
 		w.writeAttribute("xsi",
 				XSI,
@@ -150,6 +151,7 @@ public class WebAppIsDown extends AbstractApplication
 	
 	public static void main(String[] args)
 		{
+		LOG.setLevel(Level.OFF);
 		try
 			{
 			WebAppIsDown app= new WebAppIsDown();
