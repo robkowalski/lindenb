@@ -1,0 +1,174 @@
+package org.lindenb.tinytools;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.io.PrintWriter;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+
+import javax.xml.stream.XMLOutputFactory;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamWriter;
+
+import org.lindenb.io.IOUtils;
+import org.lindenb.util.AbstractApplication;
+
+/**
+ * 
+ * WebAppIsDown
+ *
+ */
+public class WebAppIsDown extends AbstractApplication
+	{
+	private static final String J2EE="http://java.sun.com/xml/ns/javaee";
+	private File fileout;
+	private File messageFile=null;
+	private String messageString=null;
+	private WebAppIsDown()
+		{
+		
+		}
+	
+	@Override
+	protected void usage(PrintStream out)
+		{
+		out.println("Creates an empty J2EE web app with a custom message.");
+		out.println("Options:");
+		out.println(" -f <file> load custom message as file");
+		out.println(" -s <s> load custom message as string");
+		super.usage(out);
+		}
+	
+	@Override
+	protected int processArg(String[] args, int optind)
+		{
+		if(args[optind].equals("-f"))
+			{
+			this.messageFile= new File(args[++optind]);
+			return optind;
+			}
+		else if(args[optind].equals("-m"))
+			{
+			this.messageString= args[++optind];
+			return optind;
+			}
+		return super.processArg(args, optind);
+		}
+	
+	
+	
+	private void createWar()
+		throws IOException,XMLStreamException
+		{
+		String appName=this.fileout.getName();
+		int i=appName.indexOf(".");
+		if(i!=-1) appName=appName.substring(0,i);
+		
+		ZipOutputStream zout= new ZipOutputStream(new FileOutputStream(this.fileout));
+		
+		
+		{
+		ZipEntry entry= new ZipEntry("WEB-INF/web.xml");
+		zout.putNextEntry(entry);
+		
+		
+		XMLOutputFactory factory= XMLOutputFactory.newInstance();
+		XMLStreamWriter w= factory.createXMLStreamWriter(zout);
+		w.writeStartDocument("UTF-8","1.0");
+		w.writeStartElement("web-app");
+		w.writeAttribute("xsi",
+				"http://www.w3.org/2001/XMLSchema-instance",
+				"schemaLocation",
+				"http://java.sun.com/xml/ns/javaee http://java.sun.com/xml /ns/javaee/web-app_2_5.xsd");
+		
+		w.writeAttribute("version","2.5");
+		w.writeAttribute("xmlns",J2EE);
+
+		w.writeStartElement("description");
+		w.writeCharacters("Site maintenance for \""+appName+"\"");
+		w.writeEndElement();
+		
+		w.writeStartElement("display-name");
+		w.writeCharacters(appName);
+		w.writeEndElement();
+		
+		w.writeStartElement("servlet");
+			w.writeStartElement("servlet-name");
+			w.writeCharacters("down");
+			w.writeEndElement();//servlet-name
+			
+			w.writeStartElement("jsp-file");
+			w.writeCharacters("WEB-INF/jsp/down.jsp");
+			w.writeEndElement();//servlet-class
+		w.writeEndElement();//servlet
+		
+		w.writeStartElement("servlet-mapping");
+			w.writeStartElement("servlet-name");
+			w.writeCharacters("down");
+			w.writeEndElement();//servlet-name
+			
+			w.writeStartElement("url-pattern");
+			w.writeCharacters("/*");
+			w.writeEndElement();//url-pattern
+		w.writeEndElement();//servlet-mapping
+		w.writeEndElement();//web-app
+		w.writeEndDocument();
+		w.flush();
+		
+		zout.closeEntry();
+		}
+		
+		{
+		ZipEntry entry= new ZipEntry("WEB-INF/jsp/down.jsp");
+		zout.putNextEntry(entry);
+		PrintWriter w= new PrintWriter(zout);
+		if(this.messageFile!=null)
+			{
+			IOUtils.copyTo(new FileReader(this.messageFile), w);
+			}
+		else if(this.messageString!=null)
+			{
+			w.print("<html><body>"+this.messageString+"</body></html>");
+			}
+		else
+			{
+			w.print("<html><body><b>"+appName+"</b> is down for maintenance.</body></html>");
+			}
+		w.flush();
+		zout.closeEntry();
+		}
+		
+		zout.finish();
+		zout.flush();
+		zout.close();
+		}
+	
+	public static void main(String[] args)
+		{
+		try
+			{
+			WebAppIsDown app= new WebAppIsDown();
+			int i=app.processArgs(args);
+			
+			if(i+1!=args.length)
+				{
+				System.err.println("Illegal number of arguments.");
+				return;
+				}
+			app.fileout= new File(args[i]);
+			if(!app.fileout.getName().endsWith(".war"))
+				{
+				System.err.println("Name should end with '.war':"+app.fileout);
+				return;
+				}
+			app.createWar();
+			}
+		catch (Exception e)
+			{
+			e.printStackTrace();
+			}
+		}
+	}
