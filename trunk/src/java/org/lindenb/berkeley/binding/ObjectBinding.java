@@ -13,20 +13,20 @@ import com.sleepycat.bind.tuple.TupleOutput;
 /** simple serialization object */
 public class ObjectBinding extends XTupleBinding<Object>
 	{
-	private final static byte OP_CODE_NULL=0;
-	private final static byte OP_CODE_BOOLEAN=1;
-	private final static byte OP_CODE_STRING=2;
-	private final static byte OP_CODE_DOUBLE=3;
-	private final static byte OP_CODE_LIST=4;
-	private final static byte OP_CODE_MAP=5;
-	private final static byte OP_CODE_BIG_INTEGER=6;
-	private final static byte OP_CODE_INTEGER=7;
-	private final static byte OP_CODE_BYTE=8;
-	private final static byte OP_CODE_SHORT=9;
-	private final static byte OP_CODE_LONG=10;
-	private final static byte OP_CODE_FLOAT=11;
-	private final static byte OP_CODE_CHAR=12;
-	private final static byte OP_CODE_BIG_DECIMAL=13;
+	protected final static byte OP_CODE_NULL=0;
+	protected final static byte OP_CODE_BOOLEAN=1;
+	protected final static byte OP_CODE_STRING=2;
+	protected final static byte OP_CODE_DOUBLE=3;
+	protected final static byte OP_CODE_LIST=4;
+	protected final static byte OP_CODE_MAP=5;
+	protected final static byte OP_CODE_BIG_INTEGER=6;
+	protected final static byte OP_CODE_INTEGER=7;
+	protected final static byte OP_CODE_BYTE=8;
+	protected final static byte OP_CODE_SHORT=9;
+	protected final static byte OP_CODE_LONG=10;
+	protected final static byte OP_CODE_FLOAT=11;
+	protected final static byte OP_CODE_CHAR=12;
+	protected final static byte OP_CODE_BIG_DECIMAL=13;
 	
 	
 	@SuppressWarnings("unchecked")
@@ -58,17 +58,7 @@ public class ObjectBinding extends XTupleBinding<Object>
 			}
 		case OP_CODE_MAP:
 			{
-			int n=in.readInt();
-			Map map= createMap(n);
-			for(int i=0;i<n;++i)
-				{
-				Object key= entryToObject(in);
-				map.put(
-					key,	
-					entryToObject(in)
-					);
-				}
-			return map;
+			return readMap(in);
 			}
 		case OP_CODE_BIG_DECIMAL:
 			{
@@ -162,14 +152,7 @@ public class ObjectBinding extends XTupleBinding<Object>
 			}
 		else if(object instanceof Map<?,?>)
 			{
-			out.writeByte(OP_CODE_MAP);
-			Map <?,?> m=(Map <?,?>)object;
-			out.writeInt(m.size());
-			for(Object o:m.keySet())
-				{
-				objectToEntry(o,out);
-				objectToEntry(m.get(o),out);
-				}
+			writeMap(Map.class.cast(object),out);
 			}
 		else
 			{
@@ -187,5 +170,32 @@ public class ObjectBinding extends XTupleBinding<Object>
 	protected List createList(int capacity)
 		{
 		return new ArrayList(capacity);
+		}
+	
+	protected void writeMap(Map<?,?> map,TupleOutput out)
+		{
+		out.writeByte(OP_CODE_MAP);
+		out.writeInt(map.size());
+		for(Object o:map.keySet())
+			{
+			objectToEntry(o,out);
+			objectToEntry(map.get(o),out);
+			}
+		}
+	
+	@SuppressWarnings("unchecked")
+	protected Map<?,?> readMap(TupleInput in)
+		{
+		int n=in.readInt();
+		Map map= createMap(n);
+		for(int i=0;i<n;++i)
+			{
+			Object key= entryToObject(in);
+			map.put(
+				key,	
+				entryToObject(in)
+				);
+			}
+		return map;
 		}
 	}

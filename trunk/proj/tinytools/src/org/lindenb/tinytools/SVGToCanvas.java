@@ -182,7 +182,7 @@ public class SVGToCanvas
 		else if(shapeName.equals("path"))
 			{
 			Attr d= e.getAttributeNode("d");
-			if(d!=null)
+			if(d!=null && !StringUtils.isBlank(d.getValue()))
 				{
 				Shape shape;
 				try
@@ -190,7 +190,7 @@ public class SVGToCanvas
 				shape=new SVGPathParser(d.getValue()).path();
 				} catch(ParseException err)
 					{
-					throw new InvalidXMLException(e,err.getMessage());
+					throw new InvalidXMLException(e,"Cannot parse '"+d.getValue()+"' "+err.getMessage());
 					}
 				state.shape=shape;
 				}
