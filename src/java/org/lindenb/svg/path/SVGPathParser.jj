@@ -349,6 +349,7 @@ private void ellipticArc(GeneralPath shape):
 	double x_axis_rotation;
 	int larg_arc_flag;
 	int sweep_flag;
+	double x,y;
 	}
 	{
 	t=<ELLIPTICARC>{ relative=t.image.equals("a");}
@@ -358,6 +359,8 @@ private void ellipticArc(GeneralPath shape):
 		x_axis_rotation=number()
 		larg_arc_flag=integer()
 		sweep_flag=integer()
+		x=coordinate()
+		y=coordinate()
 		){
 		//TODO
 		})+
