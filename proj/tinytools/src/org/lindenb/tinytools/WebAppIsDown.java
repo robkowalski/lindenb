@@ -78,7 +78,7 @@ public class WebAppIsDown extends AbstractApplication
 		
 		
 		XMLOutputFactory factory= XMLOutputFactory.newInstance();
-		XMLStreamWriter w= factory.createXMLStreamWriter(zout);
+		XMLStreamWriter w= factory.createXMLStreamWriter(zout,"ASCII");
 		w.writeStartDocument("ASCII","1.0");
 		w.writeStartElement("web-app");
 		w.writeAttribute("xsi",
