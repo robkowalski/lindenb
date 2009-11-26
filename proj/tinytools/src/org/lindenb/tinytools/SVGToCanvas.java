@@ -327,6 +327,9 @@ public class SVGToCanvas
 		) throws InvalidXMLException
 		{
 		if(StringUtils.isBlank(key) || StringUtils.isBlank(value)) return;
+		
+		
+		
 		if(key.equals("style"))
 			{
 			for(String style:value.split("[;]+"))
@@ -350,7 +353,7 @@ public class SVGToCanvas
 			state.tr.concatenate(tr);
 			return;
 			}
-		
+		if(key.equals("fill-opacity")) key="opacity";//TODO
 		for(Selector sel:Selector.values())
 			{
 			if(key.equals(sel.name().toLowerCase().replace('_', '-')))
@@ -682,11 +685,15 @@ public class SVGToCanvas
 		
 		Dimension2D size=SVGUtils.getSize(root);
 		long id=(++ID_GENERATOR);
-		this.print("<div>");
+		this.print("<div " +
+				"style='text-align:center;' "+
+				"width='100%' " +
+				"height='"+(int)(2+size.getHeight())+"'"+
+				">");
 		this.print(
 			"<canvas id='ctx"+id+"' " +
 				"width='"+(int)(size.getWidth())+"' " +
-				"height='"+(int)(size.getHeight())+"'></canvas>");
+				"height='"+(int)(size.getHeight())+"'>Your browser does not support the &lt;CANVAS&gt; element !</canvas>");
 		this.print("<script>/* generated with svg2canvas by Pierre Lindenbaum http://plindenbaum.blogspot.com plindenbaum@yahoo.fr */");
 		
 		this.print("function paint"+id+"(){" +
@@ -700,7 +707,7 @@ public class SVGToCanvas
 		
 		this.print("}paint"+id+"();</script>");
 		
-		this.print("</div>");
+		this.print("</div>\n");
 		}
 	
 	@Override
