@@ -34,18 +34,12 @@ public class SVGUtils extends SVG
 	public static double castUnit(String s)
 		{
 		s=s.trim();
-		if(s.endsWith("px"))
+		if(s.endsWith("px") || s.endsWith("pt") || s.endsWith("cm"))
 			{
-			return Double.parseDouble(s.substring(0,s.length()-2).trim());
+			s=s.substring(0,s.length()-2).trim();
 			}
-		else if(s.endsWith("cm"))
-			{
-			return Double.parseDouble(s.substring(0,s.length()-2).trim())*100;
-			}
-		else
-			{
-			return Double.parseDouble(s);
-			}
+		
+		return Double.parseDouble(s);	
 		}
 	
 	/** return the dimension of a SVG document */
