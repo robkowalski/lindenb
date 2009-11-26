@@ -54,6 +54,7 @@ public class SVGToCanvas
 	{
 	private int precision=2;
 	private static long ID_GENERATOR=System.currentTimeMillis();
+	private static int VAR_GENERATOR=0;
 	
 	public SVGToCanvas()
 		{
@@ -362,7 +363,8 @@ public class SVGToCanvas
 				return;
 				}
 			}
-		if(StringUtils.isIn(key, "x","y","width","height","id")) return;
+		if(StringUtils.isIn(key, "x","y","width","height","id","points","rx","ry","class",
+				"cx","cy")) return;
 	    LOG.info("Not handled :"+key+"="+value);
 		}
 	
@@ -519,7 +521,6 @@ public class SVGToCanvas
 		String textAnchor = state.get(Selector.TEXT_ANCHOR);
 		if(!textAnchor.equals(current.get(Selector.TEXT_ANCHOR)))
 			{
-			this.print("c.textAnchor=\""+textAnchor+"\";");
 			current.put(Selector.TEXT_ANCHOR, textAnchor);
 			}
 		
@@ -532,18 +533,40 @@ public class SVGToCanvas
 		
 		if(state.text!=null && (do_fill || do_stroke))
 			{
+			
+			String qStr="\""+ C.escape(state.text.text)+"\"";
+			String x_pos=String.valueOf(state.text.x);
+			String anchor= current.get(Selector.TEXT_ANCHOR);
+			if(anchor==null || anchor.equalsIgnoreCase("start"))
+				{
+				//nothing
+				}
+			else if(anchor.equalsIgnoreCase("middle"))
+				{
+				VAR_GENERATOR++;
+				this.print("var t"+VAR_GENERATOR+"="+qStr+";");
+				this.print("var L"+VAR_GENERATOR+"=c.measureText(t"+VAR_GENERATOR+").width;");
+				qStr="t"+VAR_GENERATOR;
+				x_pos+="-0.5*L"+VAR_GENERATOR;
+				}
+			else if(anchor.equalsIgnoreCase("end"))
+				{
+				VAR_GENERATOR++;
+				this.print("var t"+VAR_GENERATOR+"="+qStr+";");
+				this.print("var L"+VAR_GENERATOR+"=c.measureText(t"+VAR_GENERATOR+").width;");
+				qStr="t"+VAR_GENERATOR;
+				x_pos+="-L"+VAR_GENERATOR;
+				}
 			if(do_stroke)
 				{
-				this.print("c.strokeText(\""+
-					C.escape(state.text.text)+"\","+
-					state.text.x+","+state.text.y+");");
+				this.print("c.strokeText("+qStr+","+
+					x_pos+","+state.text.y+");");
 				}
 			
 			if(do_fill)
 				{
-				this.print("c.fillText(\""+
-					C.escape(state.text.text)+"\","+
-					state.text.x+","+state.text.y+");");
+				this.print("c.fillText("+qStr+","+
+					x_pos+","+state.text.y+");");
 				}
 			}
 			
@@ -657,7 +680,7 @@ public class SVGToCanvas
 	private void paintDocument(Document dom)
 		throws InvalidXMLException
 		{
-
+		VAR_GENERATOR=0;//reset
 		
 	
 		Element root=dom.getDocumentElement();

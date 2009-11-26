@@ -10,7 +10,6 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.Scanner;
-import java.util.StringTokenizer;
 import java.util.logging.Logger;
 import org.lindenb.awt.Dimension2D;
 import org.lindenb.lang.InvalidXMLException;
