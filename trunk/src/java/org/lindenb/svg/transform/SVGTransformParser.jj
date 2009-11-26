@@ -34,7 +34,7 @@ public class SVGTransformParser
 			}
 		catch(ParseException err)
 			{
-			throw new IllegalArgumentException(err);
+			throw new IllegalArgumentException("Cannot parse transform \""+s+"\" :"+err);
 			}
 		}
 	
@@ -91,7 +91,22 @@ SKIP :
 	| "\r"
 	}
 
-public AffineTransform transform():{AffineTransform tr;}
+public AffineTransform transform():
+	{
+	AffineTransform newtr;
+	AffineTransform tr=new AffineTransform();
+	}
+	{
+	(( newtr = tr_item() 
+		{
+		tr.concatenate(newtr);
+		} )+ )
+		{
+		return tr;
+		}
+	}
+	
+public AffineTransform tr_item():{AffineTransform tr;}
 	{
 	(
 	  tr=matrix()
@@ -130,7 +145,7 @@ private AffineTransform translate():{double i1,i2;}
 	<TRANSLATE>
 	<PAR_OPEN>
 	i1= number()
-	<COMMA>
+	(<COMMA>)?
 	i2= number()
 	<PAR_CLOSE>
 		{
@@ -148,9 +163,9 @@ private AffineTransform rotate():{
 	<PAR_OPEN>
 	i1= number()
 		(
-		<COMMA>
+		(<COMMA>)?
 		i2= number()
-		<COMMA>
+		(<COMMA>)?
 		i3= number()
 		)?
 	<PAR_CLOSE>
@@ -173,7 +188,7 @@ private AffineTransform scale():{
 	<PAR_OPEN>
 	i1= number()
 		(
-		<COMMA>
+		(<COMMA>)?
 		i2= number()
 		)?
 	<PAR_CLOSE>
