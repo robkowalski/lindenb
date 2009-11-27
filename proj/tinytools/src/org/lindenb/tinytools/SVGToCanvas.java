@@ -7,11 +7,13 @@ import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Line2D;
 import java.awt.geom.PathIterator;
+import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Formatter;
 import java.util.HashMap;
@@ -33,8 +35,10 @@ import org.lindenb.svg.path.ParseException;
 import org.lindenb.svg.path.SVGPathParser;
 import org.lindenb.svg.transform.SVGTransformParser;
 import org.lindenb.sw.vocabulary.SVG;
+import org.lindenb.sw.vocabulary.XLINK;
 import org.lindenb.util.AbstractApplication;
 import org.lindenb.util.C;
+import org.lindenb.util.Cast;
 import org.lindenb.util.StringUtils;
 import org.lindenb.xml.XMLUtilities;
 import org.w3c.dom.Attr;
@@ -55,6 +59,7 @@ public class SVGToCanvas
 	private int precision=2;
 	private static long ID_GENERATOR=System.currentTimeMillis();
 	private static int VAR_GENERATOR=0;
+	private Map<String,Definition> id2definition=new HashMap<String, Definition>();
 	
 	public SVGToCanvas()
 		{
@@ -74,6 +79,12 @@ public class SVGToCanvas
 		}
 	
 	
+	private static class Definition
+		{
+		Element element;
+		String var;
+		}
+	
 	private static class Text
 		{
 		String text;
@@ -86,7 +97,12 @@ public class SVGToCanvas
 			this.text=text;
 			}
 		}
-	
+	private static class Image
+		{
+		String url=null;
+		Point2D top;
+		Dimension2D size=null;
+		}
 	/**
 	 * 
 	 * State
@@ -96,6 +112,7 @@ public class SVGToCanvas
 		{
 		State prev=null;
 		Text text=null;
+		Image image=null;
 		Shape shape=null;
 		AffineTransform tr=null;
 		List<State> children=new ArrayList<State>();
@@ -224,10 +241,10 @@ public class SVGToCanvas
 			if(x!=null && y!=null && w!=null && h!=null)
 				{
 				Shape shape =new Rectangle2D.Double(
-					Double.parseDouble(x.getValue()),
-					Double.parseDouble(y.getValue()),	
-					Double.parseDouble(w.getValue()),	
-					Double.parseDouble(h.getValue())
+					Double.parseDouble(unit(x.getValue())),
+					Double.parseDouble(unit(y.getValue())),	
+					Double.parseDouble(unit(w.getValue())),	
+					Double.parseDouble(unit(h.getValue()))
 					);
 				state.shape=shape;
 				}
@@ -241,10 +258,10 @@ public class SVGToCanvas
 			if(x1!=null && y1!=null && x2!=null && y2!=null)
 				{
 				Shape shape =new Line2D.Double(
-					Double.parseDouble(x1.getValue()),
-					Double.parseDouble(y1.getValue()),	
-					Double.parseDouble(x2.getValue()),	
-					Double.parseDouble(y2.getValue())
+					Double.parseDouble(unit(x1.getValue())),
+					Double.parseDouble(unit(y1.getValue())),	
+					Double.parseDouble(unit(x2.getValue())),	
+					Double.parseDouble(unit(y2.getValue()))
 					);
 				state.shape=shape;
 				}
@@ -256,10 +273,10 @@ public class SVGToCanvas
 			Attr r= e.getAttributeNode("r");
 			if(cx!=null && cy!=null && r!=null)
 				{
-				double radius=Double.parseDouble(r.getValue());
+				double radius=Double.parseDouble(unit(r.getValue()));
 				Shape shape =new Ellipse2D.Double(
-					Double.parseDouble(cx.getValue())-radius,
-					Double.parseDouble(cy.getValue())-radius,	
+					Double.parseDouble(unit(cx.getValue()))-radius,
+					Double.parseDouble(unit(cy.getValue()))-radius,	
 					radius*2,	
 					radius*2
 					);
@@ -274,11 +291,11 @@ public class SVGToCanvas
 			Attr ry= e.getAttributeNode("ry");
 			if(cx!=null && cy!=null && rx!=null && ry!=null)
 				{
-				double radiusx=Double.parseDouble(rx.getValue());
-				double radiusy=Double.parseDouble(ry.getValue());
+				double radiusx=Double.parseDouble(unit(rx.getValue()));
+				double radiusy=Double.parseDouble(unit(ry.getValue()));
 				Shape shape =new Ellipse2D.Double(
-					Double.parseDouble(cx.getValue())-radiusx,
-					Double.parseDouble(cy.getValue())-radiusy,	
+					Double.parseDouble(unit(cx.getValue()))-radiusx,
+					Double.parseDouble(unit(cy.getValue()))-radiusy,	
 					radiusx*2,	
 					radiusy*2
 					);
@@ -286,9 +303,22 @@ public class SVGToCanvas
 				}
 			}
 		else if(StringUtils.isIn(shapeName,
-			"title","defs","desc","metadata","flowRoot"))
+			"title","desc","metadata","flowRoot"))
 			{
 			//ignore
+			}
+		else if(shapeName.equals("defs"))
+			{
+			for(Node c=e.getFirstChild();c!=null;c=c.getNextSibling())
+				{
+				if(c.getNodeType()!=Node.ELEMENT_NODE) continue;
+				if(!SVG.NS.equals(c.getNamespaceURI())) continue;
+				Attr id= Element.class.cast(c).getAttributeNode("id");
+				if(id==null) continue;
+				Definition def= new Definition();
+				def.element=Element.class.cast(c);
+				this.id2definition.put(id.getValue(),def);
+				}
 			}
 		else if(shapeName.equals("text"))
 			{
@@ -297,10 +327,35 @@ public class SVGToCanvas
 			if(x!=null && y!=null)
 				{
 				state.text= new Text(
-					Double.parseDouble(x.getValue()),
-					Double.parseDouble(y.getValue()),
+					Double.parseDouble(unit(x.getValue())),
+					Double.parseDouble(unit(y.getValue())),
 					e.getTextContent()
 					);
+				}
+			}
+		else if(shapeName.equals("image"))
+			{
+			Attr x= e.getAttributeNode("x");
+			Attr y= e.getAttributeNode("y");
+			Attr w= e.getAttributeNode("width");
+			Attr h= e.getAttributeNode("height");
+			Attr url= e.getAttributeNodeNS(XLINK.NS, "href");
+			if(x!=null && y!=null &&  url!=null)
+				{
+				Image img= new Image();
+				img.url=url.getValue();
+				img.top =new Point2D.Double(
+						Double.parseDouble(unit(x.getValue())),
+						Double.parseDouble(unit(y.getValue()))
+						);
+				if(w!=null && h!=null )
+					{
+					img.size= new Dimension2D.Double(
+						Double.parseDouble(unit(w.getValue())),	
+						Double.parseDouble(unit(h.getValue()))
+						);
+					}
+				state.image=img;
 				}
 			}
 		else if(shapeName.equals("svg"))
@@ -401,10 +456,14 @@ public class SVGToCanvas
 	
 	private String unit(String s)
 		{
+		if(s.endsWith("in"))
+			{
+			return String.valueOf(Double.parseDouble(s.substring(0,s.length()-2).trim())*72);
+			}
 		if(s.endsWith("px") ||
 				s.endsWith("pt"))
 				{
-				return unit(s.substring(0,s.length()-2));
+				return s.substring(0,s.length()-2).trim();
 				}
 		return s;
 		}
@@ -416,6 +475,84 @@ public class SVGToCanvas
 			{
 			output.println();
 			}
+		}
+	/** extract the argument of a url(#id) argument */
+	@SuppressWarnings("unused")
+	private static String urlArg(String s)
+		{
+		if(s==null) return null;
+		s=s.replace(" ","").trim();
+		if(!s.startsWith("url(")) return null;
+		int i=s.indexOf(')');
+		if(i==-1) return null;
+		s= s.substring(4,i);
+		if(s.startsWith("#")) s=s.substring(1);
+		if(StringUtils.isBlank(s)) return null;
+		return s;
+		}
+	/** DOES NOT WORK because values can be given as percent */
+	@SuppressWarnings("unused")
+	private String paintUrl(String url)
+		{
+		Definition def=this.id2definition.get(url);
+		if(def==null) return null;
+		if(def.var!=null) return def.var;
+		
+		StringWriter w=new StringWriter();
+		
+		if(def.element.getLocalName().equals("linearGradient"))
+			{
+			Attr x1= def.element.getAttributeNode("x1");
+			Attr y1= def.element.getAttributeNode("x2");
+			Attr x2= def.element.getAttributeNode("y1");
+			Attr y2= def.element.getAttributeNode("y2");
+			if(x1==null || y1==null || x2==null || y2==null) return null;
+			
+			VAR_GENERATOR++;
+			def.var="g"+VAR_GENERATOR;
+			w.append(def.var+"=c.createLinearGradient("+
+				x1.getValue()+","+y1.getValue()+","+
+				x2.getValue()+","+y2.getValue()+");");
+			}
+		else if(def.element.getLocalName().equals("radialGradient"))
+			{
+			Attr cx= def.element.getAttributeNode("cx");
+			Attr cy= def.element.getAttributeNode("cy");
+			Attr fx= def.element.getAttributeNode("fx");
+			Attr fy= def.element.getAttributeNode("fy");
+			Attr r= def.element.getAttributeNode("r");
+			
+			if(fx==null) fx=cx;
+			if(fy==null) fy=cy;
+			if(cx==null || cy==null || r==null) return null;
+			
+			VAR_GENERATOR++;
+			def.var="g"+VAR_GENERATOR;
+			w.append(def.var+"=c.createRadialGradient("+
+				cx.getValue()+","+cy.getValue()+",0,"+
+				fx.getValue()+","+fy.getValue()+","+r.getValue()+");");
+			}
+		else
+			{
+			return null;
+			}
+		
+		for(Node c=def.element.getFirstChild();c!=null;c=c.getNextSibling())
+			{
+			if(c.getNodeType()!=Node.ELEMENT_NODE) continue;
+			Element e=Element.class.cast(c);
+			if(!e.getLocalName().equals("stop")) continue;
+			Attr stop_color= e.getAttributeNode("stop-color");
+			if(stop_color==null) continue;
+			Attr offset= e.getAttributeNode("offset");
+			if(offset==null) continue;
+			String percent=offset.getValue().trim();
+			if(!percent.endsWith("%")) continue;
+			Integer val=Cast.Integer.cast(percent.substring(0,percent.length()-1));
+			if(val==null) continue;
+			w.append(def.var+".addColorStop("+(val/100.0)+",\'"+C.escape(stop_color.getValue())+"\');");
+			}
+		return def.var;
 		}
 	
 	/**
@@ -443,7 +580,10 @@ public class SVGToCanvas
 		
 		if(!fill.equals(current.get(Selector.FILL)))
 			{
-			if(!fill.equals("none")) print("c.fillStyle=\""+fill+"\";");
+			if(!fill.equals("none"))
+				{
+				print("c.fillStyle=\""+fill+"\";");
+				}
 			current.put(Selector.FILL, fill);
 			}
 		
@@ -530,6 +670,28 @@ public class SVGToCanvas
 			this.print("c.font=\""+fontStyle+" "+fontWeight+" "+fontSize+" "+fontFamily+"\";");
 			}
 		
+		if(state.image!=null)
+			{
+			VAR_GENERATOR++;
+			this.print("var i"+VAR_GENERATOR+"=new Image();");
+			this.print("i"+VAR_GENERATOR+".src=\'"+C.escape(state.image.url)+"\';");
+			if(state.image.size==null)
+				{
+				this.print("c.drawImage(i"+VAR_GENERATOR+","+
+						fmt(state.image.top.getX())+","+
+						fmt(state.image.top.getY())+
+						");");
+				}
+			else
+				{
+				this.print("c.drawImage(i"+VAR_GENERATOR+","+
+						fmt(state.image.top.getX())+","+
+						fmt(state.image.top.getY())+","+
+						fmt(state.image.size.getWidth())+","+
+						fmt(state.image.size.getHeight())+
+						");");
+				}
+			}
 		
 		if(state.text!=null && (do_fill || do_stroke))
 			{
@@ -669,20 +831,25 @@ public class SVGToCanvas
 		
 		}
 	
+	
+	
 	private String fmt(final double f)
 		{
 		StringBuilder sb = new StringBuilder();
 		Formatter formatter= new Formatter(sb);
 		formatter.format("%."+this.precision+"f", f);
-		return sb.toString();
+		String s= sb.toString();
+		if(s.endsWith(".00")) return s.substring(0,s.length()-3);
+		return s;
 		}
 	
 	private void paintDocument(Document dom)
 		throws InvalidXMLException
 		{
 		VAR_GENERATOR=0;//reset
+		this.id2definition.clear();
+
 		
-	
 		Element root=dom.getDocumentElement();
 		if(root==null) throw new InvalidXMLException(dom,"no root");
 		if(!XMLUtilities.isA(root, SVG.NS, "svg")) throw new InvalidXMLException(root,"not a SVG root");
@@ -731,6 +898,9 @@ public class SVGToCanvas
 		this.print("}paint"+id+"();</script>");
 		
 		this.print("</div>\n");
+		
+		//cleanup
+		this.id2definition.clear();
 		}
 	
 	@Override

@@ -24,6 +24,8 @@ import javax.xml.transform.stream.StreamResult;
 
 import org.lindenb.io.IOUtils;
 import org.lindenb.lang.InvalidXMLException;
+import org.lindenb.svg.path.ParseException;
+import org.lindenb.svg.path.SVGPathParser;
 import org.lindenb.sw.vocabulary.SVG;
 import org.lindenb.util.Cast;
 import org.lindenb.util.Compilation;
@@ -34,7 +36,6 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 
-import com.ibm.icu.util.StringTokenizer;
 
 public class SketchySVG
 {
@@ -325,238 +326,19 @@ public void _transform(Node root) throws InvalidXMLException
 			}
 		}
 	}
-private static float getPathFloat(StringTokenizer t)
+
+
+private static Shape Path2Shape(String pathString )
 	{
-	float pathFloat;
-	String tempBuffer = t.nextToken();
-	while (tempBuffer.equals(",")|| tempBuffer.equals(" "))
+	try
 		{
-		
-		tempBuffer = t.nextToken();
+		return new SVGPathParser(pathString).path();
 		}
-	if (tempBuffer.equals("-")){
-	  pathFloat =(float) -1.0 * new Float(t.nextToken()).floatValue();
+	catch (ParseException e)
+		{
+		throw new RuntimeException(e);
+		}
 	}
-	else{
-	     pathFloat = new Float(tempBuffer).floatValue();
-	}
-	
-	return(pathFloat);
-	}
-
-
-
-private static GeneralPath Path2Shape(String pathString )
-	{
-	float fx=0,fy=0,fx1=0,fx2=0,fy1=0,fy2=0,oldfx=0,oldfy=0;
-	GeneralPath p = new GeneralPath(GeneralPath.WIND_EVEN_ODD);
-	
-	StringTokenizer t = new StringTokenizer(pathString.trim().replaceAll("[ ]+"," ")," \t,MmLlCczArSsHhVvDdEeFfGgJjQqTtz-",true);
-	while(t.hasMoreElements()){
-	    String tempBuffer = t.nextToken().trim();
-	   // System.err.println("next is "+tempBuffer+" with "+tempBuffer.charAt(0));
-	    //boolean negate=false;
-	    switch (tempBuffer.charAt(0)){
-	      case 'M': //Move To
-	               fx = getPathFloat(t);
-	               fy = getPathFloat(t);
-	               oldfx=fx;
-	               oldfy=fy;
-	               p.moveTo(fx, fy);
-	               break;
-	      case 'm':
-	               fx = getPathFloat(t);
-	               fy = getPathFloat(t);
-	               fx+=oldfx;
-	               fy+=oldfy;
-	               oldfx=fx;
-	               oldfy=fy;
-	               p.moveTo(fx, fy);
-	               break;
-	
-	      case 'L': // Line to
-	               fx = getPathFloat(t);
-	               fy = getPathFloat(t);
-	               oldfx=fx;
-	               oldfy=fy;
-	               p.lineTo(fx, fy);
-	               break;
-	      case 'l':
-	               fx = getPathFloat(t);
-	               fy = getPathFloat(t);
-	               fx+=oldfx;
-	               fy+=oldfy;
-	               oldfx=fx;
-	               oldfy=fy;
-	               p.lineTo(fx, fy);
-	               break;
-	      case 'C':
-	
-	               fx = getPathFloat(t);
-	               fy = getPathFloat(t);
-	               fx1 = getPathFloat(t);
-	               fy1 = getPathFloat(t);
-	               fx2 = getPathFloat(t);
-	               fy2 = getPathFloat(t);
-	               p.curveTo(fx,fy,fx1,fy1,fx2,fy2);
-	               oldfx= fx2;
-	               oldfy= fy2;
-	
-	
-	
-	               break;
-	      case 'c':
-	
-	               fx = getPathFloat(t);
-	               fy = getPathFloat(t);
-	               fx1 = getPathFloat(t);
-	               fy1 = getPathFloat(t);
-	               fx2 = getPathFloat(t);
-	               fy2 = getPathFloat(t);
-	               fx+=oldfx;
-	               fy+=oldfy;
-	               fx1+=oldfx;
-	               fy1=oldfy;
-	               fx2+=oldfx;
-	               fy2+=oldfy;
-	               p.curveTo(fx,fy,fx1,fy1,fx2,fy2);
-	               oldfx= fx2;
-	               oldfy= fy2;
-	
-	               break;
-	
-	      case 'z':
-	//               System.out.println("closepath");
-	               break;
-	
-	      case 'A':
-	               System.out.println("Absolute");
-	               break;
-	      case 'r':
-	               System.out.println("relative");
-	               break;
-	
-	      case 'S':
-	               System.out.println("Smooth curve");
-	               break;
-	
-	      case 's':
-	               System.out.println("relative smooth curve");
-	               break;
-	
-	
-	      case 'H':
-	               fy = getPathFloat(t);
-	               oldfy=fy;
-	               p.lineTo(oldfx, fy);
-	
-	
-	               break;
-	
-	      case 'h':
-	               fy = getPathFloat(t);
-	               fy+=oldfy;
-	               oldfy=fy;
-	               p.lineTo(oldfx, fy);
-	
-	               break;
-	
-	      case 'V':
-	               fx = getPathFloat(t);
-	               oldfx=fx;
-	               p.lineTo(fx, oldfy);
-	
-	               break;
-	
-	      case 'v':
-	               fx = getPathFloat(t);
-	               fx+=oldfx;
-	               oldfx=fx;
-	               p.lineTo(fx, oldfy);
-	
-	               break;
-	
-	      case 'D':
-	               System.out.println("arc 1 - see spec");
-	               break;
-	
-	      case 'd':
-	               System.out.println("relative arc 1");
-	               break;
-	      case 'E':
-	               System.out.println("arc 2 - with line");
-	               break;
-	
-	      case 'e':
-	               System.out.println("relative arc 2");
-	               break;
-	      case 'F':
-	               System.out.println("arc 3");
-	               break;
-	
-	      case 'f':
-	               System.out.println("relative arc 3");
-	               break;
-	      case 'G':
-	               System.out.println("arc 4");
-	               break;
-	
-	      case 'g':
-	               System.out.println("relative arc 4");
-	               break;
-	
-	
-	      case 'J':
-	               System.out.println("elliptical quadrant");
-	               break;
-	
-	      case 'j':
-	               System.out.println("relative elliptical quadrant");
-	               break;
-	      case 'Q':
-	               fx = getPathFloat(t);
-	               fy = getPathFloat(t);
-	               fx1 = getPathFloat(t);
-	               fy1 = getPathFloat(t);
-	               p.quadTo(fx,fy,fx1,fy1);
-	               oldfx= fx2;
-	               oldfy= fy2;
-	
-	
-	/*
-	
-	quadTo(float x1, float y1, float x2, float y2) 
-	          Adds a curved segment, defined by two new points, to the path by drawing a Quadratic curve that
-	intersects both the current coordinates and the coordinates (x2, y2), using the specified point (x1, y1) as a
-	quadratic parametric control point.
-	
-	*/
-	
-	               break;
-	
-	      case 'q':
-	               System.out.println("relative quadratic bezier curve to");
-	               break;
-	      case 'T':
-	               System.out.println("True Type quadratic bezier curve ");
-	               break;
-	
-	      case 't':
-	               System.out.println("relative True Type quadratic bezier curve");
-	               break;
-	
-	      case '-':
-	               System.err.println("Negative value");
-	               break;
-	               
-	      default: System.err.println("??? \""+tempBuffer.charAt(0)+"\"");
-	    }
-	
-	
-	  }
-	
-	return p;
-}
 
 
 private String shape2noise(Shape shape)
