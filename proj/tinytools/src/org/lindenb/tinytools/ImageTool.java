@@ -3,6 +3,7 @@ package org.lindenb.tinytools;
 import java.awt.Dimension;
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
@@ -16,6 +17,7 @@ import org.lindenb.sw.vocabulary.DC;
 import org.lindenb.sw.vocabulary.FOAF;
 import org.lindenb.sw.vocabulary.RDF;
 import org.lindenb.sw.vocabulary.SVG;
+import org.lindenb.util.Base64;
 import org.lindenb.util.Compilation;
 import org.lindenb.util.StringUtils;
 import org.lindenb.xml.XMLUtilities;
@@ -127,6 +129,64 @@ public class ImageTool
 		handler.endDocument();
 		}
 	
+	private void base64(URL url)
+		throws IOException
+		{
+		BufferedImage img=ImageIO.read(url);
+		String s=url.toString();
+		int i=s.indexOf('?');
+		if(i!=-1) s=s.substring(0,i);
+		i=s.indexOf('#');
+		if(i!=-1) s=s.substring(0,i);
+		String fmt=null;
+		i=s.lastIndexOf('.');
+		if(i!=-1) fmt=s.substring(i+1).toLowerCase();
+		if(StringUtils.isBlank(fmt))
+			{
+			fmt="jpeg";
+			}
+	
+		ByteArrayOutputStream baos=new ByteArrayOutputStream();
+		ImageIO.write(img, fmt, baos);
+		baos.flush();
+		baos.close();
+		String b64=Base64.encode(baos.toByteArray());
+		System.out.println(url+"\n"+
+				img.getWidth()+"\n"+
+				img.getHeight()+"\n"+
+				fmt+"\n"+b64);
+		}
+	
+	private void run_base64(String[] args,int optind) throws IOException
+		{
+		if(optind==args.length)
+			{
+			String line=null;
+			BufferedReader r= new BufferedReader(new InputStreamReader(System.in));
+			while((line=r.readLine())!=null)
+				{
+				if(line.startsWith("#") || StringUtils.isBlank(line)) continue;
+				URL url=new URL(line);
+				base64(url);
+				}
+			r.close();
+			}
+		else
+			{
+			while(optind<args.length)
+				{
+				URL url=new URL(args[optind++]);
+				base64(url);
+				}
+			}
+		}
+	
+	
+	
+	
+	
+	
+	
 	public static void main(String[] args)
 		{
 		ImageTool app=new ImageTool();
@@ -141,7 +201,9 @@ public class ImageTool
 					System.err.println(Compilation.getLabel());
 					System.err.println("-p program");
 					System.err.println(" 'size' dump the sizes of the images ");
-					System.err.println(" <stdin|urls>");
+					System.err.println("      <stdin|urls>");
+					System.err.println(" 'base64' images as base64 ");
+					System.err.println("      <stdin|urls>");
 					return;
 					}
 				else if(args[optind].equals("-p"))
@@ -172,6 +234,10 @@ public class ImageTool
 			else if(program.equals("size"))
 				{
 				app.run_sizes(args,optind);
+				}
+			else if(program.equals("base64"))
+				{
+				app.run_base64(args,optind);
 				}
 			else
 				{
