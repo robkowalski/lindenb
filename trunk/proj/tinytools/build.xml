@@ -7,7 +7,7 @@
  <property name="compiledir" value="${builddir}/compile"/>
 
 
- <target name="all" depends="svg2canvas,imagetool,xsltstream,consequences,ffsurvey,sortpubmed,meshfreq,pictools,aboutrslist,java2dot,verticalize,findjar,gamonalisa,saxscript,xar,json2xml">
+ <target name="all" depends="echoproxy,svg2canvas,imagetool,xsltstream,consequences,ffsurvey,sortpubmed,meshfreq,pictools,aboutrslist,java2dot,verticalize,findjar,gamonalisa,saxscript,xar,json2xml">
 </target>
 
  <target name="build-ant-tasks">
@@ -532,6 +532,10 @@
 		<compile appclass="WebAppIsDown" appjar="webappisdown" appname="WebAppIsDown"/>
 	</target>
 
+	<target name="echoproxy" depends="declare-ant-tasks">
+		<compile appclass="EchoProxy" appjar="echoproxy" appname="EchoProxy"/>
+	</target>
+	
 	 <target name="emblstring" depends="declare-ant-tasks">
 		 <mkdir dir="${compiledir}"/>
 		 

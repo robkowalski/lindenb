@@ -56,6 +56,7 @@ import org.w3c.dom.Node;
 public class SVGToCanvas
 	extends AbstractApplication
 	{
+	private Integer overrideWidth=null;
 	private int precision=2;
 	private static long ID_GENERATOR=System.currentTimeMillis();
 	private static int VAR_GENERATOR=0;
@@ -435,6 +436,12 @@ public class SVGToCanvas
 			{
 			this.precision=Integer.parseInt(args[++optind]);
 			if(this.precision<0) throw new IllegalArgumentException("Bad precision "+this.precision);
+			return optind;
+			}
+		else if(args[optind].equals("-w"))
+			{
+			this.overrideWidth=Integer.parseInt(args[++optind]);
+			if(this.overrideWidth<=0) throw new IllegalArgumentException("Bad width "+this.overrideWidth);
 			return optind;
 			}
 		return super.processArg(args, optind);
@@ -874,22 +881,39 @@ public class SVGToCanvas
 		
 		
 		Dimension2D size=SVGUtils.getSize(root);
+		Dimension2D newsize=new Dimension2D.Double(size);
+		String initialTransform="";
+		if(this.overrideWidth!=null
+			&& (int)size.getWidth()!=this.overrideWidth)
+			{
+			double ratio= this.overrideWidth/size.getWidth();
+			newsize.setSize(
+				size.getWidth()*ratio,
+				size.getHeight()*ratio
+				);
+			initialTransform="c.scale("+ratio+","+ratio+");";
+			init.tr=AffineTransform.getScaleInstance(ratio, ratio);
+			}
+		
+		
 		long id=(++ID_GENERATOR);
 		this.print("<div " +
 				"style='text-align:center;' "+
 				"width='100%' " +
-				"height='"+(int)(2+size.getHeight())+"'"+
+				"height='"+(int)(2+newsize.getHeight())+"'"+
 				">");
 		this.print(
 			"<canvas id='ctx"+id+"' " +
-				"width='"+(int)(size.getWidth())+"' " +
-				"height='"+(int)(size.getHeight())+"'>Your browser does not support the &lt;CANVAS&gt; element !</canvas>");
+				"width='"+(int)(newsize.getWidth())+"' " +
+				"height='"+(int)(newsize.getHeight())+"'>Your browser does not support the &lt;CANVAS&gt; element !</canvas>");
 		this.print("<script>/* generated with svg2canvas by Pierre Lindenbaum http://plindenbaum.blogspot.com plindenbaum@yahoo.fr */");
 		
 		this.print("function paint"+id+"(){" +
 			"var canvas=document.getElementById('ctx"+id+"');" +
 			"if (!canvas.getContext) return;"+
-			"var c=canvas.getContext('2d');");
+			"var c=canvas.getContext('2d');"+
+			initialTransform
+			);
 				
 		
 		
@@ -911,6 +935,7 @@ public class SVGToCanvas
 		out.println("options:");
 		out.println(" -o <fileout>");
 		out.println(" -p <integer> precision default:"+this.precision);
+		out.println(" -w width [optional]");
 		super.usage(out);
 		}
 	
