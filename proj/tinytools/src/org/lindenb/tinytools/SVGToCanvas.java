@@ -9,11 +9,14 @@ import java.awt.geom.Line2D;
 import java.awt.geom.PathIterator;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.io.StringWriter;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Formatter;
 import java.util.HashMap;
@@ -22,6 +25,7 @@ import java.util.Map;
 import java.util.logging.Level;
 
 
+import javax.imageio.ImageIO;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
@@ -37,6 +41,7 @@ import org.lindenb.svg.transform.SVGTransformParser;
 import org.lindenb.sw.vocabulary.SVG;
 import org.lindenb.sw.vocabulary.XLINK;
 import org.lindenb.util.AbstractApplication;
+import org.lindenb.util.Base64;
 import org.lindenb.util.C;
 import org.lindenb.util.Cast;
 import org.lindenb.util.StringUtils;
@@ -57,6 +62,7 @@ public class SVGToCanvas
 	extends AbstractApplication
 	{
 	private Integer overrideWidth=null;
+	private boolean useBase64ForImages=false;
 	private int precision=2;
 	private static long ID_GENERATOR=System.currentTimeMillis();
 	private static int VAR_GENERATOR=0;
@@ -444,6 +450,11 @@ public class SVGToCanvas
 			if(this.overrideWidth<=0) throw new IllegalArgumentException("Bad width "+this.overrideWidth);
 			return optind;
 			}
+		else if(args[optind].equals("-b"))
+			{
+			this.useBase64ForImages=!this.useBase64ForImages;
+			return optind;
+			}
 		return super.processArg(args, optind);
 		}
 	
@@ -681,7 +692,43 @@ public class SVGToCanvas
 			{
 			VAR_GENERATOR++;
 			this.print("var i"+VAR_GENERATOR+"=new Image();");
-			this.print("i"+VAR_GENERATOR+".src=\'"+C.escape(state.image.url)+"\';");
+			String imagesrc="i"+VAR_GENERATOR+".src=\'"+C.escape(state.image.url)+"\';";
+			if(this.useBase64ForImages)
+				{
+				LOG.info("loading image "+state.image.url);
+				try
+					{
+					BufferedImage img= ImageIO.read(new URL(state.image.url));
+					ByteArrayOutputStream baos=new ByteArrayOutputStream();
+					
+					//guess image format
+					String s=state.image.url;
+					int i=s.indexOf('?');
+					if(i!=-1) s=s.substring(0,i);
+					i=s.indexOf('#');
+					if(i!=-1) s=s.substring(0,i);
+					String formatName=null;
+					i=s.lastIndexOf('.');
+					if(i!=-1) formatName=s.substring(i+1).toLowerCase();
+					if(StringUtils.isBlank(formatName))
+						{
+						formatName="jpeg";
+						}
+					
+					ImageIO.write(img, formatName, baos);
+					baos.flush();
+					baos.close();
+					imagesrc="i"+VAR_GENERATOR+".src=\'data:image/"+
+						formatName.toLowerCase()+
+						";base64,"+C.escape(Base64.encode(baos.toByteArray()).replace("\r"," ").replace("\n"," ").replace(" ", ""))+"\';";
+					}
+				catch (IOException e)
+					{
+					System.err.println("Cannot use Base64 for "+state.image.url+" "+e.getMessage());
+					}
+				
+				}
+			this.print(imagesrc);
 			if(state.image.size==null)
 				{
 				this.print("c.drawImage(i"+VAR_GENERATOR+","+
@@ -934,6 +981,7 @@ public class SVGToCanvas
 		out.println("usage:\n\tsvg2canvas [options] (stdin| <svg files>+ )");
 		out.println("options:");
 		out.println(" -o <fileout>");
+		out.println(" -b use base64 for images rather than the URL (default:"+this.useBase64ForImages+")");
 		out.println(" -p <integer> precision default:"+this.precision);
 		out.println(" -w width [optional]");
 		super.usage(out);
