@@ -3,7 +3,9 @@ package org.lindenb.xml;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+
 
 import org.lindenb.util.StringUtils;
 import org.w3c.dom.Attr;
@@ -405,5 +407,96 @@ public static void validateAsDataOrientedDocument(Node node)
 	
 	}
 
+private static class ForEach1
+	implements Iterable<Element>
+	{
+	private Node root;
+	private String namespaceuri;
+	private String localName;
 
+	class Iter implements Iterator<Element>
+		{
+		private boolean _first=true;
+		private boolean _hasNextCalled=false;
+		private Element _next=null;
+		private boolean _eofMet=false;
+		
+		@Override
+		public boolean hasNext()
+			{
+			if(_hasNextCalled)
+				{
+				return _next!=null;
+				}
+			_hasNextCalled=true;
+			if(_eofMet)
+				{
+				return false;
+				}
+			Node c=null;
+			if(_first)
+				{
+				c=root.getFirstChild();
+				_first=false;
+				}
+			else
+				{
+				c=_next.getNextSibling();
+				}
+			while(c!=null)
+				{
+				if(c.getNodeType()==Node.ELEMENT_NODE &&
+				   ForEach1.this.namespaceuri.equals(c.getNamespaceURI())&&
+				   ForEach1.this.localName.equals(c.getLocalName()))
+					{
+					break;
+					}
+				c=c.getNextSibling();
+				}
+			if(c==null)
+				{
+				_eofMet=true;
+				_next=null;
+				return false;
+				}
+			else
+				{
+				_next=Element.class.cast(c);
+				return true;
+				}
+			}
+		@Override
+		public Element next()
+			{
+			if(!_hasNextCalled) hasNext();
+			if(_next==null) throw new IllegalStateException();
+			_hasNextCalled=false;
+			return _next;
+			}
+		@Override
+		public void remove()
+			{
+			throw new UnsupportedOperationException();
+			}
+		}
+	
+	ForEach1(Node root,String namespaceuri,String localName)
+		{
+		this.root=root;
+		this.namespaceuri=namespaceuri;
+		this.localName=localName;
+		}
+	
+	@Override
+	public Iterator<Element> iterator()
+		{
+		return new Iter();
+		}
+	}
+
+
+public static Iterable<Element> forEach(Node parent,String namespaceuri,String localName)
+	{
+	return new ForEach1(parent,namespaceuri,localName);
+	}
 }
