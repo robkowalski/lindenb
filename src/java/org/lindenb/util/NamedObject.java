@@ -42,7 +42,7 @@ public class NamedObject<K> extends Pair<K,String> {
 	@Override
 	public boolean equals(Object obj) {
 		if(obj==this) return true;
-		if(obj==null || !(obj instanceof NamedObject)) return false;
+		if(obj==null || !(obj instanceof NamedObject<?>)) return false;
 		NamedObject<?> p= NamedObject.class.cast(obj);
 		return this.getObject().equals(p.getObject())
 				;

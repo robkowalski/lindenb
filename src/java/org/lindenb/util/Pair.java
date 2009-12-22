@@ -30,7 +30,7 @@ public class Pair<K,V> extends XObject {
 			return true;
 		if (obj==null)
 			return false;
-		if (!(obj instanceof Pair))
+		if (!(obj instanceof Pair<?,?>))
 			return false;
 		Pair<?,?> other = (Pair<?,?>) obj;
 		if (first() == null) {
