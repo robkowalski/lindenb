@@ -32,7 +32,7 @@ public class NamedKey<K extends Comparable<K>> extends NamedObject<K> {
 	@Override
 	public boolean equals(Object obj) {
 		if(obj==this) return true;
-		if(obj==null || !(obj instanceof NamedKey)) return false;
+		if(obj==null || !(obj instanceof NamedKey<?>)) return false;
 		NamedKey<?> p= NamedKey.class.cast(obj);
 		return this.getId().equals(p.getId())
 				;
