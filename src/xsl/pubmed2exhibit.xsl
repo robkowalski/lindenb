@@ -33,7 +33,7 @@ Author:
 Usage:
 	xsltproc   pubmed2exhibit.xsl ~/pubmed_result.xml > file.html
 
-Optional Parameters
+Optional Parameters:
 	'title' overrides the title
 	'analytics' code for google analytics
 	
@@ -41,10 +41,12 @@ Optional Parameters
 		xsltproc \-\-stringparam title "My Bibliography" \-\-stringparam analytics "UA-XXXXX-X" \-\-novalid pubmed2exhibit.xsl ~/pubmed_result.txt > ~/jeter.html
 	
 	
-ref: http://simile.mit.edu/mail/ReadMsg?listId=10&msgId=22059
-http://www.dpawson.co.uk/xsl/sect2/N2696.html
-http://www.eggheadcafe.com/articles/20010508.asp
-Author : Pierre Lindenbaum
+References:
+ 	http://plindenbaum.blogspot.com/2010/01/transforming-pubmed-to-simileexhibit.html
+	http://simile.mit.edu/mail/ReadMsg?listId=10&msgId=22059
+	http://www.dpawson.co.uk/xsl/sect2/N2696.html
+	http://www.eggheadcafe.com/articles/20010508.asp
+
 -->
 <xsl:output method='html' />
 <xsl:key name="distinct-authors" match="//Author" use="."/>
