@@ -114,7 +114,7 @@ References:
             }
 
 
-	div.title {
+	div.label {
            font-weight: bold;
            font-size:   120%;
            }
@@ -166,7 +166,7 @@ References:
    			:<span ex:content=".pages" class="pages"></span>
    		</span>
    	</div>
-   	<div ex:content=".title" class="title"></div>
+   	<div ex:content=".label" class="label"></div>
    	
    	<div ex:content=".authors" class="authors"></div>
 	
@@ -191,6 +191,7 @@ References:
 		<!-- BEGIN VIEW for TIMELINE -->
 		<div ex:role="view"
 		ex:viewClass="Timeline"
+		ex:label="View As Timeline"
 		ex:start=".date"
 		ex:colorKey=".year">
 		</div>
@@ -267,14 +268,27 @@ References:
 
 <xsl:template match="PubmedArticle">
 	<xsl:variable name="pmid"><xsl:value-of select="MedlineCitation/PMID"/></xsl:variable>
+	<xsl:variable name="title">
+		<xsl:choose>
+			<xsl:when test="MedlineCitation/Article/ArticleTitle">
+				<xsl:call-template name="quote">
+					<xsl:with-param name="s" select="MedlineCitation/Article/ArticleTitle"/>
+				</xsl:call-template>
+			</xsl:when>
+			<xsl:otherwise>
+				<xsl:text>"</xsl:text>
+				<xsl:value-of select="$pmid"/>
+				<xsl:text>"</xsl:text>
+			</xsl:otherwise>
+		 </xsl:choose>
+	</xsl:variable>
 	<xsl:if test="position()&gt;1"><xsl:text>,</xsl:text></xsl:if>
 	{
 	"type":"Article",
 	"id":"pmid:<xsl:value-of select="$pmid"/>",
-	"label":"pmid:<xsl:value-of select="$pmid"/>",
+	"label":<xsl:value-of select="$title"/>,
 	"pmid":<xsl:value-of select="$pmid"/>,
 	"url":"http://www.ncbi.nlm.nih.gov/pubmed/<xsl:value-of select="$pmid"/>"
-	<xsl:apply-templates select="MedlineCitation/Article/ArticleTitle" mode="json"/>
 	<xsl:apply-templates select="MedlineCitation/Article/Journal/JournalIssue" mode="json"/>
 	<xsl:apply-templates select="MedlineCitation/MedlineJournalInfo/MedlineTA" mode="json"/>
 	<xsl:apply-templates select="MedlineCitation/Article/Pagination/MedlinePgn" mode="json"/>
@@ -371,12 +385,7 @@ References:
 	</xsl:call-template>
 </xsl:template>
 
-<xsl:template match="ArticleTitle" mode="json">
-	<xsl:text>,"title":</xsl:text>
-	<xsl:call-template name="quote">
-		<xsl:with-param name="s" select="."/>
-	</xsl:call-template>
-</xsl:template>
+
 
 <xsl:template match="Year" mode="json">
 	<xsl:text>,"year":</xsl:text>
