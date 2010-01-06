@@ -183,4 +183,25 @@ public class IOUtils
 		try { in.close(); } catch(IOException err) {}
 		}
 	
+	/** creates a new directory in the default tmp directory*/
+	public static File createTempDir() throws IOException
+		{
+		return createTempDir(null);
+		}
+	
+	/** creates a new directory in the given directory*/
+	public static File createTempDir(File parentDir) throws IOException
+		{
+		File dir= File.createTempFile("_tmp_dir_", ".dir",parentDir);
+		if(!(dir.delete()))//it is a FILE, delete it and make it a directory
+		    {
+		    throw new IOException("Could not delete file: " + dir.getAbsolutePath());
+		    }
+		if(!(dir.mkdir()))
+		    {
+		    throw new IOException("Could not create temp directory: " + dir.getAbsolutePath());
+		    }
+		return dir;
+		}
+	
 	}

@@ -1,5 +1,8 @@
 package org.lindenb.util;
 
+import java.util.Arrays;
+import java.util.Collection;
+
 /**
  * Utilities for Strings or CharSequence
  * @author lindenb
@@ -79,5 +82,86 @@ public class StringUtils
 		{
 		for(String s:ends) if(search.endsWith(s)) return true;
 		return false;
+		}
+	
+	public static String ljust(String s,int width,char fillchar)
+		{
+		if(s==null || s.length()>=width) return s;
+
+		StringBuilder b=new StringBuilder(width);
+		b.append(s);
+		while(b.length()<width)
+			{
+			b.append(fillchar);
+			}
+		return b.toString();
+		}
+	public static String ljust(String s,int width)
+		{
+		return ljust(s, width,' ');
+		}
+	
+	public static String rjust(String s,int width,char fillchar)
+		{
+		if(s==null || s.length()>=width) return s;
+		StringBuilder b=new StringBuilder(width);
+		while(b.length()<(width-s.length()))
+			{
+			b.append(fillchar);
+			}
+		b.append(s);
+		return b.toString();
+		}
+	
+	public static String rjust(String s,int width)
+		{
+		return rjust(s, width,' ');
+		}
+	
+	public static String swapcase(String s)
+		{
+		StringBuilder b=new StringBuilder(s.length());
+		for(int i=0;i< s.length();++i)
+			{
+			char c=s.charAt(i);
+			if(Character.isLetter(c))
+				{
+				if(Character.isUpperCase(c))
+					{
+					c=Character.toLowerCase(c);
+					}
+				else
+					{
+					c=Character.toUpperCase(c);
+					}
+				}
+			b.append(c);
+			}
+		return b.toString();
+		}
+	
+	public static String join(Collection<?> c,String sep)
+		{
+		StringBuilder b=new StringBuilder();
+		boolean first=true;
+		for(Object o:c)
+			{
+			if(!first) b.append(sep);
+			first=false;
+			b.append(String.valueOf(o));
+			}
+		return b.toString();
+		}
+	public static String join(Collection<?> c)
+		{
+		return join(c," ");
+		}
+	public static String join(Object c[],String sep)
+		{
+		return  join(Arrays.asList(c),sep);
+		}
+	public static String join(Object c[])
+		{
+		return  join(Arrays.asList(c));
 		}
 	}
