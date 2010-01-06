@@ -1,17 +1,6 @@
 <?xml version='1.0' encoding="UTF-8"?>
 <xsl:stylesheet
-	xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-	xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
-	xmlns:event="http://purl.org/NET/c4dm/event.owl#"
-	xmlns:bibo="http://purl.org/ontology/bibo/"
-	xmlns:foaf="http://xmlns.com/foaf/0.1/"
-	xmlns:vcard="http://www.w3.org/2001/vcard-rdf/3.0#"
-	xmlns:doap="http://usefulinc.com/ns/doap#"
-	xmlns:dc="http://purl.org/dc/elements/1.1/"
-	xmlns:dcterms="http://purl.org/dc/terms/"
 	xmlns:xsl='http://www.w3.org/1999/XSL/Transform'
-	xmlns:owl="http://www.w3.org/2002/07/owl#"
-	
 	xmlns:ex="http://simile.mit.edu/2006/11/exhibit#"
 	version='1.0'
 	>
@@ -497,14 +486,14 @@ References:
 
 
 <xsl:template match="ArticleIdList">
-	<bibo:doi><xsl:value-of select="ArticleId"/></bibo:doi>
+	<xsl:value-of select="ArticleId"/>
 </xsl:template>
 
 
 <xsl:template match="ArticleId">
 	<xsl:choose>
 		<xsl:when test="@IdType=&apos;doi&apos;">
-		<bibo:doi><xsl:value-of select="."/></bibo:doi>
+		<xsl:value-of select="."/>
 		</xsl:when>
 	</xsl:choose>
 </xsl:template>
@@ -519,7 +508,7 @@ References:
 
 <xsl:template match="MeshHeading">
 	<xsl:for-each select="DescriptorName">
-		<xsl:element name="dc:subject"><xsl:value-of select="."/></xsl:element>
+		<xsl:value-of select="."/>
 	</xsl:for-each>
 </xsl:template>
 
