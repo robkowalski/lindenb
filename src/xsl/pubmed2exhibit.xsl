@@ -17,9 +17,22 @@
 	>
 <!--
 
-This stylesheet transforms one or more Pubmed
-Article into a Exhibit ( http://simile.mit.edu/wiki/Exhibit )
-presentation
+Source:
+	http://code.google.com/p/lindenb/source/browse/trunk/src/xsl/pubmed2exhibit.xsl
+
+Motivation:
+	This stylesheet transforms one or more Pubmed
+	Article into a Exhibit ( http://simile.mit.edu/wiki/Exhibit )
+	presentation
+
+Author:
+	Pierre Lindenbaum
+	plindenbaum@yahoo.fr
+	http://plindenbaum.blogspot.com
+
+Usage:
+	xsltproc   pubmed2exhibit.xsl ~/pubmed_result.xml > file.xml
+
 
 ref: http://simile.mit.edu/mail/ReadMsg?listId=10&msgId=22059
 http://www.dpawson.co.uk/xsl/sect2/N2696.html
@@ -83,7 +96,11 @@ Author : Pierre Lindenbaum
            border-radius: 20px; 
            background-color:rgb(230,230,230);
            }
-
+	
+	div.me {
+           font-style:  italic;
+           font-size:   50%;
+            }
 
 
 	div.title {
@@ -189,6 +206,7 @@ Author : Pierre Lindenbaum
 		Pierre Lindenbaum PhD.
 		<a href="mailto:plindenbaum@yahoo.fr">plindenbaum@yahoo.fr</a>
 		<a href="http://plindenbaum.blogspot.com">http://plindenbaum.blogspot.com</a>
+		Made with <a href="http://code.google.com/p/lindenb/source/browse/trunk/src/xsl/pubmed2exhibit.xsl">pubmed2exhibit.xsl</a>
 	</div>
     </body>
     </html>
@@ -393,7 +411,7 @@ Author : Pierre Lindenbaum
 <xsl:param name="node"/>
 
 <xsl:variable name="the-name">
-	<xsl:call-template name="firstName">
+	<xsl:call-template name="lastName">
 		<xsl:with-param name="node" select="$node"/>
 	</xsl:call-template>
 	
@@ -404,7 +422,7 @@ Author : Pierre Lindenbaum
 	
 	<xsl:text> </xsl:text>
 	
-	<xsl:call-template name="lastName">
+	<xsl:call-template name="firstName">
 		<xsl:with-param name="node" select="$node"/>
 	</xsl:call-template>
 </xsl:variable>
