@@ -31,9 +31,16 @@ Author:
 	http://plindenbaum.blogspot.com
 
 Usage:
-	xsltproc   pubmed2exhibit.xsl ~/pubmed_result.xml > file.xml
+	xsltproc   pubmed2exhibit.xsl ~/pubmed_result.xml > file.html
 
-
+Optional Parameters
+	'title' overrides the title
+	'analytics' code for google analytics
+	
+	example:
+		xsltproc \-\-stringparam title "My Bibliography" \-\-stringparam analytics "UA-XXXXX-X" \-\-novalid pubmed2exhibit.xsl ~/pubmed_result.txt > ~/jeter.html
+	
+	
 ref: http://simile.mit.edu/mail/ReadMsg?listId=10&msgId=22059
 http://www.dpawson.co.uk/xsl/sect2/N2696.html
 http://www.eggheadcafe.com/articles/20010508.asp
@@ -41,12 +48,11 @@ Author : Pierre Lindenbaum
 -->
 <xsl:output method='html' />
 <xsl:key name="distinct-authors" match="//Author" use="."/>
+<xsl:param name="title"></xsl:param>
+<xsl:param name="analytics"></xsl:param>
 
 <xsl:template match="/">
 <html>
-
-
-
 
 
    <xsl:comment>
@@ -55,11 +61,18 @@ Author : Pierre Lindenbaum
 	http://plindenbaum.blogspot.com
 	plindenbaum@yahoo.fr 
    </xsl:comment>
-   <xsl:variable name="title">
-   	<xsl:value-of select="count(/PubmedArticleSet/PubmedArticle)"/><xsl:text> Articles.</xsl:text>
+   <xsl:variable name="title2">
+   	<xsl:choose>
+   		<xsl:when test="string-length($title)=0">
+	   		<xsl:value-of select="count(/PubmedArticleSet/PubmedArticle)"/><xsl:text> Articles.</xsl:text>
+	   	</xsl:when>
+	   	<xsl:otherwise>
+	   		<xsl:value-of select="$title"/>
+	   	</xsl:otherwise>
+   	</xsl:choose>
    </xsl:variable>
     <head>
-        <title><xsl:value-of select="$title"/></title>
+        <title><xsl:value-of select="$title2"/></title>
 
         <link type="inline" rel="exhibit/data" />
 	
@@ -88,6 +101,13 @@ Author : Pierre Lindenbaum
 	</script>
 
         <style>
+      
+        h1.main-title {
+        	padding:10px;
+        	text-shadow: 3px 3px 4px gray;
+        	 font-size:   250%;
+        	}
+        
         div.Article {
            border: 1px solid lightgray;
            margin:20px;
@@ -98,15 +118,15 @@ Author : Pierre Lindenbaum
            }
 	
 	div.me {
-           font-style:  italic;
-           font-size:   50%;
+            font-style:  italic;
+            font-size:   80%;
             }
 
 
 	div.title {
            font-weight: bold;
            font-size:   120%;
-            }
+           }
 
         .journal {
         	font-style:  italic;
@@ -121,16 +141,17 @@ Author : Pierre Lindenbaum
         	margin:20px;
           	padding:20px;
         	}
-        .affiliation { }
+        .affiliation { font-size: 80%; margin-left:40px; }
         .volume { font-weight: bold;  }
         .issue { }
         .pages { }
         .date { }
-        .authors { }
+        .authors { margin-left:20px;}
+        .pmid { text-align:right;margin-left:40px; }
         </style>
     </head> 
     <body>
-    <h1><xsl:value-of select="$title"/></h1>
+    <h1 class="main-title"><xsl:value-of select="$title2"/></h1>
      <table width="100%">
         <tr valign="top">
             <td ex:role___="viewPanel">
@@ -165,10 +186,9 @@ Author : Pierre Lindenbaum
 		<div ex:content=".abstract" class="abstract"></div>
 	</div>
 	
-	<div>
-		PMID:
-		<a ex:href-content=".url" ex:target-content=".pmid">
-			<span ex:content=".pmid" class="pmid"/>
+	<div class="pubmed">PMID:
+		<a ex:href-content=".url" ex:target-content=".pmid" title="link to pubmed">
+			<span ex:content=".pmid"/>
 		</a>
 	</div>
    </div>
@@ -203,11 +223,33 @@ Author : Pierre Lindenbaum
     </table>
 
 	<div class="me">
-		Pierre Lindenbaum PhD.
+		<xsl:text>Made with </xsl:text><a href="http://code.google.com/p/lindenb/source/browse/trunk/src/xsl/pubmed2exhibit.xsl">pubmed2exhibit.xsl</a>
+		
+		<xsl:text> Author: Pierre Lindenbaum PhD. (</xsl:text>
 		<a href="mailto:plindenbaum@yahoo.fr">plindenbaum@yahoo.fr</a>
+		<xsl:text>)   </xsl:text>
 		<a href="http://plindenbaum.blogspot.com">http://plindenbaum.blogspot.com</a>
-		Made with <a href="http://code.google.com/p/lindenb/source/browse/trunk/src/xsl/pubmed2exhibit.xsl">pubmed2exhibit.xsl</a>
 	</div>
+   	
+    <xsl:if test="string-length($analytics)&gt;0">
+    <xsl:comment>BEGIN GOOGLE ANALYTICS</xsl:comment>
+<script type='text/javascript'>
+
+ var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', '<xsl:value-of select="$analytics"/>']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script');
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 
+        'http://www') + '.google-analytics.com/ga.js';
+    ga.setAttribute('async', 'true');
+    document.documentElement.firstChild.appendChild(ga);
+  })();
+
+</script>
+<xsl:comment>END GOOGLE ANALYTICS</xsl:comment>
+    </xsl:if>
     </body>
     </html>
 </xsl:template>
