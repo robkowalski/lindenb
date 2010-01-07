@@ -407,6 +407,74 @@ public static void validateAsDataOrientedDocument(Node node)
 	
 	}
 
+private static abstract class AbstractIter
+implements Iterator<Element>
+	{
+	protected boolean _first=true;
+	protected boolean _hasNextCalled=false;
+	protected Element _next=null;
+	protected boolean _eofMet=false;
+	protected abstract boolean accept(Element e);
+	protected abstract Node firstChild();
+	
+	@Override
+	public boolean hasNext()
+		{
+		if(_hasNextCalled)
+			{
+			return _next!=null;
+			}
+		_hasNextCalled=true;
+		if(_eofMet)
+			{
+			return false;
+			}
+		Node c=null;
+		if(_first)
+			{
+			c= firstChild();
+			_first=false;
+			}
+		else
+			{
+			c=_next.getNextSibling();
+			}
+		while(c!=null)
+			{
+			if(c.getNodeType()==Node.ELEMENT_NODE &&
+			   accept(Element.class.cast(c)))
+				{
+				break;
+				}
+			c=c.getNextSibling();
+			}
+		if(c==null)
+			{
+			_eofMet=true;
+			_next=null;
+			return false;
+			}
+		else
+			{
+			_next=Element.class.cast(c);
+			return true;
+			}
+		}
+	@Override
+	public Element next()
+		{
+		if(!_hasNextCalled) hasNext();
+		if(_next==null) throw new IllegalStateException();
+		_hasNextCalled=false;
+		return _next;
+		}
+	@Override
+	public void remove()
+		{
+		throw new UnsupportedOperationException();
+		}
+	}
+
 private static class ForEach1
 	implements Iterable<Element>
 	{
@@ -414,69 +482,31 @@ private static class ForEach1
 	private String namespaceuri;
 	private String localName;
 
-	class Iter implements Iterator<Element>
+	class Iter extends AbstractIter
 		{
-		private boolean _first=true;
-		private boolean _hasNextCalled=false;
-		private Element _next=null;
-		private boolean _eofMet=false;
+		@Override
+		protected Node firstChild()
+			{
+			return ForEach1.this.root.getFirstChild();
+			}
 		
 		@Override
-		public boolean hasNext()
+		protected boolean accept(Element c)
 			{
-			if(_hasNextCalled)
+			if(ForEach1.this.namespaceuri!=null && ForEach1.this.localName!=null)
 				{
-				return _next!=null;
+				return ForEach1.this.namespaceuri.equals(c.getNamespaceURI())&&
+			   	ForEach1.this.localName.equals(c.getLocalName());
 				}
-			_hasNextCalled=true;
-			if(_eofMet)
+			else if(ForEach1.this.localName!=null)
 				{
-				return false;
-				}
-			Node c=null;
-			if(_first)
-				{
-				c=root.getFirstChild();
-				_first=false;
+				return 	ForEach1.this.localName.equals(c.getNodeName());
 				}
 			else
 				{
-				c=_next.getNextSibling();
-				}
-			while(c!=null)
-				{
-				if(c.getNodeType()==Node.ELEMENT_NODE &&
-				   ForEach1.this.namespaceuri.equals(c.getNamespaceURI())&&
-				   ForEach1.this.localName.equals(c.getLocalName()))
-					{
-					break;
-					}
-				c=c.getNextSibling();
-				}
-			if(c==null)
-				{
-				_eofMet=true;
-				_next=null;
-				return false;
-				}
-			else
-				{
-				_next=Element.class.cast(c);
 				return true;
 				}
-			}
-		@Override
-		public Element next()
-			{
-			if(!_hasNextCalled) hasNext();
-			if(_next==null) throw new IllegalStateException();
-			_hasNextCalled=false;
-			return _next;
-			}
-		@Override
-		public void remove()
-			{
-			throw new UnsupportedOperationException();
+			
 			}
 		}
 	
@@ -495,8 +525,17 @@ private static class ForEach1
 	}
 
 
+
 public static Iterable<Element> forEach(Node parent,String namespaceuri,String localName)
 	{
 	return new ForEach1(parent,namespaceuri,localName);
 	}
-}
+public static Iterable<Element> forEach(Node parent,String name)
+	{
+	return new ForEach1(parent,null,name);
+	}
+public static Iterable<Element> forEach(Node parent)
+	{
+	return new ForEach1(parent,null,null);
+	}
+}	
