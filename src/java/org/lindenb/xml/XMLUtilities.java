@@ -230,6 +230,66 @@ public static Element firstChild(Node root)
 	return null;
 	}
 
+/**
+ * return one and only one Element under root 
+ */
+public static Element one(Node root)
+	{
+	Element found=null;
+	for(Node c=root.getFirstChild();c!=null;c=c.getNextSibling())
+		{
+		if(c.getNodeType()!=Node.ELEMENT_NODE) continue;
+		if(found!=null) throw new IllegalArgumentException(
+				"found two elements under "+node2path(root));
+		found= Element.class.cast(c);
+		}
+	if(found==null) throw new IllegalArgumentException(
+			"found no element under "+node2path(root));
+	return found;
+	}
+
+/**
+ * return one and only one Element under root 
+ */
+public static Element one(Node root,String tagName)
+	{
+	Element found=null;
+	for(Node c=root.getFirstChild();c!=null;c=c.getNextSibling())
+		{
+		if(c.getNodeType()!=Node.ELEMENT_NODE) continue;
+		if(!tagName.equals(c.getNodeName())) continue;
+		if(found!=null) throw new IllegalArgumentException(
+				"found two elements under "+node2path(root));
+		found= Element.class.cast(c);
+		}
+	if(found==null) throw new IllegalArgumentException(
+			"found no element under "+node2path(root));
+	return found;
+	}
+
+/**
+ * return one and only one Element under root
+ * @param ns namespace can be used as a wildcard if null
+ * @param localName can be used as a wildcard if null
+ */
+public static Element one(Node root,String ns,String local)
+	{
+	Element found=null;
+	for(Node c=root.getFirstChild();c!=null;c=c.getNextSibling())
+		{
+		if(c.getNodeType()!=Node.ELEMENT_NODE) continue;
+		if(ns!=null && !ns.equals(c.getNamespaceURI())) continue;
+		if(local!=null && !local.equals(c.getLocalName())) continue;
+		if(found!=null) throw new IllegalArgumentException(
+				"found two elements under "+node2path(root));
+		found= Element.class.cast(c);
+		}
+	if(found==null) throw new IllegalArgumentException(
+			"found no element under "+node2path(root));
+	return found;
+	}
+
+
 
 /** return Collection over child elements */
 public static List<Element> elements(Node parent)
@@ -481,6 +541,7 @@ private static class ForEach1
 	private Node root;
 	private String namespaceuri;
 	private String localName;
+	private String tagName;
 
 	class Iter extends AbstractIter
 		{
@@ -493,14 +554,15 @@ private static class ForEach1
 		@Override
 		protected boolean accept(Element c)
 			{
-			if(ForEach1.this.namespaceuri!=null && ForEach1.this.localName!=null)
+			if(ForEach1.this.namespaceuri!=null || ForEach1.this.localName!=null)
 				{
-				return ForEach1.this.namespaceuri.equals(c.getNamespaceURI())&&
-			   	ForEach1.this.localName.equals(c.getLocalName());
+				if(ForEach1.this.namespaceuri!=null && !ForEach1.this.namespaceuri.equals(c.getNamespaceURI())) return false;
+				if(ForEach1.this.localName!=null && !ForEach1.this.localName.equals(c.getLocalName())) return false;
+				return true;
 				}
-			else if(ForEach1.this.localName!=null)
+			else if(ForEach1.this.tagName!=null)
 				{
-				return 	ForEach1.this.localName.equals(c.getNodeName());
+				return 	ForEach1.this.tagName.equals(c.getNodeName());
 				}
 			else
 				{
@@ -510,11 +572,12 @@ private static class ForEach1
 			}
 		}
 	
-	ForEach1(Node root,String namespaceuri,String localName)
+	ForEach1(Node root,String namespaceuri,String localName,String tagName)
 		{
 		this.root=root;
 		this.namespaceuri=namespaceuri;
 		this.localName=localName;
+		this.tagName=tagName;
 		}
 	
 	@Override
@@ -525,17 +588,23 @@ private static class ForEach1
 	}
 
 
-
+/**
+ * 
+ * @param parent
+ * @param ns namespace can be used as a wildcard if null
+ * @param localName can be used as a wildcard if null
+ * @return
+ */
 public static Iterable<Element> forEach(Node parent,String namespaceuri,String localName)
 	{
-	return new ForEach1(parent,namespaceuri,localName);
+	return new ForEach1(parent,namespaceuri,localName,null);
 	}
 public static Iterable<Element> forEach(Node parent,String name)
 	{
-	return new ForEach1(parent,null,name);
+	return new ForEach1(parent,null,null,name);
 	}
 public static Iterable<Element> forEach(Node parent)
 	{
-	return new ForEach1(parent,null,null);
+	return new ForEach1(parent,null,null,null);
 	}
 }	
