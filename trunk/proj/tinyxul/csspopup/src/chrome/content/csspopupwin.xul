@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<?xml-stylesheet href="chrome://global/skin/" type="text/css"?>
+<dialog title="CSSPopup" width="500" height="430"
+	xmlns:html="http://www.w3.org/1999/xhtml"
+	xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+	onload="init();"
+	buttons="accept"
+	>
+<script><![CDATA[
+function init()
+	{
+	try
+		{
+		var pre = document.getElementById("content");
+		var msg= window.arguments[0];
+		//alert(msg);
+		if(pre==null) { alert("cannot get pre! args:"+msg); return;}
+		pre.appendChild(document.createTextNode(msg));
+		} catch(err) { alert("Error2:"+err.message);}
+	}
+]]></script>
+<dialogheader title="CSSPopup" description="CSS content" id="x1"/>
+<vbox><html:div><html:pre style="width:100%;max-height:400px;overflow:auto;" id="content"></html:pre></html:div></vbox>
+</dialog>
