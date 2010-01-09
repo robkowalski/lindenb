@@ -6,10 +6,11 @@ Author:
 	Pierre Lindenbaum
 	http://plindenbaum.blogspot.com
 Motivation:
-	transform friendfeed xml to mysql
+	transforms friendfeed xml to mysql
 Usage :
 
-	xsltproc ff2sql.xsl "http://friendfeed-api.com/v2/feed/the-life-scientists?start=0&num=500&format=xml"   
+	(xsltproc ff2sql.xsl "http://friendfeed-api.com/v2/feed/the-life-scientists?start=0&num=500&format=xml"; echo "select * from ff_entry;") |\
+	mysql -N -D mydatabase
 
 paramerters:
 	"temporary" set as the empty string if you don't want to use temporary tables
@@ -23,14 +24,14 @@ paramerters:
 </xsl:template>
 
 <xsl:template match="feed">
-create <xsl:value-of select="$temporary"/> table ff_user
+create <xsl:value-of select="$temporary"/> table if not exists ff_user 
 	(
 	id int primary key auto_increment,
 	ff_id varchar(50) not null unique,
 	ff_name varchar(255) not null
 	);
 
-create <xsl:value-of select="$temporary"/> table ff_entry
+create <xsl:value-of select="$temporary"/> table if not exists ff_entry
 	(
 	id int primary key auto_increment,
 	ff_id varchar(255) not null unique,
@@ -40,7 +41,7 @@ create <xsl:value-of select="$temporary"/> table ff_entry
 	user_id int unsigned references ff_user(id)
 	);
 
-create <xsl:value-of select="$temporary"/> table ff_comment
+create <xsl:value-of select="$temporary"/> table if not exists ff_comment
 	(
 	entry_id int  references ff_entry(id),
 	user_id int  references ff_user(id),
@@ -49,7 +50,7 @@ create <xsl:value-of select="$temporary"/> table ff_comment
 	ff_date varchar(25)
 	);
 
-create <xsl:value-of select="$temporary"/> table ff_like
+create <xsl:value-of select="$temporary"/> table if not exists ff_like
 	(
 	entry_id int  references ff_entry(id),
 	user_id int  references user(id),
@@ -170,39 +171,6 @@ insert into ff_like(entry_id,user_id,ff_date) values
         </xsl:call-template>
         </xsl:variable>
         
-        
-         <!--
-        <xsl:variable  name="v3">
-        <xsl:call-template name="escape">
-        	<xsl:with-param name="pat">&#x0D;</xsl:with-param>
-                <xsl:with-param name="rep">\n</xsl:with-param>
-                <xsl:with-param name="s" select="$v2"/>
-        </xsl:call-template>
-        </xsl:variable>
-        
-         <xsl:message>v3 <xsl:value-of select="$v3"/></xsl:message>
-        
-        <xsl:variable  name="v4">
-        <xsl:call-template name="escape">
-        	<xsl:with-param name="pat">&#x09;</xsl:with-param>
-                <xsl:with-param name="rep">\t</xsl:with-param>
-                <xsl:with-param name="s" select="$v3"/>
-        </xsl:call-template>
-        </xsl:variable>
-        
-        <xsl:message>v4 <xsl:value-of select="$v4"/></xsl:message>
-        
-        
-        <xsl:variable  name="v5">
-        <xsl:call-template name="escape">
-        	<xsl:with-param name="pat">&#x0A;</xsl:with-param>
-                <xsl:with-param name="rep">\r</xsl:with-param>
-                <xsl:with-param name="s" select="$v4"/>
-        </xsl:call-template>
-        </xsl:variable>
-        
-        <xsl:message>v5 <xsl:value-of select="$v5"/></xsl:message> -->
-       
         <xsl:text>&quot;</xsl:text>
         <xsl:value-of select="$v2"/>
         <xsl:text>&quot;</xsl:text>
