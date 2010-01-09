@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<overlay id="csspopup" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+<script src="csspopup.js"/>
+<popup id="contentAreaContextMenu">
+<menuitem label="CSSPopup" id="csspopup-show" oncommand="showcss();"/>
+</popup>
+</overlay>

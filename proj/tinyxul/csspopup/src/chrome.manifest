@@ -1,0 +1,3 @@
+content	csspopup	chrome/content/
+overlay	chrome://browser/content/browser.xul	chrome://csspopup/content/csspopup.xul
+skin	csspopup	classic/1.0	chrome/skin/
