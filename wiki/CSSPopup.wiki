@@ -1,0 +1,88 @@
+#labels css,firefox,plugin,style,extension,Featured,Phase-Requirements,Phase-Deploy
+*CSSPopup* is a small plugin for *firefox*. It appends a new contextual menu opening a new window containing the CSS properties of the element that was clicked.
+For example , clicking on "Welcome to NCBI" at http://www.ncbi.nlm.nih.gov/ returns 
+{{{
+h1 {
+    background-attachment:scroll;
+    background-color:transparent;
+    background-image:none;
+    background-position:0% 0%;
+    background-repeat:repeat;
+    border-collapse:separate;
+    border-spacing:0px 0px;
+    bottom:auto;
+    caption-side:top;
+    clear:none;
+    clip:auto;
+    color:rgb(0, 0, 0);
+    content:none;
+    counter-increment:none;
+    counter-reset:none;
+    cursor:auto;
+    direction:ltr;
+    display:block;
+    empty-cells:show;
+    float:none;
+    font-family:serif;
+    font-size:32px;
+    font-size-adjust:none;
+    font-style:normal;
+    font-variant:normal;
+    font-weight:bold;
+    height:auto;
+    ime-mode:auto;
+    left:auto;
+    letter-spacing:normal;
+    line-height:36px;
+    list-style-image:none;
+    list-style-position:outside;
+    list-style-type:disc;
+    margin-bottom:21.4333px;
+    margin-left:0px;
+    margin-right:0px;
+    margin-top:21.4333px;
+    marker-offset:auto;
+    max-height:none;
+    max-width:none;
+    min-height:0px;
+    min-width:0px;
+    opacity:1;
+    outline-color:rgb(0, 0, 0);
+    outline-offset:0px;
+    outline-style:none;
+    outline-width:0px;
+    overflow:visible;
+    overflow-x:visible;
+    overflow-y:visible;
+    padding-bottom:0px;
+    padding-left:16px;
+    padding-right:0px;
+    padding-top:0px;
+    page-break-after:auto;
+    page-break-before:auto;
+    pointer-events:visiblepainted;
+    position:static;
+    quotes:"“" "”" "‘" "’";
+    right:auto;
+    table-layout:auto;
+    text-align:start;
+    text-decoration:none;
+    text-indent:0px;
+    text-rendering:auto;
+    text-shadow:none;
+    text-transform:none;
+    top:auto;
+    unicode-bidi:normal;
+    vertical-align:baseline;
+    visibility:visible;
+    white-space:normal;
+    width:auto;
+    word-spacing:normal;
+    word-wrap:normal;
+    z-index:auto;
+    }
+}}}
+
+
+= Installation =
+Download CSSPopup from http://code.google.com/p/lindenb/downloads/list and open/install it with firefox.
