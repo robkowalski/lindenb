@@ -1,15 +1,16 @@
 <?xml version='1.0' encoding="UTF-8"?>
 <xsl:stylesheet
 	xmlns:xsl='http://www.w3.org/1999/XSL/Transform'
-	xmlns:dia="http://www.lysator.liu.se/~alla/dia/"
 	version='1.0'
 	>
 
 <!--
 
-This stylesheet transforms the output of endnode xml to RIS 
+This stylesheet transforms the output of delicious xml to RIS (ok with citeulike.org ) 
 
-
+Usage:
+      curl https://login:password@api.del.icio.us/v1/posts/all > file.xml
+      xsltproc delicious2ris.xsl ~/file.xml > ~/file.ris
 -->
 <xsl:output method="text" version="1.0" encoding="ASCII"/>
 
@@ -23,7 +24,7 @@ This stylesheet transforms the output of endnode xml to RIS
 
 <xsl:template match="post[not(@shared) or @shared!='no']">
 <xsl:choose>
-<xsl:when test="starts-with(@href,'http://www.ncbi.nlm.nih.gov')">
+<xsl:when test="starts-with(@href,'http://www.ncbi.nlm.nih.gov') or starts-with(@href,'http://dx.doi.org')">
 <xsl:text>TY  - JOUR
 </xsl:text>
 </xsl:when>
