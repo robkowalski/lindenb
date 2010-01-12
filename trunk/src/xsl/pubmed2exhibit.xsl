@@ -210,6 +210,7 @@ References:
                 <div ex:role="facet" ex:expression=".year" ex:facetLabel="Year"></div>
                 <div ex:role="facet" ex:expression=".journal" ex:facetLabel="Journal"></div>
                 <div ex:role="facet" ex:expression=".authors" ex:facetLabel="Author"></div>
+                <div ex:role="facet" ex:expression=".pubtype" ex:facetLabel="Publication Type"></div>
             </td>
         </tr>
     </table>
@@ -293,6 +294,7 @@ References:
 	<xsl:apply-templates select="MedlineCitation/MedlineJournalInfo/MedlineTA" mode="json"/>
 	<xsl:apply-templates select="MedlineCitation/Article/Pagination/MedlinePgn" mode="json"/>
 	<xsl:apply-templates select="MedlineCitation/Article/AuthorList" mode="json"/>
+	<xsl:apply-templates select="MedlineCitation/Article/PublicationTypeList" mode="json"/>
 	<xsl:apply-templates select="MedlineCitation/Article/Abstract/AbstractText" mode="json"/>
 	<xsl:apply-templates select="MedlineCitation/Article/Affiliation" mode="json"/>
 	}
@@ -323,6 +325,16 @@ References:
         </xsl:choose>
 </xsl:template>
 
+<xsl:template match="PublicationTypeList" mode="json">
+<xsl:text>,"pubtype":[</xsl:text>
+<xsl:for-each select="PublicationType">
+	<xsl:if test="position()&gt;1"><xsl:text>,</xsl:text></xsl:if>
+	<xsl:call-template name="quote">
+		<xsl:with-param name="s" select="."/>
+	</xsl:call-template>
+</xsl:for-each>
+<xsl:text>]</xsl:text>
+</xsl:template>
 
 <xsl:template match="AuthorList" mode="json">
 <xsl:text>,"authors":[</xsl:text>
