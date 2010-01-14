@@ -1,4 +1,4 @@
-package org.lindenb.tool.oneshot;
+package org.lindenb.tinytools;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
