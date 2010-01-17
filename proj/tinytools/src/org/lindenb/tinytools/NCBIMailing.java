@@ -35,10 +35,13 @@ public class NCBIMailing {
 		String journal="";
 		int count=0;
 		String Year="";
+		@SuppressWarnings("unused")
 		String Suffix="";
 		String LastName="";
 		String FirstName="";
+		@SuppressWarnings("unused")
 		String MiddleName="";
+		@SuppressWarnings("unused")
 		String Initials="";
 		String Affiliation="";
 		@Override

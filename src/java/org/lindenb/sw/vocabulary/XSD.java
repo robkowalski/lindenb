@@ -8,5 +8,5 @@ package org.lindenb.sw.vocabulary;
  *
  */
 public class XSD extends Namespace {
-	public static final String NS="http://www.w3.org/2001/XMLSchema#";
+	public static final String NS="http://www.w3.org/2001/XMLSchema";
 }
