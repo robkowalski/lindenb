@@ -4,12 +4,15 @@
 package org.lindenb.swing;
 
 import java.awt.Component;
+import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Toolkit;
 import java.awt.Window;
 
 import javax.swing.JComponent;
+import javax.swing.Spring;
+import javax.swing.SpringLayout;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
@@ -166,7 +169,6 @@ public static void show(Window w)
 		});
 	
 	}
-
 
 
 

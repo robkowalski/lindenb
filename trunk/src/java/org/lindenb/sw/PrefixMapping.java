@@ -141,9 +141,7 @@ public String shortForm(java.lang.String uri)
 /** list all prefixes */
 public Set<String> getPrefixes()
 	{
-	Set<String> set= new HashSet<String>(this.uri2prefix.size());
-	set.addAll(this.uri2prefix.values());
-	return set;
+	return new HashSet<String>(this.uri2prefix.values());
 	}
 
 /** add all the prefixes namespaces declared in a dom element */
@@ -178,6 +176,7 @@ protected Object clone()
 	{
 	return new PrefixMapping(this);
 	}
+
 
 @Override
 public String toString()
