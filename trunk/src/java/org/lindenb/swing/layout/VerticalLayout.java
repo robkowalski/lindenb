@@ -30,8 +30,7 @@ public class VerticalLayout
 	@Override
 	public void addLayoutComponent(String name, Component comp)
 		{
-		// TODO Auto-generated method stub
-		
+		//nothing
 		}
 
 	@Override
@@ -59,6 +58,12 @@ public class VerticalLayout
 			{
 			Insets insets= parent.getInsets();
 			int hgap=insets.left+insets.right;
+			if( parent.getComponentCount()==0)
+				{
+				return new Dimension(hgap,insets.top+insets.bottom);
+				}
+			
+			
 			Dimension dim = new Dimension(
 					hgap,
 					insets.top+insets.bottom
