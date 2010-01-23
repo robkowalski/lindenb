@@ -446,7 +446,7 @@ private static class RDFException
 		 *  the min and max cardinality else it returns an error message */
 		public String getCardinalityMessage(int count)
 			{
-			if(count>getMinCardinality())
+			if(count<getMinCardinality())
 				{
 				return "Expect at least "+getMinCardinality()+" instance(s) of '"+
 					getShortName()+
@@ -495,6 +495,7 @@ private static class RDFException
 			{
 			return new DataPropertyInput().make();
 			}
+		@SuppressWarnings("unchecked")
 		public T cast(String input)
 			{
 			Class <?> c= getJavaClass();
@@ -666,101 +667,6 @@ private static class RDFException
 			}
 		}
 	
-	public class InstanceOfOntNode
-		{
-		}
-	
-	public class InstanceOfOntClass
-		extends InstanceOfOntNode
-		{
-		private OntClass ontClass;
-		private java.util.List<InstanceOfOntProperty> instances=new ArrayList<InstanceOfOntProperty>();
-		
-		
-		public OntClass getOntClass()
-			{
-			return this.ontClass;
-			}
-		
-		java.util.List<InstanceOfOntProperty> getInstancesOfOntProperty()
-			{
-			return this.instances;
-			}
-		
-		public Set<OntProperty> getProperties()
-			{
-			Set<OntProperty> set= new HashSet<OntProperty>();
-			for(InstanceOfOntProperty p: getInstancesOfOntProperty())
-				{
-				set.add(p.getOntProperty());
-				}
-			return set;
-			}
-		java.util.List<InstanceOfOntProperty> getInstancesOfOntProperty(OntProperty p)
-			{
-			java.util.List<InstanceOfOntProperty> L= new ArrayList<InstanceOfOntProperty>();
-			for(InstanceOfOntProperty iop: getInstancesOfOntProperty())
-				{
-				if(iop.getOntProperty().equals(p)) L.add(iop);
-				}
-			return L;
-			}
-		}
-	
-	/***
-	 *
-	 *  InstanceOfOntProperty
-	 *
-	 */ 
-	public class InstanceOfOntProperty
-		extends InstanceOfOntNode
-		{
-		private OntProperty property;
-		private String value;
-		public InstanceOfOntProperty(OntProperty property,String value)
-			{
-			this.property=property;
-			this.value=value;
-			}
-		public InstanceOfOntProperty(OntProperty property)
-			{
-			this(property,"");
-			}
-		public String getValue()
-			{
-			return this.value;
-			}
-		public void setValue(String value)
-			{
-			this.value=value;
-			}
-		public OntProperty getOntProperty()
-			{
-			return this.property;
-			}
-		
-		@Override
-		public int hashCode()
-			{
-			return this.property.hashCode();//et pas value, car mutable
-			}
-		
-		@Override
-		public boolean equals(Object o)
-			{
-			if(this==o) return true;
-			if(o==null || !(o instanceof InstanceOfOntProperty)) return false;
-			InstanceOfOntProperty other=InstanceOfOntProperty.class.cast(o);
-			return other.getOntProperty().equals(this.getOntProperty()) &&
-			       other.getValue().equals(this.getValue())
-			       ;
-			}
-		@Override
-		public String toString()
-			{
-			return getOntProperty().getShortName()+":"+getValue();
-			}
-		}
 	
 	
 	/**
@@ -773,7 +679,7 @@ private static class RDFException
 		private String uri;
 		private String name=null;
 		
-		private Map<OntClass,InstanceOfOntClass> instances=new HashMap<OntClass,InstanceOfOntClass>();
+		private Map<OntClass,Map<OntProperty,Set<String> > > instances=new HashMap<OntClass,Map<OntProperty,Set<String>>>();
 		public Individual(String uri)
 			{
 			this.uri=uri;
@@ -784,19 +690,62 @@ private static class RDFException
 			return new HashSet<OntClass>(instances.keySet());
 			}
 		
-		public void put(InstanceOfOntClass ioc)
+		public boolean put(OntClass ontClass,OntProperty property,String value)
 			{
-			instances.put(ioc.getOntClass(),ioc);
+			if(ontClass.getSpecificProperties().contains(property))
+				{
+				Map<OntProperty,Set<String> > props= this.instances.get(ontClass);
+				if(props==null)
+					{
+					props=new HashMap<OntProperty, Set<String> >();
+					this.instances.put(ontClass,props);
+					}
+				Set<String> values= props.get(property);
+				if(values==null)
+					{
+					values=new HashSet<String>();
+					props.put(property, values);
+					}
+				values.add(value);
+				return true;
+				}
+			for(OntClass parent: ontClass.getParentClasses())
+				{
+				if(put(parent,property,value)==true) return true;
+				}
+			return false;
 			}
 		
-		public InstanceOfOntClass getInstanceByOntClass(OntClass c)
+		public Set<String> get(OntClass ontClass,OntProperty property)
 			{
-			return instances.get(c);
+			Set<String> set=new HashSet<String>();
+			
+			Map<OntProperty,Set<String> > props= this.instances.get(ontClass);
+			if(props==null)
+				{
+				return set;
+				}
+			if(props.containsKey(property))
+				{
+				set.addAll(props.get(property));
+				}
+			return set;
+			}
+		
+		public Set<OntProperty> getOntPropertiesForOntClass(OntClass ontClass)
+			{
+			Set<OntProperty> set=new HashSet<OntProperty>();
+			Map<OntProperty,Set<String> > props= this.instances.get(ontClass);
+			if(props!=null)
+				{
+				set.addAll(props.keySet());
+				}
+			return set;
 			}
 		
 		public boolean contains(OntClass c)
 			{
-			return getInstanceByOntClass(c)!=null;
+			return this.instances.containsKey(c);
 			}
 		
 		public String getURI()
@@ -1132,6 +1081,8 @@ private static class RDFException
 			
 			JButton removePane=new JButton(this.removePaneAction=new AbstractAction("Delete")
 				{
+				private static final long serialVersionUID = 1L;
+
 				@Override
 				public void actionPerformed(ActionEvent ae)
 					{
@@ -1155,6 +1106,8 @@ private static class RDFException
 				flow.add(addPropertyCombo);
 				flow.add(new JButton(addPropertyAction=new AbstractAction("Add")
 					{
+					private static final long serialVersionUID = 1L;
+
 					@Override
 					public void actionPerformed(ActionEvent arg0)
 						{
@@ -1226,33 +1179,67 @@ private static class RDFException
 	 * InstanceOfOntClassNode
 	 *
 	 */
+	private static class InstanceOfOntPropertyNode
+		extends DefaultMutableTreeNode
+		{
+		private static final long serialVersionUID = 1L;
+		
+		public InstanceOfOntPropertyNode(
+				Individual indi,OntClass ontClass,OntProperty p)
+			{
+			super(ontClass,true);
+			for(String value: indi.get(ontClass, p))
+				{
+				this.add(new DefaultMutableTreeNode(value));
+				}
+			}
+		OntClass getOntProperty()
+			{
+			return OntClass.class.cast(getUserObject());
+			}
+		public String toString()
+			{
+			return getOntProperty().toString();
+			}
+		}
+	
+	/**
+	 * 
+	 * InstanceOfOntClassNode
+	 *
+	 */
 	private static class InstanceOfOntClassNode
 		extends DefaultMutableTreeNode
 		{
 		private static final long serialVersionUID = 1L;
-		public InstanceOfOntClassNode(InstanceOfOntClass ioc)
+		public InstanceOfOntClassNode(Individual indi,OntClass ontClass)
 			{
-			super(ioc,true);
+			super(ontClass,true);
+			for(OntProperty p:indi.getOntPropertiesForOntClass(ontClass))
+				{
+				this.add(new InstanceOfOntPropertyNode(indi,ontClass,p));
+				}
 			}
-		InstanceOfOntClass getInstanceOfOntClass()
+		OntClass getOntClass()
 			{
-			return InstanceOfOntClass.class.cast(getUserObject());
+			return OntClass.class.cast(getUserObject());
 			}
 		public String toString()
 			{
-			return getInstanceOfOntClass().getOntClass().toString();
+			return getOntClass().toString();
 			}
 		}
 	
 	private static class IndividualNode
 		extends DefaultMutableTreeNode
 		{
+		private static final long serialVersionUID = 1L;
 		public IndividualNode(Individual indi)
 			{
 			super(indi,true);
 			for(OntClass c: indi.getOntClasses())
 				{
-				this.add(new InstanceOfOntClassNode(indi.getInstanceByOntClass(c)));
+				this.add(new InstanceOfOntClassNode(indi,c));
 				}
 			}
 		Individual getIndividual()
@@ -1508,6 +1495,18 @@ private static class RDFException
 			}
 		return null;
 		}
+	
+	public Individual makeIndividual()
+		{
+		Individual indi=new Individual(this.labelURI.getText().trim());
+		indi.name= this.labelTitle.getText();
+		for(OntClass c:this.class2pane.keySet())
+			{
+			Map<OntProperty,Set<String>> props= new HashMap<OntProperty, Set<String>>();
+			//todo
+			}
+		return indi;
+		}
 	}
 	/**
 	 *
@@ -1593,6 +1592,16 @@ private static class RDFException
                 		dialog.addOntClass(OntClass.class.cast(o));
                 		}
                 	dialog.setVisible(true);
+                	if(dialog.getExitStatus()==JOptionPane.OK_OPTION)
+                		{
+                		Individual indi= dialog.makeIndividual();
+                		if(indi!=null)
+                			{
+                			DefaultMutableTreeNode root=(DefaultMutableTreeNode)(treeIndividuals.getModel().getRoot());
+                			root.add(new IndividualNode(indi));
+                			getStore().add(indi);
+                			}
+                		}
 				 	}
 				};
 			action.setEnabled(false);
@@ -1787,6 +1796,7 @@ private static class RDFException
 		public Schema getSchema();
 		public Individual findIndividualByURI(String uri);
 		public void search(SearchStore param);
+		public void add(Individual i);
 		}
 	
 	/**
@@ -1803,6 +1813,19 @@ private static class RDFException
 			this.schema=schema;
 			}
 		
+		@Override
+		public void add(Individual indi)
+			{
+			for(int i=0;i< individuals.size();++i)
+				{
+				if(this.individuals.get(i).getURI().equals(indi.getURI()))
+					{
+					individuals.set(i, indi);
+					return;
+					}
+				}
+			this.individuals.add(indi);
+			}
 		@Override
 		public Schema getSchema()
 			{
