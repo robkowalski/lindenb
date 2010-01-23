@@ -16,13 +16,19 @@ import java.util.Vector;
 public class SmartComparator implements Comparator<CharSequence>
     {
 	//global instance
-	private static SmartComparator INSTANCE=null;
+	private static volatile SmartComparator INSTANCE=null;
 	
 	
 	/** return a global instance of a SmartComparator */
 	public static SmartComparator getInstance()
 		{
-		if(INSTANCE==null) INSTANCE=new SmartComparator();
+		if(INSTANCE==null)
+			{
+			synchronized(SmartComparator.class)
+				{
+				if(INSTANCE==null) INSTANCE=new SmartComparator();
+				}
+			}
 		return INSTANCE;
 		}
 	
