@@ -10,6 +10,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ContainerAdapter;
 import java.awt.event.ContainerEvent;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
@@ -316,7 +318,30 @@ private static class RDFException
 			
 			List<Action> extraActions()
 				{
-				AbstractAction action=new AbstractAction("?")
+				List<Action> array=new ArrayList<Action>();
+				AbstractAction action=new AbstractAction("X")
+					{
+					private static final long serialVersionUID = 1L;
+
+					@Override
+					public void actionPerformed(ActionEvent e)
+						{
+						Component c=AbstractPropertyInput.this;
+						while(c!=null)
+							{
+							if(c instanceof InstanceOfOntClassPane.Row)
+								{
+								InstanceOfOntClassPane.Row row=InstanceOfOntClassPane.Row.class.cast(c);
+								row.delete();
+								return;
+								}
+							c=c.getParent();
+							}
+						}
+					};
+				action.putValue(AbstractAction.SHORT_DESCRIPTION, "Remove this property");
+				array.add(action);
+				action=new AbstractAction("?")
 					{
 					private static final long serialVersionUID = 1L;
 
@@ -326,8 +351,7 @@ private static class RDFException
 						setValue("?");
 						}
 					};
-				List<Action> array=new ArrayList<Action>();
-				while(array.size()<4) array.add(action);
+				array.add(action);
 				return array;
 				}
 			
@@ -349,6 +373,8 @@ private static class RDFException
 				but.setPreferredSize(new Dimension(32,32));
 				return but;
 				}
+			
+			
 			}
 		
 		/**
@@ -444,6 +470,8 @@ private static class RDFException
 			return maxCardinality;
 			}
 		
+		public abstract boolean isDataProperty();
+		
 		/** returns null of the argument 'count' is compatible with
 		 *  the min and max cardinality else it returns an error message */
 		public String getCardinalityMessage(int count)
@@ -481,13 +509,19 @@ private static class RDFException
 			{
 			private static final long serialVersionUID = 1L;
 			
-		
+			
 			
 			@Override
 			public String getErrorMessage()
 				{
 				return getValidationMessage(this.getValue());
 				}
+			}
+		
+		@Override
+		public boolean isDataProperty()
+			{
+			return true;
 			}
 		
 		public abstract Class<?>  getJavaClass();
@@ -662,6 +696,11 @@ private static class RDFException
 			return this.range;
 			}
 		
+		@Override
+		public boolean isDataProperty()
+			{
+			return false;
+			}
 		@Override
 		public PropertyInput createPropertyInput()
 			{
@@ -1000,6 +1039,7 @@ private static class RDFException
 		public abstract String getValue();
 		public abstract void setValue(String v);
 		public abstract JComponent getMainComponent();
+		
 		}
 	
 		
@@ -1045,6 +1085,13 @@ private static class RDFException
 			String getValidationMessage()
 				{
 				return getPropertyInput().getErrorMessage();
+				}
+			void delete()
+				{
+				InstanceOfOntClassPane.this.mainPane.remove(this);
+				InstanceOfOntClassPane.this.mainPane.invalidate();
+				InstanceOfOntClassPane.this.mainPane.revalidate();
+				InstanceOfOntClassPane.this.mainPane.repaint();
 				}
 			}
 		
@@ -1196,6 +1243,42 @@ private static class RDFException
 			}
 		}
 	
+	private static class IndividualTableModel
+	extends GenericTableModel<Individual>
+		{
+		private static final long serialVersionUID = 1L;
+	
+	
+		@Override
+		public String getColumnName(int column)
+			{
+			switch(column)
+				{
+				case 0: return "URI";
+				case 1: return "Title";
+				case 2: return "Classes";
+				}
+			return null;
+			}
+		@Override
+		public int getColumnCount()
+			{
+			return 3;
+			}
+	
+		
+		@Override
+		public Object getValueOf(Individual indi, int columnIndex)
+			{
+			switch(columnIndex)
+				{
+				case 0: return indi.getURI();
+				case 1: return indi.getTitle();
+				case 2: return StringUtils.join(indi.getOntClasses(), " ; ");
+				}
+			return null;
+			}
+		}
 	
 	
 	private static class IndividualsPane
@@ -1205,49 +1288,14 @@ private static class RDFException
 		
 		private RDFStore rdfStore;
 		private JTable table;
-		private TableModel tableModel;
+		private IndividualTableModel tableModel;
 		private JTextField tfSearch;
 		private JCheckBox cbRegex;
 		private SearchStore currentSearch=null;
 		private JSpinner spinLimit;
 		private Set<OntClass> ontClassInScope=new HashSet<OntClass>();
 		
-		private class TableModel
-			extends GenericTableModel<Individual>
-			{
-			private static final long serialVersionUID = 1L;
-
-
-			@Override
-			public String getColumnName(int column)
-				{
-				switch(column)
-					{
-					case 0: return "URI";
-					case 1: return "Title";
-					case 2: return "Classes";
-					}
-				return null;
-				}
-			@Override
-			public int getColumnCount()
-				{
-				return 3;
-				}
 		
-			
-			@Override
-			public Object getValueOf(Individual indi, int columnIndex)
-				{
-				switch(columnIndex)
-					{
-					case 0: return indi.getURI();
-					case 1: return indi.getTitle();
-					case 2: return StringUtils.join(indi.getOntClasses(), " ; ");
-					}
-				return null;
-				}
-			}
 		
 		IndividualsPane(RDFStore rdfStore)
 			{
@@ -1319,7 +1367,7 @@ private static class RDFException
 			top.add(new JButton(action));
 			
 			
-			this.table=new JTable(this.tableModel=new TableModel());
+			this.table=new JTable(this.tableModel=new IndividualTableModel());
 			JScrollPane scroll=new JScrollPane(this.table);
 			this.add(scroll,BorderLayout.CENTER);
 			
@@ -1367,15 +1415,7 @@ private static class RDFException
 					return;
 					}
 				}
-			newsearch.havingOntClass=new HashSet<OntClass>();
-			if(!ontClassInScope.isEmpty())
-				{
-				for(OntClass o:ontClassInScope)
-					{
-					newsearch.havingOntClass.add(OntClass.class.cast(o));
-					}
-				}
-			
+			newsearch.havingOntClass=new HashSet<OntClass>(this.ontClassInScope);
 			newsearch.max_return= Math.max(1,((Number)this.spinLimit.getValue()).intValue());
 			newsearch.start_index=0;
 			this.currentSearch=newsearch;
@@ -1409,6 +1449,7 @@ private static class RDFException
 		extends JDialog
 		{
 		private static final long serialVersionUID = 1L;
+		private boolean is_updating=false;
 		private int exitStatus=JOptionPane.CANCEL_OPTION;
 		private Frame frameOwner;
 		private JTextField labelTitle;
@@ -1417,11 +1458,12 @@ private static class RDFException
 		private JComboBox addClassCombo;
 		private JPanel mainPane;
 		private Map<OntClass,InstanceOfOntClassPane> class2pane=new HashMap<OntClass, InstanceOfOntClassPane>();
-		
+		private IndividualTableModel linkedIndividual;
 		
 		DialogEditor(Frame frameOwner)
 			{
 		 	super(frameOwner,"Edit",true);
+		 	this.is_updating=false;
 		 	this.frameOwner=frameOwner;
 		 	this.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
 	        JPanel pane=new JPanel(new BorderLayout(5,5));
@@ -1432,6 +1474,11 @@ private static class RDFException
 	        
 	        this.addWindowListener(new WindowAdapter()
 				{
+				@Override
+				public void windowOpened(WindowEvent e)
+					{
+					reloadLinked();
+					}
 				@Override
 				public void windowClosing(WindowEvent e)
 					{
@@ -1473,7 +1520,7 @@ private static class RDFException
 	        
 	        pane2=new JPanel(new BorderLayout());
 	    	pane.add(pane2,BorderLayout.EAST);
-	        JList linked=new JList();
+	        JTable linked=new JTable(linkedIndividual=new IndividualTableModel());
 	        scroll=new JScrollPane(linked);
 	        pane2.add(scroll,BorderLayout.CENTER);
 	        
@@ -1532,6 +1579,16 @@ private static class RDFException
 					componentAdded(e);
 					}
 				});
+			
+			this.labelURI.addFocusListener(new FocusAdapter()
+				{
+				@Override
+				public void focusLost(FocusEvent e)
+					{
+					reloadLinked();
+					}
+				});
+			
 			updateCombo();
 			updateDeleteButtons();
 		 	}
@@ -1539,6 +1596,7 @@ private static class RDFException
 	DialogEditor(Frame f,Individual individual)
 		{
 		this(f);
+		this.is_updating=true;
 		setTitle(individual.getTitle());
 		this.labelURI.setText(individual.getURI());
 		this.labelTitle.setText(individual.getTitle());
@@ -1643,6 +1701,14 @@ private static class RDFException
 	
 	public String getValidationMessage()
 		{
+		if(!this.is_updating)
+			{
+			String uri=this.labelURI.getText().trim();
+			if(this.frameOwner.getStore().findIndividualByURI(uri)!=null)
+				{
+				return "An instance with uri='"+uri+"' already exists.";
+				}
+			}
 		for(InstanceOfOntClassPane p:this.class2pane.values())
 			{
 			String msg=p.getValidationMessage();
@@ -1661,6 +1727,19 @@ private static class RDFException
 			}
 		return indi;
 		}
+	
+	void reloadLinked()
+		{
+		String uri= this.labelURI.getText().trim();
+		this.linkedIndividual.clear();
+		if(uri.isEmpty()) return;
+		for(Individual indi: frameOwner.getStore())
+			{
+			//TODO
+			
+			}
+		}
+	
 	}
 	/**
 	 *
@@ -1770,13 +1849,11 @@ private static class RDFException
 					{
 					if(e.getValueIsAdjusting() ) return;
 					Object array[]=listOfOntClasses.getSelectedValues();
-					if(array.length==0)
+					
+					Frame.this.individualsPane.ontClassInScope.clear();
+					for(Object o:array)
 						{
-						
-						}
-					else
-						{
-						
+						Frame.this.individualsPane.ontClassInScope.add(OntClass.class.cast(o));
 						}
 					Frame.this.actionMap.get("CREATE_INSTANCE").setEnabled(array.length!=0);
 					}
