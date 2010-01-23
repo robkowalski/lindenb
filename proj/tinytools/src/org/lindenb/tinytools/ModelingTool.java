@@ -10,6 +10,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ContainerAdapter;
 import java.awt.event.ContainerEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
@@ -45,9 +47,9 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
 import javax.swing.JSpinner;
+import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
-import javax.swing.JTree;
 import javax.swing.ListSelectionModel;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
@@ -58,8 +60,6 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.text.JTextComponent;
-import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.TreeSelectionModel;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.lindenb.lang.InvalidXMLException;
@@ -70,6 +70,8 @@ import org.lindenb.sw.vocabulary.XSD;
 import org.lindenb.swing.DocumentAdapter;
 import org.lindenb.swing.SwingUtils;
 import org.lindenb.swing.layout.VerticalLayout;
+import org.lindenb.swing.table.GenericTableModel;
+import org.lindenb.util.StringUtils;
 import org.lindenb.xml.XMLUtilities;
 import org.w3c.dom.Attr;
 import org.w3c.dom.Document;
@@ -1009,7 +1011,7 @@ private static class RDFException
 		private OntClass ontClass;
 		private Vector<OntProperty> properties;
 		private AbstractAction removePaneAction;
-		private AbstractAction addPropertyAction;
+		//private AbstractAction addPropertyAction;
 		private JComboBox addPropertyCombo;
 		private JPanel mainPane;
 		//private Map<OntProperty,OntPropertiesPane> prop2instances;
@@ -1104,7 +1106,7 @@ private static class RDFException
 				Collections.sort(this.properties);
 				this.addPropertyCombo= new JComboBox(this.properties);
 				flow.add(addPropertyCombo);
-				flow.add(new JButton(addPropertyAction=new AbstractAction("Add")
+				flow.add(new JButton(new AbstractAction("Add")
 					{
 					private static final long serialVersionUID = 1L;
 
@@ -1127,13 +1129,14 @@ private static class RDFException
 				}
 			}
 		
-		private void addPropertyPane(OntProperty p)
+		private Row addPropertyPane(OntProperty p)
 			{
-			if(p==null) return;
-			
-			this.mainPane.add(new Row(p));
+			if(p==null) return null;
+			Row row= new Row(p);
+			this.mainPane.add(row);
 			this.editorOwner.validate();
 			this.editorOwner.repaint();
+			return row;
 			}
 		
 		private int countPropertyUsage(OntProperty p)
@@ -1150,6 +1153,25 @@ private static class RDFException
 					}
 				}
 			return count;
+			}
+		
+		Map<OntProperty,Set<String>> toHash()
+			{
+			Map<OntProperty,Set<String>> h=new HashMap<OntProperty, Set<String>>();
+			for(int i=0;i< this.mainPane.getComponentCount();++i)
+				{
+				Component c=this.mainPane.getComponent(i);
+				if(!(c instanceof Row )) continue;
+				Row row=(Row)c;
+				Set<String> set=h.get(row.getOntProperty()); 
+				if(set==null)
+					{
+					set=new HashSet<String>();
+					h.put(row.getOntProperty(),set);
+					}
+				set.add(row.getPropertyInput().getValue());
+				}
+			return h;
 			}
 		
 		public String getValidationMessage()
@@ -1174,85 +1196,210 @@ private static class RDFException
 			}
 		}
 	
-	/**
-	 * 
-	 * InstanceOfOntClassNode
-	 *
-	 */
-	private static class InstanceOfOntPropertyNode
-		extends DefaultMutableTreeNode
+	
+	
+	private static class IndividualsPane
+		extends JPanel
 		{
 		private static final long serialVersionUID = 1L;
 		
-		public InstanceOfOntPropertyNode(
-				Individual indi,OntClass ontClass,OntProperty p)
+		private RDFStore rdfStore;
+		private JTable table;
+		private TableModel tableModel;
+		private JTextField tfSearch;
+		private JCheckBox cbRegex;
+		private SearchStore currentSearch=null;
+		private JSpinner spinLimit;
+		private Set<OntClass> ontClassInScope=new HashSet<OntClass>();
+		
+		private class TableModel
+			extends GenericTableModel<Individual>
 			{
-			super(ontClass,true);
-			for(String value: indi.get(ontClass, p))
-				{
-				this.add(new DefaultMutableTreeNode(value));
-				}
-			}
-		OntClass getOntProperty()
-			{
-			return OntClass.class.cast(getUserObject());
-			}
-		public String toString()
-			{
-			return getOntProperty().toString();
-			}
-		}
-	
-	/**
-	 * 
-	 * InstanceOfOntClassNode
-	 *
-	 */
-	private static class InstanceOfOntClassNode
-		extends DefaultMutableTreeNode
-		{
-		private static final long serialVersionUID = 1L;
-		public InstanceOfOntClassNode(Individual indi,OntClass ontClass)
-			{
-			super(ontClass,true);
-			for(OntProperty p:indi.getOntPropertiesForOntClass(ontClass))
-				{
-				this.add(new InstanceOfOntPropertyNode(indi,ontClass,p));
-				}
-			}
-		OntClass getOntClass()
-			{
-			return OntClass.class.cast(getUserObject());
-			}
-		public String toString()
-			{
-			return getOntClass().toString();
-			}
-		}
-	
-	private static class IndividualNode
-		extends DefaultMutableTreeNode
-		{
-		private static final long serialVersionUID = 1L;
-		public IndividualNode(Individual indi)
-			{
-			super(indi,true);
-			for(OntClass c: indi.getOntClasses())
-				{
-				this.add(new InstanceOfOntClassNode(indi,c));
-				}
-			}
-		Individual getIndividual()
-			{
-			return Individual.class.cast(getUserObject());
-			}
-		public String toString()
-			{
-			return getIndividual().getTitle();
-			}
-		}
-	
+			private static final long serialVersionUID = 1L;
 
+
+			@Override
+			public String getColumnName(int column)
+				{
+				switch(column)
+					{
+					case 0: return "URI";
+					case 1: return "Title";
+					case 2: return "Classes";
+					}
+				return null;
+				}
+			@Override
+			public int getColumnCount()
+				{
+				return 3;
+				}
+		
+			
+			@Override
+			public Object getValueOf(Individual indi, int columnIndex)
+				{
+				switch(columnIndex)
+					{
+					case 0: return indi.getURI();
+					case 1: return indi.getTitle();
+					case 2: return StringUtils.join(indi.getOntClasses(), " ; ");
+					}
+				return null;
+				}
+			}
+		
+		IndividualsPane(RDFStore rdfStore)
+			{
+			super(new BorderLayout(3,3));
+			this.rdfStore=rdfStore;
+			JPanel top=new JPanel(new FlowLayout(FlowLayout.LEADING));
+			this.add(top,BorderLayout.NORTH);
+			
+			
+			AbstractAction searchAction=new AbstractAction("Search")
+				{
+				private static final long serialVersionUID = 1L;
+				@Override
+				public void actionPerformed(ActionEvent ae)
+					{
+					doMenuSearch();
+					}
+				};
+			
+			JLabel label= new JLabel("Search:",JLabel.RIGHT);
+			top.add(label);
+			this.tfSearch= new JTextField(10);
+			this.tfSearch.addActionListener(searchAction);
+			
+			top.add(this.tfSearch);
+			this.cbRegex= new JCheckBox("Regex",false);
+			top.add(this.cbRegex);
+			label= new JLabel("Limit:",JLabel.RIGHT);
+			top.add(label);
+			this.spinLimit= new JSpinner(new SpinnerNumberModel(1,1,Integer.MAX_VALUE-2,1));
+			top.add(this.spinLimit);
+			JButton search= new JButton(searchAction);
+			top.add(search);
+			
+			/* creates an action searching for the previous page of result */ 
+			AbstractAction action=new AbstractAction("Prev")
+				{
+				private static final long serialVersionUID = 1L;
+				public void actionPerformed(ActionEvent ae)
+				 	{
+				 	if(IndividualsPane.this.currentSearch==null) return;
+				 	//move the search index backward
+				 	IndividualsPane.this.currentSearch.start_index=
+				 		Math.max(0,
+				 				IndividualsPane.this.currentSearch.start_index-IndividualsPane.this.currentSearch.max_return
+				 		);
+				 	doMenuSearchAgain();
+				 	}
+				};
+			getActionMap().put("SEARCH_PREV", action);
+			action.setEnabled(false);
+			top.add(new JButton(action));
+			
+			/* creates an action searching for the next page of result */ 
+			action=new AbstractAction("Next")
+				{
+				private static final long serialVersionUID = 1L;
+
+				public void actionPerformed(ActionEvent ae)
+				 	{
+				 	if(IndividualsPane.this.currentSearch==null) return;
+				 	//move the search index forward
+				 	IndividualsPane.this.currentSearch.start_index+=IndividualsPane.this.currentSearch.max_return;
+				 	doMenuSearchAgain();
+				 	}
+				};
+			getActionMap().put("SEARCH_NEXT", action);
+			action.setEnabled(false);
+			top.add(new JButton(action));
+			
+			
+			this.table=new JTable(this.tableModel=new TableModel());
+			JScrollPane scroll=new JScrollPane(this.table);
+			this.add(scroll,BorderLayout.CENTER);
+			
+			JPanel bot=new JPanel(new FlowLayout(FlowLayout.TRAILING));
+			this.add(bot,BorderLayout.SOUTH);
+			
+			
+			
+			this.tfSearch.getDocument().addDocumentListener(new DocumentAdapter()
+				{
+				@Override
+				public void documentChanged(DocumentEvent e)
+					{
+					IndividualsPane.this.currentSearch=null;
+					AbstractAction action=(AbstractAction)getActionMap().get("SEARCH_PREV");
+					action.setEnabled(false);
+					action=(AbstractAction)getActionMap().get("SEARCH_NEXT");
+					action.setEnabled(false);
+					}
+				});
+			}
+		
+		public RDFStore getStore()
+			{
+			return rdfStore;
+			}
+		
+		void doMenuSearch()
+			{
+			SearchStore newsearch=new SearchStore();
+			String s=this.tfSearch.getText();
+			if(!s.trim().isEmpty())
+				{
+				if(!this.cbRegex.isSelected())
+					{
+					s=Pattern.quote(s);
+					}
+				try
+					{
+					newsearch.regex= Pattern.compile(s,Pattern.CASE_INSENSITIVE);
+					}
+				catch (Exception e)
+					{
+					JOptionPane.showMessageDialog(this,""+e.getMessage(),"Error",JOptionPane.ERROR_MESSAGE);
+					return;
+					}
+				}
+			newsearch.havingOntClass=new HashSet<OntClass>();
+			if(!ontClassInScope.isEmpty())
+				{
+				for(OntClass o:ontClassInScope)
+					{
+					newsearch.havingOntClass.add(OntClass.class.cast(o));
+					}
+				}
+			
+			newsearch.max_return= Math.max(1,((Number)this.spinLimit.getValue()).intValue());
+			newsearch.start_index=0;
+			this.currentSearch=newsearch;
+			doMenuSearchAgain();
+			}
+		
+		void doMenuSearchAgain()
+			{
+			if(this.currentSearch==null) return;
+			
+			this.currentSearch.individuals.clear();
+			getStore().search(this.currentSearch);
+			
+			this.currentSearch.start_index+=this.currentSearch.individuals.size();
+			
+			AbstractAction action=(AbstractAction)getActionMap().get("SEARCH_PREV");
+			action.setEnabled(this.currentSearch.start_index>0);
+			action=(AbstractAction)getActionMap().get("SEARCH_NEXT");
+			action.setEnabled(this.currentSearch.individuals.size()>=this.currentSearch.max_return);
+			
+			this.currentSearch.individuals.clear();
+			}
+		
+		}
 	
 	/**
 	 * DialogEditor
@@ -1400,7 +1547,15 @@ private static class RDFException
 		for(OntClass c: individual.getOntClasses())
 			{
 			InstanceOfOntClassPane iocp=addOntClass(c);
-			//TODO
+			for(OntProperty prop: c.getSpecificProperties())
+				{
+				for(String value: individual.get(c, prop))
+					{
+					InstanceOfOntClassPane.Row row=iocp.addPropertyPane(prop);
+					row.getPropertyInput().setValue(value);
+					}
+				}
+		
 			}
 		}
 	
@@ -1502,8 +1657,7 @@ private static class RDFException
 		indi.name= this.labelTitle.getText();
 		for(OntClass c:this.class2pane.keySet())
 			{
-			Map<OntProperty,Set<String>> props= new HashMap<OntProperty, Set<String>>();
-			//todo
+			indi.instances.put(c, this.class2pane.get(c).toHash());
 			}
 		return indi;
 		}
@@ -1519,11 +1673,7 @@ private static class RDFException
 		private ActionMap actionMap=new ActionMap();
 		private static final long serialVersionUID = 1L;
 		private RDFStore store;
-		private JTextField tfSearch;
-		private JCheckBox cbRegex;
-		private SearchStore currentSearch=null;
-		private JSpinner spinLimit;
-		private JTree treeIndividuals;
+		private IndividualsPane individualsPane;
 		private JList listOfOntClasses;
 		
 		Frame(RDFStore store)
@@ -1568,11 +1718,11 @@ private static class RDFException
 			
 			JPanel pane2=new JPanel(new BorderLayout(5,5));
 			content.add(pane2,BorderLayout.CENTER);
-			DefaultMutableTreeNode root=new DefaultMutableTreeNode("<rdf:RDF>",true);
-			this.treeIndividuals=new JTree(root);
-			this.treeIndividuals.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
-			scroll=new JScrollPane(this.treeIndividuals);
-			pane2.add(scroll,BorderLayout.CENTER);
+			
+			pane2.add(
+				this.individualsPane=new IndividualsPane(store),
+				BorderLayout.CENTER
+				);
 			
 			JPanel top= new JPanel(new FlowLayout(FlowLayout.LEFT));
 			pane2.add(top, BorderLayout.NORTH);
@@ -1597,8 +1747,7 @@ private static class RDFException
                 		Individual indi= dialog.makeIndividual();
                 		if(indi!=null)
                 			{
-                			DefaultMutableTreeNode root=(DefaultMutableTreeNode)(treeIndividuals.getModel().getRoot());
-                			root.add(new IndividualNode(indi));
+                			individualsPane.tableModel.addElement(indi);
                 			getStore().add(indi);
                 			}
                 		}
@@ -1610,65 +1759,8 @@ private static class RDFException
 			top.add(new JSeparator(SwingConstants.VERTICAL));
 			
 			
-			AbstractAction searchAction=new AbstractAction("Search")
-				{
-				private static final long serialVersionUID = 1L;
-				@Override
-				public void actionPerformed(ActionEvent ae)
-					{
-					doMenuSearch();
-					}
-				};
-			JLabel label= new JLabel("Search:",JLabel.RIGHT);
-			top.add(label);
-			this.tfSearch= new JTextField(10);
-			this.tfSearch.addActionListener(searchAction);
 			
-			top.add(this.tfSearch);
-			this.cbRegex= new JCheckBox("Regex",false);
-			top.add(this.cbRegex);
-			label= new JLabel("Limit:",JLabel.RIGHT);
-			top.add(label);
-			this.spinLimit= new JSpinner(new SpinnerNumberModel(1,1,Integer.MAX_VALUE-2,1));
-			top.add(this.spinLimit);
-			JButton search= new JButton(searchAction);
-			top.add(search);
 			
-			/* creates an action searching for the previous page of result */ 
-			action=new AbstractAction("Prev")
-				{
-				private static final long serialVersionUID = 1L;
-				public void actionPerformed(ActionEvent ae)
-				 	{
-				 	if(Frame.this.currentSearch==null) return;
-				 	//move the search index backward
-				 	Frame.this.currentSearch.start_index=
-				 		Math.max(0,
-				 		Frame.this.currentSearch.start_index-Frame.this.currentSearch.max_return
-				 		);
-				 	doMenuSearchAgain();
-				 	}
-				};
-			actionMap.put("SEARCH_PREV", action);
-			action.setEnabled(false);
-			top.add(new JButton(action));
-			
-			/* creates an action searching for the next page of result */ 
-			action=new AbstractAction("Next")
-				{
-				private static final long serialVersionUID = 1L;
-
-				public void actionPerformed(ActionEvent ae)
-				 	{
-				 	if(Frame.this.currentSearch==null) return;
-				 	//move the search index forward
-				 	Frame.this.currentSearch.start_index+=Frame.this.currentSearch.max_return;
-				 	doMenuSearchAgain();
-				 	}
-				};
-			actionMap.put("SEARCH_NEXT", action);
-			action.setEnabled(false);
-			top.add(new JButton(action));
 			
 			
 			listOfOntClasses.addListSelectionListener(new ListSelectionListener()
@@ -1689,18 +1781,38 @@ private static class RDFException
 					Frame.this.actionMap.get("CREATE_INSTANCE").setEnabled(array.length!=0);
 					}
 				});
-			this.tfSearch.getDocument().addDocumentListener(new DocumentAdapter()
+			
+			
+			individualsPane.table.addMouseListener(new MouseAdapter()
 				{
 				@Override
-				public void documentChanged(DocumentEvent e)
+				public void mouseClicked(MouseEvent e)
 					{
-					Frame.this.currentSearch=null;
-					AbstractAction action=(AbstractAction)actionMap.get("SEARCH_PREV");
-					action.setEnabled(false);
-					action=(AbstractAction)actionMap.get("SEARCH_NEXT");
-					action.setEnabled(false);
+					if(e.getClickCount()<2) return;
+					int rowIndex= individualsPane.table.rowAtPoint(e.getPoint());
+					if(rowIndex==-1) return;
+					rowIndex= individualsPane.table.convertRowIndexToView(rowIndex);
+					if(rowIndex==-1 || rowIndex>= individualsPane.tableModel.getRowCount()) return;
+					Individual indi= individualsPane.tableModel.elementAt(rowIndex);
+					editIndividual(indi);
+					
+					individualsPane.tableModel.fireTableRowsUpdated(rowIndex, rowIndex);
 					}
 				});
+			
+			}
+		
+		private void editIndividual(Individual indi)
+			{
+			DialogEditor dialog= new DialogEditor(Frame.this,indi);
+		 	SwingUtils.center(dialog, 150);
+        	
+        	dialog.setVisible(true);
+        	if(dialog.getExitStatus()==JOptionPane.OK_OPTION)
+        		{
+        		indi= dialog.makeIndividual();
+        		getStore().update(indi);
+        		}
 			}
 
 			
@@ -1710,61 +1822,7 @@ private static class RDFException
 			this.dispose();
 			}
 		
-		void doMenuSearch()
-			{
-			SearchStore newsearch=new SearchStore();
-			String s=this.tfSearch.getText();
-			if(!s.trim().isEmpty())
-				{
-				if(!this.cbRegex.isSelected())
-					{
-					s=Pattern.quote(s);
-					}
-				try
-					{
-					newsearch.regex= Pattern.compile(s,Pattern.CASE_INSENSITIVE);
-					}
-				catch (Exception e)
-					{
-					JOptionPane.showMessageDialog(this,""+e.getMessage(),"Error",JOptionPane.ERROR_MESSAGE);
-					return;
-					}
-				}
-			newsearch.havingOntClass=new HashSet<OntClass>();
-			if(!listOfOntClasses.isSelectionEmpty())
-				{
-				for(Object o:listOfOntClasses.getSelectedValues())
-					{
-					newsearch.havingOntClass.add(OntClass.class.cast(o));
-					}
-				}
-			
-			newsearch.max_return= Math.max(1,((Number)this.spinLimit.getValue()).intValue());
-			newsearch.start_index=0;
-			this.currentSearch=newsearch;
-			doMenuSearchAgain();
-			}
 		
-		void doMenuSearchAgain()
-			{
-			if(this.currentSearch==null) return;
-			DefaultMutableTreeNode root=(DefaultMutableTreeNode)this.treeIndividuals.getModel().getRoot();
-			root.removeAllChildren();
-			this.currentSearch.individuals.clear();
-			getStore().search(this.currentSearch);
-			for(Individual i: this.currentSearch.individuals)
-				{
-				root.add(new IndividualNode(i));
-				}
-			this.currentSearch.start_index+=this.currentSearch.individuals.size();
-			
-			AbstractAction action=(AbstractAction)actionMap.get("SEARCH_PREV");
-			action.setEnabled(this.currentSearch.start_index>0);
-			action=(AbstractAction)actionMap.get("SEARCH_NEXT");
-			action.setEnabled(this.currentSearch.individuals.size()>=this.currentSearch.max_return);
-			
-			this.currentSearch.individuals.clear();
-			}
 		
 		RDFStore getStore()
 			{
@@ -1797,6 +1855,7 @@ private static class RDFException
 		public Individual findIndividualByURI(String uri);
 		public void search(SearchStore param);
 		public void add(Individual i);
+		public void update(Individual i);
 		}
 	
 	/**
@@ -1814,7 +1873,7 @@ private static class RDFException
 			}
 		
 		@Override
-		public void add(Individual indi)
+		public void update(Individual indi)
 			{
 			for(int i=0;i< individuals.size();++i)
 				{
@@ -1822,6 +1881,19 @@ private static class RDFException
 					{
 					individuals.set(i, indi);
 					return;
+					}
+				}
+			this.individuals.add(indi);
+			}
+		
+		@Override
+		public void add(Individual indi)
+			{
+			for(int i=0;i< individuals.size();++i)
+				{
+				if(this.individuals.get(i).getURI().equals(indi.getURI()))
+					{
+					throw new IllegalArgumentException("URI already defined :"+indi.getURI());
 					}
 				}
 			this.individuals.add(indi);
