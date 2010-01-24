@@ -10,7 +10,10 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
+import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -70,7 +73,7 @@ public class QuoteEditor
 	private JTextField tfAuthor,tfSource,tfDate,tfKeywords,tfQuoteSource;
 	private final String WP_PREFIX="http://en.wikipedia.org/wiki/";
 	private File rdfFile=null;
-	
+	private XMLInputFactory xmlInputFactory4WP;
 	
 	private static class Quote
 		{
@@ -132,7 +135,14 @@ public class QuoteEditor
 	private QuoteEditor()
 		{
 		super("Quote Editor");
+		
+		this.xmlInputFactory4WP = XMLInputFactory.newInstance();
+		this.xmlInputFactory4WP.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, Boolean.FALSE);
+		this.xmlInputFactory4WP.setProperty(XMLInputFactory.IS_COALESCING, Boolean.TRUE);
+		this.xmlInputFactory4WP.setProperty(XMLInputFactory.IS_REPLACING_ENTITY_REFERENCES, Boolean.TRUE);
+		
 		setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+		
 		this.addWindowListener(new WindowAdapter()
 			{
 			@Override
@@ -211,6 +221,7 @@ public class QuoteEditor
 					}
 			};
 		bot.add(new JButton(action));
+		menu.add(action);
 		
 		action=new AbstractAction("Save and Same Source")
 			{
@@ -224,6 +235,7 @@ public class QuoteEditor
 					}
 			};
 		bot.add(new JButton(action));
+		menu.add(action);
 		
 		action=new AbstractAction("Save and Same Author")
 			{
@@ -240,7 +252,7 @@ public class QuoteEditor
 					}
 			};
 		bot.add(new JButton(action));
-		
+		menu.add(action);
 		
 		
 		
@@ -253,6 +265,14 @@ public class QuoteEditor
 	
 	private void doMenuQuit()
 		{
+		if(!this.quoteArea.getText().trim().isEmpty())
+			{
+			if(JOptionPane.OK_OPTION!=JOptionPane.showConfirmDialog(
+					this, "Really close ?", "Question", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null))
+				{
+				return;
+				}
+			}
 		this.setVisible(false);
 		this.dispose();
 		}
@@ -313,6 +333,7 @@ public class QuoteEditor
 		
 		try
 			{
+			boolean echo_done=false;
 			XMLOutputFactory xmlfactory= XMLOutputFactory.newInstance();
 			//xmlfactory.setProperty(XMLOutputFactory.IS_REPAIRING_NAMESPACES, true);
 			if(this.rdfFile==null)
@@ -330,7 +351,7 @@ public class QuoteEditor
 				w.writeAttribute("xmlns", XMLConstants.XML_NS_URI, "dc", DC.NS);
 				w.writeAttribute("xmlns", XMLConstants.XML_NS_URI, PREFIX, NS);
 				q.echo(w);
-				
+				echo_done=true;
 				w.writeEndElement();
 				w.writeEndDocument();
 				w.flush();
@@ -346,7 +367,7 @@ public class QuoteEditor
 				XMLEventReader reader= xmlInputFactory.createXMLEventReader(new StreamSource(this.rdfFile));
 				XMLStreamWriter w= xmlfactory.createXMLStreamWriter(new FileWriter(tmpFile));
 				w.writeStartDocument("UTF-8","1.0");
-				
+				QName root=null;
 				while(reader.hasNext())
 					{
 					XMLEvent evt=reader.nextEvent();
@@ -364,6 +385,7 @@ public class QuoteEditor
 							QName name=e.getName();
 							if(name.getNamespaceURI().equals(RDF.NS) && name.getLocalPart().equals("RDF"))
 								{
+								echo_done=true;
 								q.echo(w);
 								}
 							w.writeEndElement();
@@ -373,6 +395,15 @@ public class QuoteEditor
 							{
 							StartElement e=evt.asStartElement();
 							QName name=e.getName();
+							if(root==null)
+								{
+								root=name;
+								if(!(root.getNamespaceURI().equals(RDF.NS) && root.getLocalPart().equals("RDF")))
+									{
+									throw new IOException("Expected a rdf:RDF as root but got "+root);
+									}
+								}
+							
 							XMLEvent next=reader.peek();
 							if(next!=null && next.isEndElement())
 								{
@@ -448,7 +479,11 @@ public class QuoteEditor
 				
 				rdfFile=tmpFile;
 				}
-			
+			if(!echo_done)
+				{
+				alert("IO problem. The current quote was not saved");
+				return false;
+				}
 			
 			}
 		catch (Exception e)
@@ -467,6 +502,7 @@ public class QuoteEditor
 	String checkArticle(String name,int namespaceType)
 		{
 		String revid=null;
+		InputStream in=null;
 		try
 			{
 			String prefix=WP_PREFIX;
@@ -476,7 +512,7 @@ public class QuoteEditor
 				alert("just the WP prefix "+name);
 				return null;
 				}
-			if(name.startsWith(prefix)) return null;
+			if(name.startsWith(prefix)) return name;
 			name=name.replace(' ', '_');
 			if(namespaceType==14 && !name.startsWith("Category:"))
 				{
@@ -485,11 +521,11 @@ public class QuoteEditor
 			URL url=new URL("http://en.wikipedia.org/w/api.php?action=query&prop=revisions&format=xml&titles="+
 					URLEncoder.encode(name,"UTF-8")
 					);
-			XMLInputFactory xmlInputFactory = XMLInputFactory.newInstance();
-			xmlInputFactory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, Boolean.FALSE);
-			xmlInputFactory.setProperty(XMLInputFactory.IS_COALESCING, Boolean.TRUE);
-			xmlInputFactory.setProperty(XMLInputFactory.IS_REPLACING_ENTITY_REFERENCES, Boolean.TRUE);
-			XMLEventReader reader= xmlInputFactory.createXMLEventReader(url.openStream());
+			URLConnection con=url.openConnection();
+			con.setConnectTimeout(10000);
+			in=con.getInputStream();
+			
+			XMLEventReader reader= this.xmlInputFactory4WP.createXMLEventReader(in);
 			while(reader.hasNext())
 				{
 				XMLEvent evt=reader.nextEvent();
@@ -526,7 +562,10 @@ public class QuoteEditor
 			alert(String.valueOf(e.getMessage()));
 			return null;
 			}
-	
+		finally
+			{
+			if(in!=null) try { in.close();} catch(Throwable err) {}
+			}
 		}
 	
 	
