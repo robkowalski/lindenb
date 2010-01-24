@@ -1939,14 +1939,33 @@ private static class RDFException
 	 * Default implementation of a RDFStore
 	 *
 	 */
-	public static class DefaultRDFStore
+	public abstract static class AbstractRDFStore
 	implements RDFStore
 		{
 		private Schema schema;
+		AbstractRDFStore(Schema schema)
+			{
+			this.schema=schema;
+			}
+		@Override
+		public Schema getSchema()
+			{
+			return this.schema;
+			}
+		}
+	
+	/**
+	 * Default implementation of a RDFStore
+	 *
+	 */
+	public static class DefaultRDFStore
+	extends AbstractRDFStore
+		{
+		
 		private java.util.List<Individual> individuals=new ArrayList<Individual>();
 		DefaultRDFStore(Schema schema)
 			{
-			this.schema=schema;
+			super(schema);
 			}
 		
 		@Override
@@ -1975,11 +1994,7 @@ private static class RDFException
 				}
 			this.individuals.add(indi);
 			}
-		@Override
-		public Schema getSchema()
-			{
-			return this.schema;
-			}
+		
 		public java.util.List<Individual> getIndividuals()
 			{
 			return this.individuals;
