@@ -53,6 +53,7 @@ import org.lindenb.sw.vocabulary.DC;
 import org.lindenb.sw.vocabulary.RDF;
 import org.lindenb.swing.SwingUtils;
 import org.lindenb.swing.layout.InputLayout;
+import org.lindenb.util.Cast;
 import org.lindenb.util.Compilation;
 import org.lindenb.util.StringUtils;
 
@@ -65,7 +66,7 @@ import org.lindenb.util.StringUtils;
 public class QuoteEditor
 	extends JFrame
 	{
-	private static final String NS="urn:ontology:";
+	private static final String NS="urn:ontology:quotes:";
 	private static final String PREFIX="q";
 	private static final long serialVersionUID = 1L;
 	private JTextArea quoteArea;
@@ -335,7 +336,7 @@ public class QuoteEditor
 			{
 			boolean echo_done=false;
 			XMLOutputFactory xmlfactory= XMLOutputFactory.newInstance();
-			//xmlfactory.setProperty(XMLOutputFactory.IS_REPAIRING_NAMESPACES, true);
+			//
 			if(this.rdfFile==null)
 				{
 				this.rdfFile=new File(System.getProperty("user.home"),"quotes.rdf");
@@ -364,9 +365,12 @@ public class QuoteEditor
 				xmlInputFactory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, Boolean.TRUE);
 				xmlInputFactory.setProperty(XMLInputFactory.IS_COALESCING, Boolean.TRUE);
 				xmlInputFactory.setProperty(XMLInputFactory.IS_REPLACING_ENTITY_REFERENCES, Boolean.TRUE);
+				
+				//xmlfactory.setProperty(XMLOutputFactory.IS_REPAIRING_NAMESPACES, true);
 				XMLEventReader reader= xmlInputFactory.createXMLEventReader(new StreamSource(this.rdfFile));
 				XMLStreamWriter w= xmlfactory.createXMLStreamWriter(new FileWriter(tmpFile));
 				w.writeStartDocument("UTF-8","1.0");
+				
 				QName root=null;
 				while(reader.hasNext())
 					{
@@ -437,8 +441,8 @@ public class QuoteEditor
 							
 								w.writeAttribute(
 										name.getPrefix(),
-										name.getLocalPart(),
 										name.getNamespaceURI(),
+										name.getLocalPart(),
 										att.getValue()
 										);
 								}
@@ -506,13 +510,13 @@ public class QuoteEditor
 		try
 			{
 			String prefix=WP_PREFIX;
-			if(namespaceType==14) prefix+="Category:";
+			if(namespaceType==14 ) prefix+="Category:";
 			if(name.equals(prefix))
 				{
 				alert("just the WP prefix "+name);
 				return null;
 				}
-			if(name.startsWith(prefix)) return name;
+			if(name.startsWith(prefix) || Cast.URL.isA(name)) return name;
 			name=name.replace(' ', '_');
 			if(namespaceType==14 && !name.startsWith("Category:"))
 				{
