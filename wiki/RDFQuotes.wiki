@@ -11,7 +11,7 @@ download the JAR 'quotes.jar' from: http://code.google.com/p/lindenb/downloads/l
 java -jar lindenb/build/quotes.jar [-f <rdf-file> ]
 }}}
 
-the option *-f* hold the name of the XML/RDF file where the quotes fill be added. If this file does not exists, it will be created by RDFQuotes.
+the option *-f* holds the name of the XML/RDF file where the quotes fill be added. If this file does not exists, it will be created by RDFQuotes.
 
 = The Window =
 
