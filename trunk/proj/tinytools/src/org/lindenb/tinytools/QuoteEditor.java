@@ -49,6 +49,7 @@ import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 import javax.xml.transform.stream.StreamSource;
 
+import org.lindenb.me.Me;
 import org.lindenb.sw.vocabulary.DC;
 import org.lindenb.sw.vocabulary.RDF;
 import org.lindenb.swing.SwingUtils;
@@ -157,7 +158,19 @@ public class QuoteEditor
 		setJMenuBar(bar);
 		JMenu menu=new JMenu("File");
 		bar.add(menu);
-		AbstractAction action=new AbstractAction("Quit")
+		AbstractAction action=new AbstractAction("About")
+			{
+			private static final long serialVersionUID = 1L;
+			@Override
+			public void actionPerformed(ActionEvent arg0)
+					{
+					JOptionPane.showMessageDialog(QuoteEditor.this,
+						Me.FIRST_NAME+" "+Me.LAST_NAME+" "+Me.MAIL	
+						);
+					}
+			};
+		menu.add(action);
+		action=new AbstractAction("Quit")
 			{
 			private static final long serialVersionUID = 1L;
 			@Override
@@ -167,6 +180,8 @@ public class QuoteEditor
 					}
 			};
 		menu.add(action);
+		
+		
 		menu=new JMenu("Quote");
 		bar.add(menu);
 		
@@ -198,9 +213,11 @@ public class QuoteEditor
 		JPanel center= new JPanel(new BorderLayout(5,5));
 		center.setBorder(new BevelBorder(BevelBorder.LOWERED));
 		center.add(new JScrollPane(quoteArea=new JTextArea()));
+		quoteArea.setWrapStyleWord(true);
+		quoteArea.setLineWrap(true);
 		quoteArea.setBorder(new EmptyBorder(15, 15, 15, 15));
 		contentPane.add(center,BorderLayout.CENTER);
-		this.quoteArea.setFont(new Font("Dialog",Font.PLAIN,24));
+		this.quoteArea.setFont(new Font("Dialog",Font.PLAIN,36));
 		
 		JPanel bot=new JPanel(new FlowLayout(FlowLayout.TRAILING));
 		contentPane.add(bot,BorderLayout.SOUTH);
@@ -336,7 +353,9 @@ public class QuoteEditor
 			{
 			boolean echo_done=false;
 			XMLOutputFactory xmlfactory= XMLOutputFactory.newInstance();
-			//
+			
+		     
+
 			if(this.rdfFile==null)
 				{
 				this.rdfFile=new File(System.getProperty("user.home"),"quotes.rdf");
@@ -437,7 +456,7 @@ public class QuoteEditor
 							for(Iterator<?> it=e.getAttributes();it.hasNext();)
 								{
 								Attribute att=(Attribute)it.next();
-								name=e.getName();
+								name=att.getName();
 							
 								w.writeAttribute(
 										name.getPrefix(),
@@ -481,7 +500,7 @@ public class QuoteEditor
 					return false;
 					}
 				
-				rdfFile=tmpFile;
+				//rdfFile=tmpFile;
 				}
 			if(!echo_done)
 				{
@@ -638,7 +657,7 @@ public class QuoteEditor
 				}
 			QuoteEditor ed=new QuoteEditor();
 			if(source!=null) ed.rdfFile=source;
-			SwingUtils.center(ed,200);
+			SwingUtils.center(ed,300);
 			SwingUtils.show(ed);
 			}
 		catch(Throwable err)

@@ -7,7 +7,7 @@
  <property name="compiledir" value="${builddir}/compile"/>
 
 
- <target name="all" depends="ncbimailing,echoproxy,svg2canvas,imagetool,xsltstream,consequences,ffsurvey,sortpubmed,meshfreq,pictools,aboutrslist,java2dot,verticalize,findjar,gamonalisa,saxscript,xar,json2xml">
+ <target name="all" depends="quotes,ncbimailing,echoproxy,svg2canvas,imagetool,xsltstream,consequences,ffsurvey,sortpubmed,meshfreq,pictools,aboutrslist,java2dot,verticalize,findjar,gamonalisa,saxscript,xar,json2xml">
 </target>
 
  <target name="build-ant-tasks">
@@ -635,7 +635,9 @@
 		<compile appclass="ImageTool" appjar="imagetool" appname="ImageTool"/>
 	</target>
 	
-	
+	<target name="quotes" depends="declare-ant-tasks">
+		<compile appclass="QuoteEditor" appjar="quotes" appname="QuoteEditor"/>
+	</target>
 	
 	
 </project>
