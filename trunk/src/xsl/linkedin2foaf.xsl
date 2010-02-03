@@ -22,10 +22,15 @@ Motivation:
 	transform a linkedin profile to a FOAF profile
 	Warning it just works with the current linkedin html (Last updated: 2010-01-03)
 
+Param:
+	'geoloc'=false: don't use geonames.org to find position
+
 Usage:
 	xsltproc \-\-html linkedin2foaf.xsl http://www.linkedin.com/in/lindenbaum
 	xsltproc \-\-html linkedin2foaf.xsl http://www.linkedin.com/in/dsingh
 -->
+
+<xsl:param name="geoloc">yes</xsl:param>
 
 <xsl:template match="/">
 <rdf:RDF>
@@ -169,7 +174,7 @@ Usage:
 
 <xsl:template match="p[@class='skills']">
 <xsl:call-template name="skills">
-<xsl:with-param name="s" select="normalize-space(.)"/>
+<xsl:with-param name="s" select="normalize-space(translate(.,',',' '))"/>
 </xsl:call-template>
 </xsl:template>
 
@@ -220,10 +225,12 @@ Usage:
 
 
 <xsl:template match="p[@class='locality']">
+<xsl:if test="$geoloc='yes'">
 <xsl:variable name="url" select="concat('http://ws.geonames.org/search?q=',translate(normalize-space(.),' ','+'),'&amp;maxRows=1')"/>
 <xsl:message terminate="no">Downloading <xsl:value-of select="$url"/></xsl:message>
-<!-- <xsl:apply-templates select="document($url,/geonames)" mode="geo"/> -->
+ <xsl:apply-templates select="document($url,/geonames)" mode="geo"/>
 <xsl:message terminate="no">Done.</xsl:message>
+</xsl:if>
 </xsl:template>
 
 <xsl:template match="script|head|meta|link">
