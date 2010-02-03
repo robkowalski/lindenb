@@ -26,6 +26,13 @@ Param:
 	'geoloc'=false: don't use geonames.org to find position
 
 Usage:
+	warning USE a URL
+		http://www.linkedin.com...
+	rather than a local one
+		http://it.linkedin.com....
+		http://fr.linkedin.com....
+		http://en.linkedin.com....
+
 	xsltproc \-\-html linkedin2foaf.xsl http://www.linkedin.com/in/lindenbaum
 	xsltproc \-\-html linkedin2foaf.xsl http://www.linkedin.com/in/dsingh
 -->
