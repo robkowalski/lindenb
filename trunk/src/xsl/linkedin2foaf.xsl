@@ -20,14 +20,16 @@ Author:
 
 Motivation:
 	transform a linkedin profile to a FOAF profile
-	Warning it just works with the current linkedin html (Last updated: 2010-01-03)
+	Warning it just works with the current linkedin html (Last updated: 2010-02-08)
 
 Param:
 	'geoloc'=false: don't use geonames.org to find position
-
+	'ppd'=false: don't print foaf:personalProfileDocument
+	
 Usage:
-	warning USE a URL
+	warning USE a 'www' URL
 		http://www.linkedin.com...
+		
 	rather than a local one
 		http://it.linkedin.com....
 		http://fr.linkedin.com....
@@ -36,8 +38,10 @@ Usage:
 	xsltproc \-\-html linkedin2foaf.xsl http://www.linkedin.com/in/lindenbaum
 	xsltproc \-\-html linkedin2foaf.xsl http://www.linkedin.com/in/dsingh
 -->
-
+<!-- use geonames -->
 <xsl:param name="geoloc">yes</xsl:param>
+<!-- print foaf:personalProfileDocument -->
+<xsl:param name="ppd">yes</xsl:param>
 
 <xsl:template match="/">
 <rdf:RDF>
@@ -56,6 +60,19 @@ Usage:
 <xsl:value-of select="//a[@class='action' and @rel='nofollow'][1]/@href"/>
 </xsl:variable>
 <xsl:variable name="lkid" select="concat('http://www.linkedin.com/ppl/webprofile?id=',substring-before(substring-after($action,'id='),'&amp;'))"/>
+
+<xsl:if test="$ppd='yes'">
+<xsl:element name="foaf:PersonalProfileDocument">
+	<xsl:attribute name="rdf:about"><xsl:text></xsl:text></xsl:attribute>
+	<xsl:element name="foaf:maker">
+		<xsl:attribute name="rdf:resource">http://code.google.com/p/lindenb/source/browse/trunk/src/xsl/linkedin2foaf.xsl</xsl:attribute>
+	</xsl:element>
+	<xsl:element name="foaf:primaryTopic">
+		<xsl:attribute name="rdf:resource"><xsl:value-of select="$lkid"/></xsl:attribute>
+	</xsl:element>
+</xsl:element>
+</xsl:if>
+
 <xsl:element name="foaf:Person">
 <xsl:attribute name="rdf:about"><xsl:value-of select="$lkid"/></xsl:attribute>
  <xsl:apply-templates/>
@@ -233,10 +250,22 @@ Usage:
 
 <xsl:template match="p[@class='locality']">
 <xsl:if test="$geoloc='yes'">
-<xsl:variable name="url" select="concat('http://ws.geonames.org/search?q=',translate(normalize-space(.),' ','+'),'&amp;maxRows=1')"/>
-<xsl:message terminate="no">Downloading <xsl:value-of select="$url"/></xsl:message>
+<xsl:variable name="s1" select="normalize-space(.)"/>
+<xsl:variable name="s2">
+  <xsl:choose>
+  	<xsl:when test="contains($s1,' Area,')">
+  		<xsl:value-of select="concat(substring-before($s1,' Area,'),substring-after($s1,' Area,'))"/>
+  	</xsl:when>
+  	<xsl:otherwise>
+  		<xsl:value-of select="$s1"/>
+  	</xsl:otherwise>
+  </xsl:choose>
+</xsl:variable>
+
+<xsl:variable name="url" select="concat('http://ws.geonames.org/search?q=',translate($s2,' ','+'),'&amp;maxRows=1')"/>
+<xsl:message terminate="no">Downloading <xsl:value-of select="$url"/> ...</xsl:message>
  <xsl:apply-templates select="document($url,/geonames)" mode="geo"/>
-<xsl:message terminate="no">Done.</xsl:message>
+<xsl:message terminate="no">Done (<xsl:value-of select="$url"/>).</xsl:message>
 </xsl:if>
 </xsl:template>
 
