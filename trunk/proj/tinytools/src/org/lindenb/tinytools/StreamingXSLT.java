@@ -1,6 +1,7 @@
 package org.lindenb.tinytools;
 
 
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 
@@ -103,11 +104,18 @@ private boolean process(
 	}
 
 
-private void parse(Reader in) throws Exception
+private void parse(InputStream in) throws Exception
 	{
 	DocumentBuilderFactory domFactory= DocumentBuilderFactory.newInstance();
+	domFactory.setNamespaceAware(true);
+	domFactory.setCoalescing(true);
+	domFactory.setExpandEntityReferences(true);
+	domFactory.setValidating(false);
 	DocumentBuilder builder= domFactory.newDocumentBuilder();
+	
 	SAXParserFactory saxFactory= SAXParserFactory.newInstance();
+	saxFactory.setValidating(false);
+	saxFactory.setNamespaceAware(true);
 	SAXParser parser= saxFactory.newSAXParser();
 	parser.parse(new InputSource(in), new Sax2dom(builder));
 	}
@@ -181,13 +189,13 @@ public static void main(String[] args) {
 			}
 		if(optind==args.length)
 			{
-			app.parse(new InputStreamReader(System.in));
+			app.parse(System.in);
 			}
 		else
 			{
 			while(optind< args.length)
 				{
-				Reader r = IOUtils.openReader(args[optind++]);
+				InputStream r = IOUtils.openInputStream(args[optind++]);
 				app.parse(r);
 				r.close();
 				}
