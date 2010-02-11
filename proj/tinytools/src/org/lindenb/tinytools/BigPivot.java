@@ -509,7 +509,7 @@ private abstract class AbstractPrinter
 		        keyEntry1= new DatabaseEntry();
 		        if(topCursor.getFirst(keyEntry1, dataEntry1, LockMode.DEFAULT)!=OperationStatus.SUCCESS)
 		        	{
-		        	throw new DatabaseException("Cannot go first");
+		        	throw new RuntimeException("Cannot go first");
 		        	}
 		        while(topCursor.getNext(keyEntry1, dataEntry1, LockMode.DEFAULT)==OperationStatus.SUCCESS)
 		            {
@@ -552,7 +552,7 @@ private abstract class AbstractPrinter
 		        {
 		    	if(getPivot().index2row.get(null, dataEntry1, dataEntry3, LockMode.DEFAULT)!=OperationStatus.SUCCESS)
 		    		{
-		    		throw new DatabaseException("Cannot get row");
+		    		throw new RuntimeException("Cannot get row");
 		    		}
 		    	List<Object> rleft = ROW_BINDING.entryToObject(dataEntry3);
 		        for(int displayIndex=0;displayIndex<display.size();++displayIndex)
@@ -565,7 +565,7 @@ private abstract class AbstractPrinter
 			        keyEntry2= new DatabaseEntry();
 			        if(topCursor.getFirst(keyEntry2, dataEntry2, LockMode.DEFAULT)!=OperationStatus.SUCCESS)
 			        	{
-			        	throw new DatabaseException("Cannot go first");
+			        	throw new RuntimeException("Cannot go first");
 			        	}
 			        
 			        TH(getLabel(display.elementAt(displayIndex)));
@@ -975,7 +975,7 @@ private abstract class AbstractPrinter
 			ROW_BINDING.objectToEntry(list, dataEntry);
 			if(this.index2row.put(null, keyEntry, dataEntry)!= OperationStatus.SUCCESS)
 				{
-				throw new DatabaseException("Cannot insert "+line);
+				throw new RuntimeException("Cannot insert "+line);
 				}
 
 			rowCount++;

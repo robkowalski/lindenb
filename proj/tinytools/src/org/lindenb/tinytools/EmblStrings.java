@@ -360,11 +360,6 @@ extends Base
 		}
 	
 	
-	public boolean contains(Interactor i)
-		{
-		return first().equals(i) || second().equals(i);
-		}
-	
 	@Override
 	public boolean equals(Object obj)
 		{
