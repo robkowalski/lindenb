@@ -3,7 +3,6 @@ package org.lindenb.xml;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 
 import org.lindenb.util.StringUtils;
@@ -19,6 +18,7 @@ public class Sax2Dom
 	protected Document dom;
 	protected Node currentNode=null;
 	protected List<String> nsMapping=new ArrayList<String>();
+	
 	
 	
 	public Sax2Dom(DocumentBuilder domBuilder)
