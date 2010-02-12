@@ -1,6 +1,8 @@
 package org.lindenb.awt;
 import java.awt.BasicStroke;
-
+/**
+ * SVG definition for line join
+ */
 public enum Join {
 BEVEL(){ public int stroke() { return BasicStroke.JOIN_BEVEL;}},
 ROUND(){ public int stroke() { return BasicStroke.JOIN_ROUND;}},
