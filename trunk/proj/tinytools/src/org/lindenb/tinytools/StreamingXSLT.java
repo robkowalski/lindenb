@@ -2,8 +2,6 @@ package org.lindenb.tinytools;
 
 
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
 
 
 import java.util.ArrayList;
@@ -30,12 +28,19 @@ import org.lindenb.util.Compilation;
 
 import org.lindenb.xml.Sax2Dom;
 import org.lindenb.xml.XMLUtilities;
+import org.w3c.dom.Attr;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 
+/**
+ * StreamingXSLT
+ * @author pierre
+ *
+ */
 public class StreamingXSLT
 {
 private Transformer transformer=null;
@@ -46,6 +51,10 @@ private StreamingXSLT() throws Exception
 	{
 	}
 
+/**
+ * Builds the DOM for each fragment
+ * 
+ */
 private class Sax2dom
 	extends Sax2Dom
 	{
@@ -54,9 +63,8 @@ private class Sax2dom
 	Sax2dom(DocumentBuilder builder) throws Exception
 		{
 		super(builder);
-		
-		
 		}
+	
 	@Override
 	public void startDocument() throws SAXException {
 		super.startDocument();
@@ -68,20 +76,35 @@ private class Sax2dom
 	public void endElement(String uri, String localName, String name)
 			throws SAXException
 		{
-		boolean b=process(this.dom,Element.class.cast(this.currentNode),this.indexInStream);
+		Node current = super.getCurrentNode();
+		boolean b=process(this.dom,Element.class.cast(current),this.indexInStream);
 		super.endElement(uri, localName, name);
+		current = super.getCurrentNode();
 		if(b)
 			{
 			++this.indexInStream;
-			while(this.currentNode.hasChildNodes())
+			while(current.hasAttributes())
 				{
-				this.currentNode.removeChild(this.currentNode.getFirstChild());
+				Attr att = (Attr)current.getAttributes().item(0);
+				Element.class.cast(current).removeAttributeNode(att);
+				}
+			while(current.hasChildNodes())
+				{
+				current.removeChild(current.getFirstChild());
 				}
 			}
 		}
 	
 	}
 
+/**
+ * process this Node return true if it should removed 
+ * @param dom
+ * @param node
+ * @param indexInStream
+ * @return true if node has been processed and should be removed from the fragment
+ * @throws SAXException
+ */
 private boolean process(
 		Document dom,
 		Element node,
@@ -132,11 +155,12 @@ public static void main(String[] args) {
 				{
 				System.err.println("Pierre Lindenbaum PhD.");
 				System.err.println(Compilation.getLabel());
-				System.err.println("-h this screen");
-				System.err.println("-x <xslt-stylesheet> required");
-				System.err.println("-p <param-name> <param-value> (add parameter to the xslt engine)");
-				System.err.println("-d depth (0 based) default:-1");
-				System.err.println("-q qName target default:null" );
+				System.err.println("  -h this screen");
+				System.err.println("  -x <xslt-stylesheet file/url> required");
+				System.err.println("  -p <param-name> <param-value> (add parameter to the xslt engine)");
+				System.err.println("  -d depth (0 based) default:-1");
+				System.err.println("  -q qName target default:null" );
+				System.err.println("   <file>|stdin");
 				return;
 				}
 			 else if (args[optind].equals("-x"))

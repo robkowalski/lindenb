@@ -13,12 +13,27 @@
 	version='1.0'
 	>
 <!--
-Author Pierre Lindenbaum PhD
-http://plindenbaum.blogspot.com
+Author:
+	Pierre Lindenbaum PhD
+	http://plindenbaum.blogspot.com
+	plindenbaum@yahoo.fr
+Motivation:
+	transforms dbsnp to rdf
 
+Parameters:
+	$taxonid (default: 9606) the taxon id
+	
 Example:
- xsltproc -\-novalid dbsnp2rdf.xsl 'http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=snp&id=25,26&retmode=xml'
+	
+ 	xsltproc -\-novalid dbsnp2rdf.xsl \
+ 		 'http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=snp&id=25,26&retmode=xml'
 
+or
+	#download xsltstream.ja from http://lindenb.googlecode.com/files/xsltstream.jar
+	
+	wget 'http://lindenb.googlecode.com/files/xsltstream.jar'
+	java -jar  xsltstream.jar -x  dbsnp2rdf.xsl  -d 1 \
+	 'ftp://ftp.ncbi.nih.gov/snp/organisms/human_9606/XML/ds_chMT.xml.gz
 
 -->
 
