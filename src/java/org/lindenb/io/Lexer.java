@@ -51,11 +51,13 @@ public class Lexer
 		return get();
 		}
 	
+	/** return the next char without removing it from the stack */
 	public int get() throws IOException
 		{
 		return get(0);
 		}
 	
+	/** return the index-th char without removing it from the stack */
 	public int get(int index) throws IOException
 		{
 		while(this.buffer.length()<=index)
@@ -67,6 +69,7 @@ public class Lexer
 		return this.buffer.charAt(index);
 		}
 	
+	/** pop and returns the next element in the stack */
 	public int pop() throws IOException
 		{
 		if(this.buffer.length()!=0)
@@ -125,6 +128,11 @@ public class Lexer
 		return consumme(0,n);
 		}
 	
+	public boolean isEof() throws IOException
+		{
+		return get()==EOF;
+		}
+	
 	public String toString(int length)
 		{
 		StringBuilder b= new StringBuilder(length);
@@ -159,6 +167,7 @@ public class Lexer
 		{
 		return toString(30);
 		}
+	
 	
 	public static void main(String[] args) throws Exception
 		{

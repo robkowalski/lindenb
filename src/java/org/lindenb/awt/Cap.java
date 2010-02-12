@@ -1,7 +1,9 @@
 package org.lindenb.awt;
 import java.awt.BasicStroke;
 
-
+/**
+ * SVG definition for line cap
+ */
 public enum Cap {
 BUTT() { public int stroke() { return BasicStroke.CAP_BUTT;}},
 ROUND { public int stroke() { return BasicStroke.CAP_ROUND;}},
