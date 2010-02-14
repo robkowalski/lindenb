@@ -373,6 +373,14 @@ public class SVGToCanvas
 				parse(state, Element.class.cast(c));
 				}
 			}
+		else if(shapeName.equals("a"))
+			{
+			for(Node c=e.getFirstChild();c!=null;c=c.getNextSibling())
+				{
+				if(c.getNodeType()!=Node.ELEMENT_NODE) continue;
+				parse(state, Element.class.cast(c));
+				}
+			}
 		else
 			{
 			LOG.warning("cannot display <"+e.getLocalName()+">");
@@ -425,7 +433,7 @@ public class SVGToCanvas
 				return;
 				}
 			}
-		if(StringUtils.isIn(key, "x","y","width","height","id","points","rx","ry","class",
+		if(StringUtils.isIn(key,"d", "x","y","width","height","id","points","rx","ry","class",
 				"cx","cy")) return;
 	    LOG.info("Not handled :"+key+"="+value);
 		}
