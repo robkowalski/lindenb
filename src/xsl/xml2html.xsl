@@ -25,7 +25,6 @@ This stylesheet transform xml to html
 <xsl:template match="text()"><xsl:choose><xsl:when test="string-length(normalize-space(.))&gt;0"><span style="color:gray;"><xsl:value-of select="."/></span></xsl:when><xsl:otherwise><xsl:value-of select="."/></xsl:otherwise></xsl:choose></xsl:template>
 
 
-
 <xsl:template match="@*"><xsl:text> </xsl:text><xsl:value-of select="name()"/>=&quot;<span style="color:gray;"><xsl:choose><xsl:when test="starts-with (.,&apos;http://&apos;)"><xsl:element name="a"><xsl:attribute name="href"><xsl:value-of select="."/></xsl:attribute><xsl:value-of select="."/></xsl:element></xsl:when><xsl:otherwise><xsl:value-of select="."/></xsl:otherwise></xsl:choose></span>&quot;</xsl:template>
 
 <xsl:template match="node()" name="element"><xsl:choose>
