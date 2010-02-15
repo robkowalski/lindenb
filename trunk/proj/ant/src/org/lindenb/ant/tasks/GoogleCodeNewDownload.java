@@ -74,8 +74,8 @@ public class GoogleCodeNewDownload
 			FileInputStream fin=new FileInputStream(this.config);
 			cfg.loadFromXML(fin);
 			fin.close();
-			if(cfg.containsKey(GC_USERNAME)) throw new BuildException("undefined "+GC_USERNAME+" in "+this.config);
-			if(cfg.containsKey(GC_PASSWORD)) throw new BuildException("undefined "+GC_PASSWORD+" in "+this.config);
+			if(!cfg.containsKey(GC_USERNAME)) throw new BuildException("undefined "+GC_USERNAME+" in "+this.config);
+			if(!cfg.containsKey(GC_PASSWORD)) throw new BuildException("undefined "+GC_PASSWORD+" in "+this.config);
 			
 			
 			HttpClient client=new HttpClient();
