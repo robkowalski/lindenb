@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<project name="anttasks" default="googlecode">
+<property environment="env"/><!-- prefix for environnement properties -->
+<property name="rootdir" value="../.."/>
+<property name="builddir" value="${rootdir}/build"/>
+<property name="compiledir" value="${builddir}/compile"/>
+<property file="../../build.properties"/>
+
+<path id="httpclient">
+	<pathelement path="${httpclient.lib}"/>
+	<pathelement path="${logging.lib}"/>
+	<pathelement path="${codec.lib}"/>
+	<pathelement path="${lang.lib}"/>
+ </path>
+
+
+<target name="googlecode">
+	<echo>${httpclient.lib}</echo>
+	<mkdir dir="tmp"/>
+	<javac destdir="tmp">
+		<src path="${rootdir}/src/java"/>
+		<src path="src"/>
+		<include name="**/GoogleCodeNewDownload.java"/>
+		<classpath>
+			<path refid="httpclient"/>
+		</classpath>
+	</javac>
+	<jar destfile="${builddir}/googlecodeupload.jar"
+	     basedir="tmp">
+	</jar>
+        <delete dir="tmp"/>
+</target>
+
+	
+</project>
