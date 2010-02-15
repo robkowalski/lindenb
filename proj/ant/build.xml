@@ -11,11 +11,10 @@
 	<pathelement path="${logging.lib}"/>
 	<pathelement path="${codec.lib}"/>
 	<pathelement path="${lang.lib}"/>
- </path>
+</path>
 
 
 <target name="googlecode">
-	<echo>${httpclient.lib}</echo>
 	<mkdir dir="tmp"/>
 	<javac destdir="tmp">
 		<src path="${rootdir}/src/java"/>
