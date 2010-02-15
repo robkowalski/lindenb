@@ -37,7 +37,11 @@ public class SVGUtils extends SVG
 			{
 			s=s.substring(0,s.length()-2).trim();
 			}
-		
+		if(s.endsWith("in"))
+			{
+			s=s.substring(0,s.length()-2).trim();
+			return 75.0*Double.parseDouble(s);
+			}
 		return Double.parseDouble(s);	
 		}
 	

@@ -563,6 +563,10 @@
 		<compile appclass="NCBIMailing" appjar="ncbimailing" appname="NCBIMailing"/>
 	</target>
 	
+	<target name="rdf2dot" depends="declare-ant-tasks">
+		<compile appclass="RDFToDot" appjar="rdf2dot" appname="RDFToDot"/>
+	</target>
+	
 	 <target name="emblstring" depends="declare-ant-tasks">
 		 <mkdir dir="${compiledir}"/>
 		 

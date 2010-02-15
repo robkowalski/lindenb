@@ -16,7 +16,14 @@
 		 <include name="*.jar"/>
 	 </fileset>
 </path>
-	
+
+<path id="apache.commons.http">
+	<pathelement location="${httpclient.lib}"/>
+	<pathelement location="${logging.lib}"/>
+	<pathelement location="${codec.lib}"/>
+	<pathelement location="${lang.lib}"/>
+</path>
+
  <target name="build-ant-tasks">
 	<mkdir dir="${builddir}/ant"/>
 	<javac destdir="${builddir}/ant">

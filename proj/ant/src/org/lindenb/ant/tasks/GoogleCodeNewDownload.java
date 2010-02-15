@@ -15,6 +15,7 @@ import org.apache.commons.httpclient.methods.multipart.StringPart;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Task;
 import org.lindenb.io.IOUtils;
+import org.lindenb.io.NullOutputStream;
 import org.lindenb.util.Base64;
 import org.lindenb.util.StringUtils;
 import org.lindenb.util.TimeUtils;
@@ -105,8 +106,18 @@ public class GoogleCodeNewDownload
 			MultipartRequestEntity requestEntity= new MultipartRequestEntity(parts.toArray(new Part[parts.size()]),post.getParams());
 			post.setRequestEntity(requestEntity);
 			int status = client.executeMethod(post);
-			log("status "+status);
-			IOUtils.copyTo(post.getResponseBodyAsStream(),System.out);
+			if(status!=201) //created
+				{
+				throw new BuildException("http status !=201 : "+post.getResponseBodyAsString());
+				}
+			else
+				{
+				IOUtils.copyTo(post.getResponseBodyAsStream(), new NullOutputStream());
+				}
+			}
+		catch (BuildException e)
+			{
+			throw e;
 			}
 		catch (Exception e)
 			{
