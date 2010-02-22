@@ -1,13 +1,15 @@
-package org.lindenb.tool.unix;
+package org.lindenb.tinytools;
 
 import java.io.*;
-import java.net.URL;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 import java.util.TreeMap;
-import java.util.Vector;
 import java.util.regex.*;
-import java.util.zip.GZIPInputStream;
+
+import org.lindenb.io.IOUtils;
+import org.lindenb.util.Compilation;
 
 
 public class Uniq
@@ -18,7 +20,7 @@ public class Uniq
 */
 private static class ColumnModel implements Iterable<Integer>
     {
-    private Vector<Integer> indexes= new Vector<Integer>(2,1);
+    private List<Integer> indexes= new ArrayList<Integer>();
     private int maxCol=-1;
    
     ColumnModel()
@@ -30,13 +32,13 @@ private static class ColumnModel implements Iterable<Integer>
         {
         if(columnIndex<0) throw new IllegalArgumentException("Bad index :"+columnIndex);
         if(this.indexes.contains(columnIndex)) throw new IllegalArgumentException("Index defined twice :"+(columnIndex+1));
-        this.indexes.addElement(columnIndex);
+        this.indexes.add(columnIndex);
         this.maxCol=Math.max(this.maxCol, columnIndex);
         }
    
     public int size() { return this.indexes.size();}
     public boolean isEmpty() { return this.indexes.isEmpty();}
-    public int at(int index) { return this.indexes.elementAt(index);}
+    public int at(int index) { return this.indexes.get(index);}
    
     @Override
     public Iterator<Integer> iterator() { return indexes.iterator();}
@@ -112,7 +114,7 @@ private ColumnModel columns= new ColumnModel();
 private Pattern delim=Pattern.compile(",");
 private boolean casesensible=true;
 private boolean trimTokens=true;
-private TreeMap<ScalarList, Vector<String>> scalar2lines= new TreeMap<ScalarList, Vector<String>>();
+private TreeMap<ScalarList, List<String>> scalar2lines= new TreeMap<ScalarList, List<String>>();
 
 public void read(BufferedReader in) throws IOException
     {
@@ -134,48 +136,16 @@ public void read(BufferedReader in) throws IOException
             if(!casesensible) array[i]=array[i].toLowerCase();
             }
         ScalarList l= new ScalarList(array);
-        Vector<String> lines= this.scalar2lines.get(l);
+        List<String> lines= this.scalar2lines.get(l);
         if(lines==null)
             {
-            lines= new Vector<String>(10,1);
+            lines= new ArrayList<String>();
             this.scalar2lines.put(l,lines);
             }
         lines.add(line);
         }
     }
 
-
-protected static BufferedReader open(String uri) throws IOException
-{
-if(    uri.startsWith("http://") ||
-        uri.startsWith("https://") ||
-        uri.startsWith("file://") ||
-        uri.startsWith("ftp://")
-        )
-        {
-        URL url= new URL(uri);
-        if(uri.endsWith(".gz"))
-            {
-            return new BufferedReader(new InputStreamReader(new GZIPInputStream(url.openStream())));
-            }
-        else
-            {
-            return new BufferedReader(new InputStreamReader(url.openStream()));
-            }
-        }
-    else
-        {
-        File fin= new File(uri);
-        if(fin.getName().endsWith(".gz"))
-            {
-            return new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(fin))));
-            }
-        else
-            {
-            return new BufferedReader(new FileReader(fin));
-            }
-        }
-}
 
 
 public static void main(String args[])
@@ -192,9 +162,8 @@ public static void main(String args[])
                 {
                 if (args[optind].equals("-h"))
                     {
+                	System.out.println(Compilation.getLabel());
                     System.out.println("Uniq [options] (<Files>|stdin)");
-                    System.out.println("Author: Pierre Lindenbaum PhD. 2007");
-                    System.out.println("$LastChangedRevision$");
                     System.out.println("\t-i case insensible");
                     System.out.println("\t-t delimiter pattern (default:TAB)");
                     System.out.println("\t-f column1,column2,....");
@@ -275,7 +244,7 @@ public static void main(String args[])
             {
             while(optind< args.length)
                 {
-                BufferedReader in= open(args[optind++]);
+                BufferedReader in= IOUtils.openReader(args[optind++]);
                 main.read(in);   
                 in.close();
                 }
@@ -284,7 +253,7 @@ public static void main(String args[])
         //echo
         for(ScalarList scalar:main.scalar2lines.keySet())
             {
-            Vector<String> lines= main.scalar2lines.get(scalar);
+            List<String> lines= main.scalar2lines.get(scalar);
             int count=lines.size();
             if(count!=1 && uniq_option) continue;
             if(count==1 && duplicated_option) continue;
@@ -310,7 +279,7 @@ public static void main(String args[])
                     System.out.print(count);
                     System.out.print("\t");
                     }
-                System.out.print(lines.firstElement());
+                System.out.print(lines.get(0));
                 System.out.println();
                 }
            
