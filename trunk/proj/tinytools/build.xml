@@ -7,7 +7,7 @@
  <property name="compiledir" value="${builddir}/compile"/>
  <property file="../../build.properties"/>
 
- <target name="all" depends="quotes,ncbimailing,echoproxy,svg2canvas,imagetool,xsltstream,consequences,ffsurvey,sortpubmed,meshfreq,pictools,aboutrslist,java2dot,verticalize,findjar,gamonalisa,saxscript,xar,json2xml">
+ <target name="all" depends="uniq,quotes,ncbimailing,echoproxy,svg2canvas,imagetool,xsltstream,consequences,ffsurvey,sortpubmed,meshfreq,pictools,aboutrslist,java2dot,verticalize,findjar,gamonalisa,saxscript,xar,json2xml">
 </target>
 
  <target name="build-ant-tasks">
@@ -664,6 +664,10 @@
 	
 	<target name="quotes" depends="declare-ant-tasks">
 		<compile appclass="QuoteEditor" appjar="quotes" appname="QuoteEditor"/>
+	</target>
+
+	<target name="uniq" depends="declare-ant-tasks">
+		<compile appclass="Uniq" appjar="uniq" appname="Uniq"/>
 	</target>
 	
 	<target name="google-code"  depends="declare-ant-tasks">

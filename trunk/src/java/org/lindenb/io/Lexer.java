@@ -40,6 +40,23 @@ public class Lexer
 		return this.buffer;
 		}
 	
+	/** consume all whitespaces.
+	 * @throws an IOException if there was no whitespace
+	 * @return the number of blanks read
+	 **/
+	public int mustWhitespaces()throws IOException
+		{
+		int c=0;
+		while(!this.isEof() &&
+			  Character.isWhitespace(this.get()))
+			{
+			c++;
+			this.consumme(1);
+			}
+		if(c==0) throw new IOException("Error expected whitespace before "+toString());
+		return c;
+		}
+	
 	public int skipWhitespaces() throws IOException
 		{
 		int c;
