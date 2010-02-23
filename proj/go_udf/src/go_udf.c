@@ -66,8 +66,7 @@ static int binary_search(const TermDBPtr termsdb, const char* name)
 		     }
 		else
 			{
-			fprintf(stderr,"%d/%d\n",mid,termsdb->n_terms);
-		        return mid;
+			return mid;
 			}
 	    	}
 
