@@ -14,5 +14,7 @@ bin/buildtermdb: src/buildtermdb.c
 lib/go_udf.so:src/go_udf.c
 	mkdir -p lib
 	gcc -shared  -DGO_PATH=$(DBOUT) -I /usr/include -I /usr/local/include -I /usr/include/mysql  -o $@ src/go_udf.c
+test:src/go_udf.c
+	gcc -DGO_PATH=$(DBOUT) -I /usr/include -I /usr/local/include -I /usr/include/mysql  -o bin/test src/go_udf.c
 clean:
 	rm -f data/go_daily-termdb.rdf-xml
