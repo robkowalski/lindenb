@@ -11,27 +11,29 @@
 /*
 create function go_isa RETURNS INTEGER SONAME 'go_udf.so';
 
-mysql>  select LEFT(T.name,40) as name ,T.acc from go_latest.term as T where go_isa(T.acc,"GO:0016859");
-+------------------------------------------+------------+
-| name                                     | acc        |
-+------------------------------------------+------------+
-| peptidyl-prolyl cis-trans isomerase acti | GO:0003755 | 
-| retinal isomerase activity               | GO:0004744 | 
-| maleylacetoacetate isomerase activity    | GO:0016034 | 
-| cis-trans isomerase activity             | GO:0016859 | 
-| cis-4-[2-(3-hydroxy)-thionaphthenyl]-2-o | GO:0018839 | 
-| trans-geranyl-CoA isomerase activity     | GO:0034872 | 
-| carotenoid isomerase activity            | GO:0046608 | 
-| 2-chloro-4-carboxymethylenebut-2-en-1,4- | GO:0047466 | 
-| 4-hydroxyphenylacetaldehyde-oxime isomer | GO:0047467 | 
-| farnesol 2-isomerase activity            | GO:0047885 | 
-| furylfuramide isomerase activity         | GO:0047907 | 
-| linoleate isomerase activity             | GO:0050058 | 
-| maleate isomerase activity               | GO:0050076 | 
-| maleylpyruvate isomerase activity        | GO:0050077 | 
-| retinol isomerase activity               | GO:0050251 | 
-+------------------------------------------+------------+
-15 rows in set (2.07 sec)
+mysql>  select LEFT(T.name,20) as name,T.acc from go_latest.term as T where go_isa(T.acc,"GO:0016859");
++----------------------+------------+
+| name                 | acc        |
++----------------------+------------+
+| peptidyl-prolyl cis- | GO:0003755 | 
+| retinal isomerase ac | GO:0004744 | 
+| maleylacetoacetate i | GO:0016034 | 
+| cis-trans isomerase  | GO:0016859 | 
+| cis-4-[2-(3-hydroxy) | GO:0018839 | 
+| trans-geranyl-CoA is | GO:0034872 | 
+| carotenoid isomerase | GO:0046608 | 
+| 2-chloro-4-carboxyme | GO:0047466 | 
+| 4-hydroxyphenylaceta | GO:0047467 | 
+| farnesol 2-isomerase | GO:0047885 | 
+| furylfuramide isomer | GO:0047907 | 
+| linoleate isomerase  | GO:0050058 | 
+| maleate isomerase ac | GO:0050076 | 
+| maleylpyruvate isome | GO:0050077 | 
+| retinol isomerase ac | GO:0050251 | 
++----------------------+------------+
+15 rows in set (1.27 sec)
+
+
 
 drop function go_isa;
 
@@ -47,58 +49,62 @@ long long go_isa(UDF_INIT *initid, UDF_ARGS *args,
 
 
 
-static int binary_search(const TermDBPtr termsdb, const char* name)
+static int lower_bound(const TermDBPtr termsdb, const char* name)
 	{
 	int low = 0;
-	int high = termsdb->n_terms - 1;
+	int len= termsdb->n_terms;
 
-	while(low <= high)
-	   	{
-		int mid = (low + high) / 2;
-		int cmp= strncmp(name,termsdb->terms[mid].child,MAX_TERM_LENGTH);
-		if(cmp<0) 
-		     {
-		     high = mid - 1;
-		     }
-		else if(cmp>0)
-		     {
-		     low = mid + 1;
-		     }
+	while(len>0)
+		{
+		int half=len/2;
+		int mid=low+half;
+		if( strncmp(termsdb->terms[mid].child,name,MAX_TERM_LENGTH)<0)
+			{
+			low=mid;
+			++low;
+			len=len-half-1;
+			}
 		else
 			{
-			return mid;
+			len=half;
 			}
-	    	}
-
-	return -1;
+		}
+	return low;
 	}
 
 
 static int termdb_findIndexByName(const TermDBPtr termsdb,const char* name)
 	{
+	int i=0;
 	if(name==NULL || termsdb==NULL || termsdb->terms==NULL || termsdb->n_terms==0) return -1;
-	return binary_search(termsdb,name);
+	i= lower_bound(termsdb,name);
+	if(i<0 || i  >= termsdb->n_terms || strcmp(termsdb->terms[i].child,name)!=0) return -1;
+	
+	return i;	
 	}
 
-static int recursive_search(const TermDBPtr db,int index, const char* parent)
+static int recursive_search(const TermDBPtr db,int index, const char* parent,int depth)
 	{
 	int rez=0;
 	int start=index;
 	int parent_idx=0;
-
+	
 	if(start<0 || start>=db->n_terms) return 0;
+	
 	if(strcmp(db->terms[index].child,parent)==0) return 1;
 	while(index < db->n_terms)
 		{
 		if(strcmp(db->terms[index].child,db->terms[start].child)!=0) break;
 		if(strcmp(db->terms[index].parent,parent)==0) return 1;
 		parent_idx= termdb_findIndexByName(db,db->terms[index].parent);
-		rez= recursive_search(db,parent_idx,parent);
-		if(rez==1) return 1;
+		
+		rez= recursive_search(db,parent_idx,parent,depth+1);
+		if(rez==1 )  return 1;
 		++index;
 		}
 	return 0;
 	}
+
 
 /* The initialization function */
 my_bool go_isa_init(
@@ -205,12 +211,13 @@ long long go_isa(UDF_INIT *initid, UDF_ARGS *args,
   name1[args->lengths[0]]=0;
   strncpy(name2,args->args[1],args->lengths[1]);	
   name2[args->lengths[1]]=0;
- 
+
  index=termdb_findIndexByName(termdb,name1);
  if(index==-1)
 	{
     	return 0;
 	}
- return recursive_search(termdb,index,name2);
+ return recursive_search(termdb,index,name2,0);
  }
+
 

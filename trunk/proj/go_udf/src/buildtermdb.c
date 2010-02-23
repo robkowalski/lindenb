@@ -52,6 +52,7 @@ static void scanterm(xmlNode *term)
 						}
 					strncpy(termdb.terms[termdb.n_terms].parent,p,MAX_TERM_LENGTH);
 					strncpy(termdb.terms[termdb.n_terms].child,acn,MAX_TERM_LENGTH);
+					//fprintf(stdout,"%s\t%s\n",termdb.terms[termdb.n_terms].child,termdb.terms[termdb.n_terms].parent);
 					++termdb.n_terms;				
 					}
 				xmlFree(is_a);
