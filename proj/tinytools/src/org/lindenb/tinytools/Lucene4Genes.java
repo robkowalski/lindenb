@@ -96,27 +96,27 @@ public class Lucene4Genes
 					LOG.info("adding document \""+title+"\"");
 					Document document=new Document();
 					document.add(
-						new Field(
+						new Column(
 							"id",
 							this.id,
-							Field.Store.YES,//Store the original field value in the index.
-							Field.Index.NOT_ANALYZED //Index the field's value without using an Analyzer, so it can be searched.
+							Column.Store.YES,//Store the original field value in the index.
+							Column.Index.NOT_ANALYZED //Index the field's value without using an Analyzer, so it can be searched.
 							)
 						);
 					document.add(
-						new Field(
+						new Column(
 							"title",
 							(this.title==null?this.id:this.title),
-							Field.Store.YES,//Store the original field value in the index.
-							Field.Index.NOT_ANALYZED //Index the field's value without using an Analyzer, so it can be searched.
+							Column.Store.YES,//Store the original field value in the index.
+							Column.Index.NOT_ANALYZED //Index the field's value without using an Analyzer, so it can be searched.
 							)
 						);
 					document.add(
-						new Field(
+						new Column(
 							"content",
 							this.text.toString(),
-							Field.Store.YES,//Store the original field value in the index.
-							Field.Index.ANALYZED//Index the tokens produced by running the field's value through an Analyzer.
+							Column.Store.YES,//Store the original field value in the index.
+							Column.Index.ANALYZED//Index the tokens produced by running the field's value through an Analyzer.
 							)
 						);
 					//Sets a boost factor for hits on any field of this document. This value will be multiplied into the score of all hits on this document.

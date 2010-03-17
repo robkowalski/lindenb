@@ -230,6 +230,60 @@ public static Element firstChild(Node root)
 	return null;
 	}
 
+
+/**
+ * return one or no Element under root 
+ */
+public static Element oneOrZero(Node root)
+	{
+	Element found=null;
+	for(Node c=root.getFirstChild();c!=null;c=c.getNextSibling())
+		{
+		if(c.getNodeType()!=Node.ELEMENT_NODE) continue;
+		if(found!=null) throw new IllegalArgumentException(
+				"found two elements under "+node2path(root));
+		found= Element.class.cast(c);
+		}
+	return found;
+	}
+
+/**
+ * return one or no Element under root 
+ */
+public static Element oneOrZero(Node root,String tagName)
+	{
+	Element found=null;
+	for(Node c=root.getFirstChild();c!=null;c=c.getNextSibling())
+		{
+		if(c.getNodeType()!=Node.ELEMENT_NODE) continue;
+		if(!tagName.equals(c.getNodeName())) continue;
+		if(found!=null) throw new IllegalArgumentException(
+				"found two elements under "+node2path(root));
+		found= Element.class.cast(c);
+		}
+	return found;
+	}
+
+/**
+ * return one or no Element under root
+ * @param ns namespace can be used as a wildcard if null
+ * @param localName can be used as a wildcard if null
+ */
+public static Element oneOrZero(Node root,String ns,String local)
+	{
+	Element found=null;
+	for(Node c=root.getFirstChild();c!=null;c=c.getNextSibling())
+		{
+		if(c.getNodeType()!=Node.ELEMENT_NODE) continue;
+		if(ns!=null && !ns.equals(c.getNamespaceURI())) continue;
+		if(local!=null && !local.equals(c.getLocalName())) continue;
+		if(found!=null) throw new IllegalArgumentException(
+				"found two elements under "+node2path(root));
+		found= Element.class.cast(c);
+		}
+	return found;
+	}
+
 /**
  * return one and only one Element under root 
  */
