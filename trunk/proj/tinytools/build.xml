@@ -48,7 +48,7 @@
  </target>
 
 	<path id="jenapath">
-		<fileset dir="/usr/local/package/Jena-2.5.6/lib">
+		<fileset dir="/usr/local/package/Jena-2.6.2/lib">
 		        <include name="*.jar"/>
 		</fileset>
 	</path>

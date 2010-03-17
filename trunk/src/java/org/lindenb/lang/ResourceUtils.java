@@ -37,11 +37,7 @@ public static InputStream getResourceAsStream(Class<?> clazz,String name) throws
 
 public static String getContent(Class<?> clazz,String name) throws IOException
 	{
-	StringWriter sw= new StringWriter();
-	Reader r= openReader(clazz, name);
-	IOUtils.copyTo(r, sw);
-	r.close();
-	return sw.toString();
+	return IOUtils.getReaderContent(openReader(clazz, name));
 	}
 
 public static String getContent(Class<?> clazz,String name,String defaultContent)
