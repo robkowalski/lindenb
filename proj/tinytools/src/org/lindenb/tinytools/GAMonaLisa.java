@@ -35,6 +35,7 @@ import javax.imageio.ImageIO;
 import org.lindenb.awt.ColorUtils;
 import org.lindenb.me.Me;
 import org.lindenb.sw.vocabulary.SVG;
+import org.lindenb.sw.vocabulary.XHTML;
 import org.lindenb.util.Cast;
 import org.lindenb.util.Compilation;
 
@@ -55,12 +56,14 @@ public class GAMonaLisa
 	private int max_generation=-1;
 	private File outDir=null;
 	private boolean exportSVG=false;
+	private boolean exportCanvas=false;
 	private int numberOfIndividualSurviving=10;
 	private int initialPopulationSize=40;
 	private long minDiffSaveMillisec=0L;
 	private int maxThreadCount=4;
 	private boolean dynamicSVG=false;
 	private String prefix="img";
+	private boolean imageIsGray=false;
 	
 	private class FitnessThread
 		extends Thread
@@ -86,8 +89,11 @@ public class GAMonaLisa
 					Color c1= new Color(imageSrc.getRGB(x,y));
 					Color c2= new Color(currentImage.getRGB(x,y));
 					this.fitness+= Math.abs(c1.getRed()-c2.getRed());
-					this.fitness+= Math.abs(c1.getGreen()-c2.getGreen());
-					this.fitness+= Math.abs(c1.getBlue()-c2.getBlue());
+					if(!imageIsGray)
+						{
+						this.fitness+= Math.abs(c1.getGreen()-c2.getGreen());
+						this.fitness+= Math.abs(c1.getBlue()-c2.getBlue());
+						}
 					}
 				}
 			}
@@ -115,10 +121,10 @@ public class GAMonaLisa
 				{
 				int max=10+ rand.nextInt(Math.min(imageSrc.getWidth(), imageSrc.getHeight())/50);
 				this.x[1]= this.x[0] + sign() * rand.nextInt(max);
-				this.y[1]= this.x[0] + sign() * rand.nextInt(max);
+				this.y[1]= this.y[0] + sign() * rand.nextInt(max);
 				
 				this.x[2]= this.x[0] + sign() * rand.nextInt(max);
-				this.y[2]= this.x[0] + sign() * rand.nextInt(max);
+				this.y[2]= this.y[0] + sign() * rand.nextInt(max);
 				}
 			else
 				{
@@ -175,7 +181,7 @@ public class GAMonaLisa
 		
 		public void mute()
 			{
-			int choice=rand.nextInt(5);
+			int choice=rand.nextInt(6);
 			switch(choice)
 				{
 				case 0: break;//no mutation
@@ -189,17 +195,28 @@ public class GAMonaLisa
 					}
 				case 2:
 					{
-					int dc= sign()*(1+rand.nextInt(5));
-					int r= this.color.getRed();
-					int g= this.color.getGreen();
-					int b= this.color.getBlue();
-					switch(rand.nextInt(3))
+					
+					if(imageIsGray)
 						{
-						case 0: if(r+dc>=0 && r+dc<=255) r+=dc; break;
-						case 1: if(g+dc>=0 && g+dc<=255) g+=dc; break;
-						case 2: if(b+dc>=0 && b+dc<=255) b+=dc; break;
+						int dc= sign()*(1+rand.nextInt(5));
+						int g= this.color.getRed();
+						if(g+dc>=0 && g+dc<=255) g+=dc;
+						this.color= new Color(g,g,g);
 						}
-					this.color= new Color(r,g,b);
+					else
+						{
+						int dc= sign()*(1+rand.nextInt(5));
+						int r= this.color.getRed();
+						int g= this.color.getGreen();
+						int b= this.color.getBlue();
+						switch(rand.nextInt(3))
+							{
+							case 0: if(r+dc>=0 && r+dc<=255) r+=dc; break;
+							case 1: if(g+dc>=0 && g+dc<=255) g+=dc; break;
+							case 2: if(b+dc>=0 && b+dc<=255) b+=dc; break;
+							}
+						this.color= new Color(r,g,b);
+						}
 					break;
 					}
 				case 3:
@@ -227,6 +244,10 @@ public class GAMonaLisa
 						y[i]=(int)ptDst.getY();
 						}
 					break;
+					}
+				case 6:
+					{
+					this.color=randColor();
 					}
 				default:break;
 				}
@@ -279,6 +300,7 @@ public class GAMonaLisa
 				}
 			}
 		
+		@SuppressWarnings("unused")
 		Solution(Solution cp)
 			{
 			for(Triangle item:cp.items)
@@ -290,6 +312,50 @@ public class GAMonaLisa
 		public Solution(List<Triangle> items)
 			{
 			this.items.addAll(items);
+			}
+		private void toCanvas(PrintStream out)
+			{
+			int id= Math.abs(rand.nextInt());
+			out.println(XHTML.DOCTYPE);
+			out.println("<html xmlns='"+XHTML.NS+"'>");
+			out.print("<head>");
+			out.print("<title>Generation "+generation+" fitness:"+getFitness()+"</title>");
+			out.print("</head>");
+			out.print("<body>");
+			out.print("<canvas id='ctx"+id+"' width='"+(imageSrc.getWidth()-1)+"' height='"+(imageSrc.getHeight()-1)+"'>");
+			out.print("Your browser does not support the &lt;CANVAS&gt; element !");
+			out.print("</canvas>");
+			out.print("<script>");
+			out.print("function paint"+id+"(){");
+			
+			out.print("var shapes=[");
+			for(int i=0;i< this.items.size();++i)
+				{
+				if(i>0) out.println(",");
+				Triangle t= this.items.get(i);
+				out.print("["+t.x[0]+","+t.y[0]+","+t.x[1]+","+t.y[1]+","+t.x[2]+","+t.y[2]+",");
+				out.print(""+t.color.getRed()+","+t.color.getGreen()+","+t.color.getBlue()+",");
+				out.print(t.alpha+"]");
+				}
+			out.println("];");
+			
+			
+			out.print("var canvas=document.getElementById('ctx"+id+"');");
+			out.print("if (!canvas.getContext) return;");
+			out.println("var c=canvas.getContext('2d');");
+			out.print("var i;for(var i in shapes)");
+			out.print("{var row= shapes[i];");
+			out.print("c.fillStyle=\"rgb(\"+row[6]+\",\"+row[7]+\",\"+row[8]+\")\";");
+			out.print("c.globalAlpha=row[9];");
+			
+			out.print("c.beginPath();c.moveTo(row[0],row[1]);c.lineTo(row[2],row[3]);c.lineTo(row[4],row[5]);c.lineTo(row[0],row[1]);c.closePath();");
+			out.print("c.fill();");
+			out.print("}");
+			out.print("} paint"+id+"();");
+			out.print("</script>");
+			out.print("</body>");
+			out.println("</html>");
+			out.flush();
 			}
 		
 		private void toSVG(PrintStream out)
@@ -429,7 +495,11 @@ public class GAMonaLisa
 			{
 			if(currentImage==null)
 				{
-				currentImage= new BufferedImage(imageSrc.getWidth(),imageSrc.getHeight(),imageSrc.getType());
+				currentImage= new BufferedImage(
+						imageSrc.getWidth(),
+						imageSrc.getHeight(),
+						imageSrc.getType()
+						);
 				}
 			
 			Graphics2D g=currentImage.createGraphics();
@@ -522,10 +592,15 @@ public class GAMonaLisa
 	
 	private Color randColor()
 		{
+		if(imageIsGray)
+			{
+			int n= rand.nextInt(256);
+			return new Color(n,n,n);
+			}
 		return new Color(
-			rand.nextInt(255),
-			rand.nextInt(255),
-			rand.nextInt(255)
+			rand.nextInt(256),
+			rand.nextInt(256),
+			rand.nextInt(256)
 			);
 		}
 	
@@ -568,7 +643,7 @@ public class GAMonaLisa
 	void run()
 		{
 		long lastSave=0L;
-		
+		Long prevFitness=null;
 		
 		
 		
@@ -608,7 +683,6 @@ public class GAMonaLisa
 					{
 					if(children.get(n).equals(children.get(i)))
 						{
-						System.out.print(" found duplicate ");
 						children.remove(i);
 						}
 					else
@@ -619,7 +693,7 @@ public class GAMonaLisa
 				}
 			
 			
-			while(children.size()>numberOfIndividualSurviving)
+			while(children.size()>Math.max(1,numberOfIndividualSurviving))
 				{
 				children.remove(children.size()-1);
 				}
@@ -627,7 +701,8 @@ public class GAMonaLisa
 			boolean isBetter=false;
 			
 			
-			if( ( this.population.get(0).getFitness() >  children.get(0).getFitness()) ||
+			if( prevFitness==null ||
+				( this.population.get(0).getFitness() >  children.get(0).getFitness()) ||
 				( this.population.get(0).getFitness()==  children.get(0).getFitness() &&
 				  this.population.get(0).items.size() >  children.get(0).items.size())
 				)
@@ -639,11 +714,12 @@ public class GAMonaLisa
 			
 			if(!isBetter)
 				{
-				children.add(0, this.population.get(0));
+				//children.add(0, this.population.get(0));
 				}
 			else
 				{
-				System.out.print("\tFitness:"+children.get(0).getFitness());
+				prevFitness=children.get(0).getFitness();
+				System.out.print("\tFitness:"+prevFitness);
 				System.out.flush();
 				if(System.currentTimeMillis() - lastSave > this.minDiffSaveMillisec)
 					{
@@ -654,13 +730,21 @@ public class GAMonaLisa
 					try
 						{
 						File file=new File(this.outDir,prefix+ num+".png");
-						ImageIO.write(this.population.get(0).createImage(), "png", file);
+						ImageIO.write(children.get(0).createImage(), "png", file);
 						PrintStream out=null;
 						if(exportSVG) 
 							{
 							file=new File(this.outDir,prefix+ num+".svgz");
 							out= new PrintStream(new GZIPOutputStream(new FileOutputStream(file)));
 							children.get(0).toSVG(out);
+							out.flush();
+							out.close();
+							}
+						if(exportCanvas) 
+							{
+							file=new File(this.outDir,prefix+ num+".html");
+							out= new PrintStream(new FileOutputStream(file));
+							children.get(0).toCanvas(out);
 							out.flush();
 							out.close();
 							}
@@ -717,7 +801,9 @@ public class GAMonaLisa
 			}
 		this.imageSrc= ImageIO.read(in);
 		in.close();
+		
 		if(this.imageSrc==null) throw new IOException("Cannot read "+uri);
+		
 		}
 	
 	public static void main(String[] args)
@@ -739,6 +825,8 @@ public class GAMonaLisa
 					System.err.println(" -r read previous chilren <*.txt>");
 					System.err.println(" -s export SVG");
 					System.err.println(" -dynamic SVG will be dynamic");
+					System.err.println(" -canvas export Canvas");
+					System.err.println(" -gray image is gray");
 					System.err.println(" -n1 numberOfIndividualSurviving="+app.numberOfIndividualSurviving);
 					System.err.println(" -n2 initialPopulationSize="+app.initialPopulationSize);
 					System.err.println(" -n3 max_generation="+app.max_generation);
@@ -746,6 +834,7 @@ public class GAMonaLisa
 					System.err.println(" -n5 max Triangle per solution ="+app.maxTrianglePerSolution);
 					System.err.println(" -n6 min Triangle per solution ="+app.minTrianglePerSolution);
 					System.err.println(" -n7 min Thread count ="+app.maxThreadCount);
+					
 					return;
 					}
 				else if(args[optind].equals("-i"))
@@ -783,6 +872,14 @@ public class GAMonaLisa
 				else if(args[optind].equals("-n7"))
 					{
 					app.maxThreadCount = Integer.parseInt(args[++optind]);
+					}
+				else if(args[optind].equals("-canvas"))
+					{
+					app.exportCanvas=true;
+					}
+				else if(args[optind].equals("-gray"))
+					{
+					app.imageIsGray=true;
 					}
 				else if(args[optind].equals("-s"))
 					{
