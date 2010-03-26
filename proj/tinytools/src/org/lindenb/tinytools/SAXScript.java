@@ -247,10 +247,17 @@ public class SAXScript extends DefaultHandler
 	    	while(optind< args.length)
 	    		{
 	    		String file= args[optind++];
-	    		java.io.Reader reader= org.lindenb.io.IOUtils.openReader(file);
 	    		scripEngine.put("__FILENAME__", file);
-	    		parser.parse(new org.xml.sax.InputSource(file), handler);
-	    		reader.close();
+	    		if(file.toLowerCase().endsWith(".gz"))
+	    			{
+		    		java.io.Reader reader= org.lindenb.io.IOUtils.openReader(file);
+		    		parser.parse(new org.xml.sax.InputSource(reader), handler);
+		    		reader.close();
+	    			}
+	    		else
+	    			{
+	    			parser.parse(new org.xml.sax.InputSource(file), handler);
+	    			}
 	    		}
 	    	}
          
