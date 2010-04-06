@@ -5,6 +5,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.StringReader;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Lexer
@@ -113,7 +115,46 @@ public class Lexer
 		return true;
 		}
 	
+	/**
+	 * scan for longest string matching the following regular expression
+	 * @param index start index
+	 * @param pattern
+	 * @return null or the longest string match the regex
+	 * @throws IOException
+	 */
+	public String regex(int index,Pattern pattern) throws IOException
+		{
+		//thank you SO http://stackoverflow.com/questions/2526756
+		String return_value=null;
+		StringBuilder b=new StringBuilder();
+		int c;
+		Matcher m=null;
+		while((c=get( index + b.length() ))!=EOF)
+			{
+			b.append((char)c);
+			m= pattern.matcher(b);
+			if(m.matches())
+				{
+				return_value=b.toString();
+				continue;//try to extend
+				}
+			if(!m.hitEnd()) break;
+ 			}
+		return return_value;
+		}
+	
 
+	/**
+	 * scan for longest string matching the following regular expression
+	 * @param pattern
+	 * @return
+	 * @throws IOException
+	 */
+	public String regex(Pattern pattern) throws IOException
+		{
+		return regex(0,pattern);
+		}
+	
 	public int consumme(final int index,final int n) throws IOException
 		{
 		int n_read=0;
