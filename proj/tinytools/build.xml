@@ -673,6 +673,7 @@
 	<target name="google-code"  depends="declare-ant-tasks">
 		<newupload file="${builddir}/svg2canvas.jar" project="lindenb" config="${env.HOME}/.google.properties" labels="svg,canvas,html,xhtml"/>
 		<newupload file="${builddir}/rdf2dot.jar" project="lindenb" config="${env.HOME}/.google.properties" labels="dot,graph,rdf,semanticweb"/>
+		<newupload file="${builddir}/saxscript.jar" project="lindenb" config="${env.HOME}/.google.properties" labels="java,sax,xml,script,javascript"/>
 	</target>
 	
 </project>
