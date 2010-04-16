@@ -89,9 +89,7 @@ public class Verticalize
 				}
 			else if(args[optind].equals("-d"))
 				{
-				System.err.println("Pierre Lindenbaum PhD.");
-				System.err.println("-h this screen");
-				return;
+				app.delim=Pattern.compile(args[++optind]);
 				}
 			else if(args[optind].equals("-n"))
 				{
