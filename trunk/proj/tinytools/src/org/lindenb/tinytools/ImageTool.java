@@ -29,6 +29,7 @@ import org.lindenb.xml.XMLUtilities;
  */
 public class ImageTool
 	{
+	private boolean html_flag=false;
 	private abstract class ImageHandler
 		{
 		void startDocument() throws IOException{}
@@ -151,10 +152,19 @@ public class ImageTool
 		baos.flush();
 		baos.close();
 		String b64=Base64.encode(baos.toByteArray());
-		System.out.println(url+"\n"+
-				img.getWidth()+"\n"+
-				img.getHeight()+"\n"+
-				fmt+"\n"+b64);
+		if(this.html_flag)
+			{
+			System.out.println("<img alt=\""+XMLUtilities.escape(url.toString())+"\" width=\""+img.getWidth()+"\" height=\""+img.getHeight()+"\" "+ 
+				  " src=\"data:image/"+fmt+";base64,"+b64.replace("[\n ]", "")+"\" />"
+				  );
+			}
+		else
+			{
+			System.out.println(url+"\n"+
+					img.getWidth()+"\n"+
+					img.getHeight()+"\n"+
+					fmt+"\n"+b64);
+			}
 		}
 	
 	private void run_base64(String[] args,int optind) throws IOException
@@ -204,11 +214,16 @@ public class ImageTool
 					System.err.println("      <stdin|urls>");
 					System.err.println(" 'base64' images as base64 ");
 					System.err.println("      <stdin|urls>");
+					System.err.println("-html print html <img/> for program=base64");
 					return;
 					}
 				else if(args[optind].equals("-p"))
 					{
 					program=args[++optind];
+					}
+				else if(args[optind].equals("-html"))
+					{
+					app.html_flag=true;
 					}
 				else if(args[optind].equals("--"))
 					{
