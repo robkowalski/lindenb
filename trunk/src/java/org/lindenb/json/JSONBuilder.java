@@ -92,14 +92,28 @@ public class JSONBuilder
 			}
 		else if(o.getClass().isArray())
 			{
-			Object list[]=(Object[])o;
-			b.append("[");
-			for(int i=0;i< list.length;++i )
+			if(o.getClass().getComponentType()==Integer.TYPE)
 				{
-				if(i!=0) b.append(",");
-				write(b,list[i]);
+				int list[]=(int[])o;
+				b.append("[");
+				for(int i=0;i< list.length;++i )
+					{
+					if(i!=0) b.append(",");
+					write(b,list[i]);
+					}
+				b.append("]");
 				}
-			b.append("]");
+			else
+				{
+				Object list[]=(Object[])o;
+				b.append("[");
+				for(int i=0;i< list.length;++i )
+					{
+					if(i!=0) b.append(",");
+					write(b,list[i]);
+					}
+				b.append("]");
+				}
 			}
 		else if((o instanceof List<?>))
 			{
