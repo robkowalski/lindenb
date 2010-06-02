@@ -57,6 +57,9 @@ build.xml
 -->
 &lt;file path="<xsl:value-of select="concat($base,'/src/',$package-path,'CloseableIterator.java')"/>"&gt;
 <xsl:value-of select="package-decl"/>
+/**
+ * A CloseableIterator.
+ */
 public interface CloseableIterator&LT;T&GT;
 	extends java.util.Iterator&LT;T&GT;
 	{
@@ -129,6 +132,7 @@ public class DefaultObjectFactory&LT;T&GT;
  */
 public interface ObjectSQLFactory&LT;T&GT;
 	{
+	/** builds a new object of type &LT;T&GT; from a  java.sql.ResultSet */
 	public T newInstance(java.sql.ResultSet row) throws java.sql.SQLException;
 	}
 &lt;/file&gt;
@@ -140,7 +144,7 @@ public interface ObjectSQLFactory&LT;T&GT;
 &lt;file path="<xsl:value-of select="$base"/>/src/<xsl:value-of select="$package-path"/>DefaultObjectSQLFactory.java"&gt;
 <xsl:value-of select="package-decl"/>
 /**
- *
+ * AbstractObjectSQLFactory
  */
 public abstract class AbstractObjectSQLFactory&LT;T&GT;
 	implements ObjectSQLFactory&LT;T&GT;
@@ -277,7 +281,9 @@ public abstract class DatabaseImpl
 			}
 		}
 	
+	/**  DatabaseRecordImpl */
 	protected class DatabaseRecordImpl
+		implements DatabaseRecord
 		{
 		protected DatabaseRecordImpl()
 			{
@@ -288,18 +294,26 @@ public abstract class DatabaseImpl
 			{
 			return DatabaseImpl.this;
 			}
+		@Override
 		public Database getDatabase()
 			{
 			return database();
 			}
+			
+		protected String escape(String s)
+			{
+			return s;
+			}
 		}
 
+	/** recycle the connection 'con' */
 	synchronized protected void recycle(Connection con)
 		{
 		if(con==null) return;
 		try
 			{
 			if(con.isClosed()) return;
+			con.clearWarnings();
 			}
 		catch(SQLException err)
 			{
@@ -315,9 +329,9 @@ public abstract class DatabaseImpl
 		for(int i=0;i&LT; this.list.size() ; i++)
 			{
 			Connection con= list.get(0);
+			list.remove(0);
 			if(con==null)
 				{
-				list.remove(0);
 				continue;
 				}
 			try
@@ -348,9 +362,9 @@ public abstract class DatabaseImpl
 				{
 				con.close();
 				}
-			catch(SQLException err)q
+			catch(SQLException err)
 				{
-				return;
+				//continue
 				}
 			}
 		}
@@ -654,23 +668,142 @@ public class <xsl:value-of select="$tableName"/>InstanceFactory
 <xsl:variable name="tableName">
 	<xsl:apply-templates select="." mode="className"/>
 </xsl:variable>
-		/** Default InstanceSQLFactory for <xsl:value-of select="$tableName" /> */
+<xsl:variable name="impl">
+	<xsl:value-of select="concat(className,'Impl')"/>
+</xsl:variable>
+<xsl:variable name="generic">
+	<xsl:value-of select="concat('&LT;',$impl,'&GT;')"/>
+</xsl:variable>
+<xsl:variable name="objectFactory">
+	<xsl:value-of select="concat('_',$impl,'Factory')"/>
+</xsl:variable>
+<xsl:variable name="objectSQLFactory">
+	<xsl:value-of select="concat('_',$impl,'SQLFactory')"/>
+</xsl:variable>
+		/** Default InstanceFactory for <xsl:value-of select="$tableName" /> */
+		private <xsl:value-of select="concat('ObjectFactory',$generic,' ',$objectFactory,'=null;')"/>
 		
+		
+		
+		/** get InstanceFactory for <xsl:value-of select="$tableName" /> */
+		protected  <xsl:value-of select="concat('ObjectFactory',$generic)"/> 	<xsl:value-of select="concat('get',$impl,'ObjectFactory()')"/>
+			{
+			if(<xsl:value-of select="$objectFactory"/>==null)
+				{
+				<xsl:value-of select="$objectFactory"/>=new <xsl:value-of select="concat('ObjectFactory',$generic)"/>()
+					{
+					@Override
+					public <xsl:value-of select="$impl"/> newInstance()
+						{
+						return new <xsl:value-of select="$impl"/>();
+						}
+					};
+				}
+			return <xsl:value-of select="$objectFactory"/>;
+			}
+		
+
+		
+		/** Default InstanceSQLFactory for <xsl:value-of select="$tableName" /> */
+		private <xsl:value-of select="concat('ObjectSQLFactory',$generic,' ',$objectSQLFactory,'=null;')"/>a
 
 		/** SQLFactory for <xsl:value-of select="$tableName" /> */
-		private <xsl:value-of select="concat('ObjectSQLFactory&LT;',$tableName,'&GT;	_',$tableName,'SQLFactory = null;')"/>
-
-		
-
-		public class <xsl:value-of select="$tableName"/>InstanceSQLFactory
-			extends DefaultObjectFactory&LT;<xsl:value-of select="$tableName"/>&GT;
+		protected  <xsl:value-of select="concat('ObjectSQLFactory',$generic)"/> 	<xsl:value-of select="concat('get',$impl,'ObjectSQLFactory()')"/>
 			{
-			public <xsl:value-of select="$tableName"/>InstanceFactory()
+			if(<xsl:value-of select="$objectSQLFactory"/>==null)
 				{
-				super.set(<xsl:value-of select="concat($tableName,'Impl')"/>.class);
+				<xsl:value-of select="$objectSQLFactory"/>=new <xsl:value-of select="concat('ObjectSQLFactory',$generic)"/>()
+					{
+					@Override
+					public <xsl:value-of select="$impl"/> newInstance(java.sql.ResultSet row)
+						{
+						<xsl:value-of select="$impl"/> object= <xsl:value-of select="concat('get',$impl,'ObjectFactory()')"/>;
+						<xsl:apply-templates select="row" mode="objectsqlfactory"/>
+						return object;
+						}
+					};
 				}
-			<xsl:apply-templates select="row" mode="objectsqlfactory"/>
+			return <xsl:value-of select="$objectSQLFactory"/>;
 			}
+		
+		
+</xsl:template>
+<!--
+==============================================================================
+==============================================================================
+-->
+<xsl:template match="row" mode="objectsqlfactory">
+<xsl:variable name="type">
+	<xsl:value-of select="field[@name='Type']"/>
+</xsl:variable>
+<xsl:variable name="null">
+	<xsl:value-of select="field[@name='Null']"/>
+</xsl:variable>
+<xsl:variable name="sqlName">
+	<xsl:value-of select="field[@name='Field']"/>
+</xsl:variable>
+<xsl:variable name="setter">
+	<xsl:value-of select="." mode="setter"/>
+</xsl:variable>
+
+<xsl:param name="node"/>
+<xsl:variable name="sqlType" select="$node/field[@name='Type']"/>
+<xsl:variable name="null" select="$node/field[@name='Null']"/>
+<xsl:choose>
+	<xsl:when test="starts-with($sqlType,'int(')">
+		<xsl:text>setInt</xsl:text>
+	</xsl:when>
+	<xsl:when test="starts-with($sqlType,'smallint(')">
+		<xsl:text>setShort</xsl:text>
+	</xsl:when>
+	<xsl:when test="starts-with($sqlType,'tinyint(')">
+		<xsl:text>setByte</xsl:text>
+	</xsl:when>
+	<xsl:when test="starts-with($sqlType,'enum(') or starts-with($sqlType,'set(')">
+		<xsl:text>setString</xsl:text>
+	</xsl:when>
+	<xsl:when test="starts-with($sqlType,'varchar(') or $sqlType='text' or $sqlType='tinytext' or $sqlType='longtext' or $sqlType='mediumtext'">
+		<xsl:text>setString</xsl:text>
+	</xsl:when>
+	<xsl:when test="$sqlType='datetime'">
+		<xsl:text>setTimestamp</xsl:text>
+	</xsl:when>
+	<xsl:when test="$sqlType='float' or $sqlType='double'">
+		<xsl:text>setDouble</xsl:text>
+	</xsl:when>
+	<xsl:when test="$sqlType='mediumblob'">
+		<xsl:text>setBlob</xsl:text>
+	</xsl:when>
+	<xsl:otherwise>
+		<xsl:message terminate="false">
+		guessJDBCSetter unknown field type "<xsl:value-of select="$sqlType"/>"
+		</xsl:message>
+	</xsl:otherwise>
+</xsl:choose>
+
+<xsl:choose>
+	<xsl:when test="starts-with($type,'varchar(') or $type='text'">
+		object.<xsl:value-of select="$setter"/>(row.getString("<xsl:value-of select="$sqlName"/>"));
+	</xsl:when>
+	<xsl:when test="starts-with($type,'smallint(') or starts-with($type,'int(') or starts-with($type,'tinyint(')">
+		object.<xsl:value-of select="$setter"/>(row.getInt("<xsl:value-of select="$sqlName"/>"));
+	</xsl:when>
+	<xsl:when test="starts-with($type,'enum(')">
+		object.<xsl:value-of select="$setter"/>(<xsl:value-of select="$enumClass"/>(row.getString("<xsl:value-of select="$sqlName"/>"));
+	</xsl:when>
+	<xsl:otherwise>
+		<xsl:message>
+			Not defined objectsqlfactory for <xsl:value-of select="field[@name='Field']"/>
+		</xsl:message>
+	</xsl:otherwise>
+</xsl:choose>
+</xsl:template>
+<!--
+==============================================================================
+==============================================================================
+-->
+<xsl:template match="row" mode="z">
+
 </xsl:template>
 <!--
 ==============================================================================
@@ -934,7 +1067,7 @@ public enum <xsl:value-of select="concat($tableName,$funName)"/>
 		<xsl:value-of select="concat('this.',$fieldName,'= other.',$fieldName,';')"/>
 	</xsl:when>
 	<xsl:otherwise>
-		<xsl:message terminate="yes">
+		<xsl:message terminate="false">
 		'equals' unknown field type "<xsl:value-of select="$sqlType"/>"
 		</xsl:message>
 	</xsl:otherwise>
@@ -958,7 +1091,7 @@ public enum <xsl:value-of select="concat($tableName,$funName)"/>
 		<xsl:value-of select="$fieldName"/>
 	</xsl:when>
 	<xsl:otherwise>
-		<xsl:message terminate="yes">
+		<xsl:message terminate="false">
 		'hashCode' unknown field type "<xsl:value-of select="$sqlType"/>"
 		</xsl:message>
 	</xsl:otherwise>
@@ -1127,7 +1260,7 @@ out.print("\":");
 	</xsl:when>
 	
 	<xsl:otherwise>
-		<xsl:message terminate="yes">
+		<xsl:message terminate="false">
 		'guessType' unknown field type "<xsl:value-of select="$sqlType"/>"
 		</xsl:message>
 	</xsl:otherwise>
@@ -1173,7 +1306,7 @@ out.print("\":");
 		<xsl:text>byte[]</xsl:text>
 	</xsl:when>
 	<xsl:otherwise>
-		<xsl:message terminate="yes">
+		<xsl:message terminate="false">
 		guessPrimitive: unknown field type "<xsl:value-of select="$sqlType"/>"
 		</xsl:message>
 	</xsl:otherwise>
@@ -1204,7 +1337,7 @@ out.print("\":");
 		<xsl:text>getString</xsl:text>
 	</xsl:when>
 	<xsl:otherwise>
-		<xsl:message terminate="yes">
+		<xsl:message terminate="false">
 		guessJDBCFun unknown field type "<xsl:value-of select="$sqlType"/>"
 		</xsl:message>
 	</xsl:otherwise>
@@ -1214,46 +1347,7 @@ out.print("\":");
 ==============================================================================
 ==============================================================================
 -->
-<xsl:template name="guessJDBCSetter">
-<xsl:param name="node"/>
-<xsl:variable name="sqlType" select="$node/field[@name='Type']"/>
-<xsl:variable name="null" select="$node/field[@name='Null']"/>
-<xsl:choose>
-	<xsl:when test="starts-with($sqlType,'int(')">
-		<xsl:text>setInt</xsl:text>
-	</xsl:when>
-	<xsl:when test="starts-with($sqlType,'smallint(')">
-		<xsl:text>setShort</xsl:text>
-	</xsl:when>
-	<xsl:when test="starts-with($sqlType,'tinyint(')">
-		<xsl:text>setByte</xsl:text>
-	</xsl:when>
-	<xsl:when test="starts-with($sqlType,'enum(') or starts-with($sqlType,'set(')">
-		<xsl:text>setString</xsl:text>
-	</xsl:when>
-	<xsl:when test="starts-with($sqlType,'varchar(') or $sqlType='text' or $sqlType='tinytext' or $sqlType='longtext' or $sqlType='mediumtext'">
-		<xsl:text>setString</xsl:text>
-	</xsl:when>
-	<xsl:when test="$sqlType='datetime'">
-		<xsl:text>setTimestamp</xsl:text>
-	</xsl:when>
-	<xsl:when test="$sqlType='float' or $sqlType='double'">
-		<xsl:text>setDouble</xsl:text>
-	</xsl:when>
-	<xsl:when test="$sqlType='mediumblob'">
-		<xsl:text>setBlob</xsl:text>
-	</xsl:when>
-	<xsl:otherwise>
-		<xsl:message terminate="yes">
-		guessJDBCSetter unknown field type "<xsl:value-of select="$sqlType"/>"
-		</xsl:message>
-	</xsl:otherwise>
-</xsl:choose>
-</xsl:template>
-<!--
-==============================================================================
-==============================================================================
--->
+
 <xsl:template name="guessName">
 <xsl:param name="node"/>
 <xsl:variable name="sqlName" select="$node/field[@name='Field']"/>
@@ -1286,6 +1380,48 @@ out.print("\":");
 	</xsl:with-param>
 </xsl:call-template>
 </xsl:template>
+<!--
+==============================================================================
+==============================================================================
+-->
+<xsl:template match="row" name="setter">
+<xsl:variable name="name">
+<xsl:apply-templates select="field[@name='Field']" mode="funName"/>
+</xsl:variable>
+<xsl:value-of select="concat('set',$name)"/>
+</xsl:template>
+<!--
+==============================================================================
+==============================================================================
+-->
+<xsl:template match="row" name="getter">
+<xsl:variable name="name">
+<xsl:apply-templates select="field[@name='Field']" mode="funName"/>
+</xsl:variable>
+<xsl:value-of select="concat('get',$name)"/>
+</xsl:template>
+<!--
+==============================================================================
+==============================================================================
+-->
+<xsl:template match="field[@name='Field']" mode="funName">
+<xsl:call-template name="titleize">
+<xsl:with-param name="name">
+	<xsl:apply-templates select="." mode="fieldName"/>
+</xsl:with-param>
+</xsl:call-template>
+</xsl:template>
+<!--
+==============================================================================
+==============================================================================
+-->
+<xsl:template match="field[@name='Field']" mode="fieldName">
+<xsl:call-template name="java-name">
+	<xsl:with-param name="name" select="."/>
+</xsl:call-template>
+</xsl:template>
+
+
 <!--
 ==============================================================================
 ==============================================================================
