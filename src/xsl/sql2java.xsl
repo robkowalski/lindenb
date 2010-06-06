@@ -3,6 +3,8 @@
           <!ENTITY LT "&amp;lt;">
           <!ENTITY GT "&amp;gt;">
           <!ENTITY AMP "&amp;amp;">
+          <!ENTITY true "true">
+          <!ENTITY FALSE "false">
           ]>
 <xsl:stylesheet
 	xmlns:xsl='http://www.w3.org/1999/XSL/Transform'
@@ -41,7 +43,7 @@ build.xml
  &LT;target name="db"&GT;
 	&LT;mkdir dir=&quot;${build.dir}&quot;/&GT;
         &LT;javac srcdir=&quot;${src.dir}&quot;
-                destdir=&quot;${buid.dir}&quot;
+                destdir=&quot;${build.dir}&quot;
                 source=&quot;1.6&quot;
                 target=&quot;1.6&quot;&GT;
                  &LT;include name=&quot;**/DatabaseImpl.java&quot;/&GT;
@@ -203,6 +205,9 @@ public interface DatabaseRecord
 <xsl:value-of select="package-decl"/>
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.sql.PreparedStatement;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -217,11 +222,11 @@ public abstract class DatabaseImpl
 	
 	/** Iterator impl */
 	protected class IterImpl&LT;T&GT;
-		implements Iterator&LT;T&GT;
+		implements CloseableIterator&LT;T&GT;
 		{
 		private Connection con;
 		private ResultSet row;
-		private ObjectSQLFactory&LT;T&GT; factory;
+		private ObjectSQLFactory&LT;T&GT; factory=null;
 		private boolean _nextTested=false;
 		private boolean _hasNext=false;
 		private T _object=null;
@@ -370,7 +375,7 @@ public abstract class DatabaseImpl
 		}
 	
 	/** retrieves one */
-	protected &LT;T&GT; one(
+	protected &LT;T&GT; T one(
 		ResultSet row,
 		ObjectSQLFactory&LT;T&GT; factory
 		) throws SQLException
@@ -385,7 +390,7 @@ public abstract class DatabaseImpl
 		}
 		
 	/** retrieve an iterator */
-	protected CloseableIterator&LT;T&GT; many(
+	protected &LT;T&GT; CloseableIterator&LT;T&GT; many(
 		Connection con,
 		ResultSet row,
 		ObjectSQLFactory&LT;T&GT; factory
@@ -396,13 +401,15 @@ public abstract class DatabaseImpl
 	
 	<xsl:apply-templates select="resultset" mode="objectsqlfactory"/>
 	<xsl:apply-templates select="resultset" mode="database-impl"/>
+	<xsl:apply-templates select="resultset" mode="class"/>
 	}
 &lt;/file&gt;
 
 
-<xsl:apply-templates select="resultset" mode="class"/>
+
 <xsl:apply-templates select="resultset" mode="interface"/>
 <xsl:apply-templates select="resultset" mode="enum"/>
+<xsl:apply-templates select="resultset" mode="set"/>
 </xsl:template>
 <!--
 ==============================================================================
@@ -443,10 +450,10 @@ public abstract class DatabaseImpl
 -->
 <xsl:template match="resultset" mode="database-decl">
 <xsl:variable name="tableName">
-	<xsl:apply-templates select=".." mode="className"/>
+	<xsl:apply-templates select="." mode="className"/>
 </xsl:variable>
 	public <xsl:value-of select="concat('CloseableIterator&LT;',$tableName,'&GT;')"/><xsl:text> </xsl:text> <xsl:value-of select="concat('listAll',$tableName,'()')"/>;
-  <xsl:apply-templates select="row" mode="database-decl"/>
+  	<xsl:apply-templates select="row" mode="database-decl"/>
 </xsl:template>
 <!--
 ==============================================================================
@@ -461,28 +468,23 @@ public abstract class DatabaseImpl
   <xsl:with-param name="node" select="."/>
 </xsl:call-template>
 </xsl:variable>
-<xsl:variable name="javaType">
-<xsl:call-template name="guessPrimitive">
-  <xsl:with-param name="node" select="."/>
-</xsl:call-template>
+<xsl:variable name="argType">
+  <xsl:apply-templates select="." mode="primitive"/>
 </xsl:variable>
-	<xsl:variable name="funName">
-<xsl:call-template name="guessFunName">
-  <xsl:with-param name="name" select="$fieldName"/>
-</xsl:call-template>
+<xsl:variable name="funName">
+  <xsl:apply-templates select="." mode="funName"/>
 </xsl:variable>
-	
-	
 
 <xsl:choose>
   <xsl:when test="field[@name='Key']='PRI' or field[@name='Key']='UNI'">
-  	public <xsl:value-of select="$tableName"/><xsl:text> </xsl:text> <xsl:value-of select="concat('get',$tableName,'By',$funName)"/>(<xsl:value-of select="concat($javaType,' ',$fieldName)"/>);
+  	/** returns a <xsl:value-of select="$tableName"/> for a primary key. */
+  	public <xsl:value-of select="$tableName"/><xsl:text> </xsl:text> <xsl:value-of select="concat('get',$tableName,'By',$funName)"/>(<xsl:value-of select="concat($argType,' ',$fieldName)"/>);
   </xsl:when>
   <xsl:when test="field[@name='Key']='MUL'">
-  	public <xsl:value-of select="concat('CloseableIterator&LT;',$tableName,'&GT;')"/><xsl:text> </xsl:text> <xsl:value-of select="concat('get',$tableName,'sBy',$funName)"/>(<xsl:value-of select="concat($javaType,' ',$fieldName)"/>);
+  	/** returns all the <xsl:value-of select="$tableName"/> for a given . */
+  	public <xsl:value-of select="concat('CloseableIterator&LT;',$tableName,'&GT;')"/><xsl:text> </xsl:text> <xsl:value-of select="concat('get',$tableName,'sBy',$funName)"/>(<xsl:value-of select="concat($argType,' ',$fieldName)"/>);
   </xsl:when>
-  <xsl:otherwise>
-  </xsl:otherwise>
+  <xsl:otherwise></xsl:otherwise>
  </xsl:choose>
 </xsl:template>
 <!--
@@ -530,14 +532,10 @@ public abstract class DatabaseImpl
 </xsl:call-template>
 </xsl:variable>
 <xsl:variable name="javaType">
-<xsl:call-template name="guessPrimitive">
-  <xsl:with-param name="node" select="."/>
-</xsl:call-template>
+	<xsl:apply-templates select="." mode="primitive"/>
 </xsl:variable>
 <xsl:variable name="funName">
-<xsl:call-template name="guessFunName">
-  <xsl:with-param name="name" select="$fieldName"/>
-</xsl:call-template>
+  <xsl:apply-templates select="." mode="funName"/>
 </xsl:variable>
 <xsl:variable name="jdbcSetter">
 	<xsl:apply-templates select="." mode="jdbcSet"/>
@@ -622,12 +620,20 @@ public abstract class DatabaseImpl
 ==============================================================================
 -->
 <xsl:template match="resultset" mode="interface">
+
 <xsl:variable name="tableName">
 	<xsl:apply-templates select="." mode="className"/>
-</xsl:variable>public interface <xsl:value-of select="$tableName"/>
+</xsl:variable>
+&lt;file path="<xsl:value-of select="concat($base,'/src/',$package-path,$tableName,'.java')"/>"&gt;
+<xsl:value-of select="package-decl"/>
+/**
+ * Interface <xsl:value-of select="$tableName"/>
+ */
+public interface <xsl:value-of select="$tableName"/>
 	{
 	<xsl:apply-templates name="row" mode="interface"/>
 	}
+&lt;/file&gt; 
 </xsl:template>
 <!--
 ==============================================================================
@@ -635,6 +641,9 @@ public abstract class DatabaseImpl
 -->
 <xsl:template match="resultset" mode="enum">
 <xsl:apply-templates name="row" mode="enum"/>
+</xsl:template>
+<xsl:template match="resultset" mode="set">
+<xsl:apply-templates name="row" mode="set"/>
 </xsl:template>
 <!--
 ==============================================================================
@@ -703,7 +712,7 @@ public class <xsl:value-of select="$tableName"/>InstanceFactory
 
 		
 		/** Default InstanceSQLFactory for <xsl:value-of select="$tableName" /> */
-		private <xsl:value-of select="concat('ObjectSQLFactory',$generic,' ',$objectSQLFactory,'=null;')"/>a
+		private <xsl:value-of select="concat('ObjectSQLFactory',$generic,' ',$objectSQLFactory,'=null;')"/>
 
 		/** SQLFactory for <xsl:value-of select="$tableName" /> */
 		protected  <xsl:value-of select="concat('ObjectSQLFactory',$generic)"/> 	<xsl:value-of select="concat('get',$impl,'ObjectSQLFactory()')"/>
@@ -738,9 +747,39 @@ public class <xsl:value-of select="$tableName"/>InstanceFactory
 <xsl:variable name="setter">
 	<xsl:apply-templates select="." mode="setter"/>
 </xsl:variable>
+<xsl:variable name="type" select="field[@name='Type']"/>
 <xsl:variable name="sqlName" select="field[@name='Field']"/>
-object.<xsl:value-of select="$setter"/>(row.TODO("<xsl:value-of select="$sqlName"/>"));
-		
+<xsl:variable name="jdbcgetter">
+	<xsl:apply-templates select="." mode="jdbcgetter"/>
+</xsl:variable>
+<xsl:variable name="is_pointer">
+	<xsl:apply-templates select="." mode="is_pointer"/>
+</xsl:variable>
+<xsl:variable name="javaType">
+	<xsl:apply-templates select="." mode="javaType"/>
+</xsl:variable>
+<xsl:variable name="fieldName">
+	<xsl:apply-templates select="." mode="fieldName"/>
+</xsl:variable>
+
+
+<xsl:choose>
+<xsl:when test="starts-with($type,'enum(')">
+	<xsl:variable name="enumName">
+		<xsl:apply-templates select="." mode="enumName"/>
+	</xsl:variable>
+	String <xsl:value-of select="concat('_',$fieldName)"/>= row.getString("<xsl:value-of select="$sqlName"/>");
+	object.<xsl:value-of select="$setter"/>(<xsl:value-of select="concat('_',$fieldName)"/>==null?null:<xsl:value-of select="$enumName"/>.parse(<xsl:value-of select="concat('_',$fieldName)"/>));
+</xsl:when>
+<xsl:when test="$is_pointer='true' and not(contains($javaType,'.') or $javaType='String')">
+<xsl:value-of select="$javaType"/>  <xsl:value-of select="concat('_',$fieldName)"/>=row.<xsl:value-of select="$jdbcgetter"/>("<xsl:value-of select="$sqlName"/>");
+if(row.wasNull()) <xsl:value-of select="concat('_',$fieldName)"/>=null;
+object.<xsl:value-of select="$setter"/>(<xsl:value-of select="concat('_',$fieldName)"/>);
+</xsl:when>
+<xsl:otherwise>
+object.<xsl:value-of select="$setter"/>(row.<xsl:value-of select="$jdbcgetter"/>("<xsl:value-of select="$sqlName"/>"));
+</xsl:otherwise>
+</xsl:choose>
 </xsl:template>
 <!--
 ==============================================================================
@@ -786,7 +825,7 @@ object.<xsl:value-of select="$setter"/>(row.TODO("<xsl:value-of select="$sqlName
 		<xsl:text>setBlob</xsl:text>
 	</xsl:when>
 	<xsl:otherwise>
-		<xsl:message terminate="false">
+		<xsl:message terminate="no">
 		guessJDBCSetter unknown field type "<xsl:value-of select="$sqlType"/>"
 		</xsl:message>
 	</xsl:otherwise>
@@ -807,23 +846,56 @@ object.<xsl:value-of select="$setter"/>(row.TODO("<xsl:value-of select="$sqlName
 -->
 <xsl:template match="row" mode="enum">
 <xsl:if test="starts-with(field[@name='Type'],'enum(')">
-<xsl:variable name="tableName">
-<xsl:apply-templates select=".." mode="className"/>
-</xsl:variable>
+
 <xsl:variable name="fieldName">
 <xsl:call-template name="guessName">
   <xsl:with-param name="node" select="."/>
 </xsl:call-template>
 </xsl:variable>
 <xsl:variable name="funName">
-<xsl:call-template name="guessFunName">
-  <xsl:with-param name="name" select="$fieldName"/>
-</xsl:call-template>
+	<xsl:apply-templates select="." mode="funName"/>
 </xsl:variable>
-&lt;file path="<xsl:value-of select="$base"/>/src/<xsl:value-of select="concat($package-path,$tableName,$funName,'.java')"/>"&gt;
-public enum <xsl:value-of select="concat($tableName,$funName)"/>
+<xsl:variable name="enumName">
+	<xsl:apply-templates select="." mode="enumName"/>
+</xsl:variable>
+
+&lt;file path="<xsl:value-of select="$base"/>/src/<xsl:value-of select="concat($package-path,$enumName,'.java')"/>"&gt;
+public enum <xsl:value-of select="$enumName"/>
 	{
 	<xsl:value-of select='translate(substring(field[@name="Type"],6,string-length(field[@name="Type"])-7),"&apos;"," ")'/>
+	}
+&lt;/file&gt;
+</xsl:if>
+</xsl:template>
+<!--
+==============================================================================
+==============================================================================
+-->
+<xsl:template match="row" mode="set">
+<xsl:if test="starts-with(field[@name='Type'],'set(')">
+
+<xsl:variable name="fieldName">
+<xsl:call-template name="guessName">
+  <xsl:with-param name="node" select="."/>
+</xsl:call-template>
+</xsl:variable>
+<xsl:variable name="funName">
+	<xsl:apply-templates select="." mode="funName"/>
+</xsl:variable>
+<xsl:variable name="enumName">
+	<xsl:apply-templates select="." mode="enumName"/>
+</xsl:variable>
+
+&lt;file path="<xsl:value-of select="$base"/>/src/<xsl:value-of select="concat($package-path,$enumName,'.java')"/>"&gt;
+public enum <xsl:value-of select="$enumName"/>
+	{
+	<xsl:value-of select='translate(substring(field[@name="Type"],5,string-length(field[@name="Type"])-6),"&apos;"," ")'/>;
+	java.util.Set&LT;<xsl:value-of select="$enumName"/>&GT; parseValues(String s)
+		{
+		java.util.Set&LT;<xsl:value-of select="$enumName"/>&GT; set=new java.util.HashSet&LT;<xsl:value-of select="$enumName"/>&GT;();
+		//TODO
+		return set;
+		}
 	}
 &lt;/file&gt;
 </xsl:if>
@@ -843,7 +915,7 @@ public enum <xsl:value-of select="concat($tableName,$funName)"/>
 	implements <xsl:value-of select="$tableName"/>
 	{
 <xsl:apply-templates name="row" mode="field"/>
-	public <xsl:value-of select="$tableName"/>()
+	public <xsl:value-of select="concat($tableName,'Impl')"/>()
 		{
 		}
 	<xsl:apply-templates name="row" mode="setget"/>
@@ -882,22 +954,21 @@ public enum <xsl:value-of select="concat($tableName,$funName)"/>
 		</xsl:choose>
 		return result;
 		}
-
-	public void writeXML(XMLStreamWriter out) throws XMLStreamException
+	
+	/** prints this <xsl:value-of select="$tableName"/> to XML */
+	public void writeXML(javax.xml.stream.XMLStreamWriter out) throws javax.xml.stream.XMLStreamException
 		{
 		out.writeStartElement("<xsl:value-of select="$tableName"/>");
 		<xsl:apply-templates select="row" mode="xml"/>
 		out.writeEndElement();
 		}
 
-	/** print this <xsl:value-of select="$tableName"/> to JSON */
-	public void toJSON(PrintWriter out)
+	/** prints this <xsl:value-of select="$tableName"/> to JSON */
+	public void toJSON(java.io.PrintWriter out)
 		{
 		out.print("{\"_class\":");
 		out.print(quote("<xsl:value-of select="$tableName"/>"));
-		<xsl:for-each select="row">
-		  <xsl:apply-templates select="." mode="toJSON"/>
-		</xsl:for-each>
+		<xsl:apply-templates select="row" mode="toJSON"/>
 		out.print("}");
 		}
 
@@ -906,8 +977,8 @@ public enum <xsl:value-of select="concat($tableName,$funName)"/>
 		{
 		try
 			{
-			StringWriter s= new StringWriter();
-			PrintWriter w= new PrintWrite(s);
+			java.io.StringWriter s= new java.io.StringWriter();
+			java.io.PrintWriter w= new java.io.PrintWrite(s);
 			toJSON(w);
 			w.flush();
 			return s.toString();
@@ -919,6 +990,8 @@ public enum <xsl:value-of select="concat($tableName,$funName)"/>
 		
 		}
 	}
+
+
 </xsl:template>
 <!--
 ==============================================================================
@@ -926,14 +999,10 @@ public enum <xsl:value-of select="concat($tableName,$funName)"/>
 -->
 <xsl:template match="row" mode="field">
 <xsl:variable name="javaType">
-<xsl:call-template name="guessType">
-  <xsl:with-param name="node" select="."/>
-</xsl:call-template>
+	<xsl:apply-templates select="." mode="javaType"/>
 </xsl:variable>
 <xsl:variable name="fieldName">
-<xsl:call-template name="guessName">
-  <xsl:with-param name="node" select="."/>
-</xsl:call-template>
+	<xsl:apply-templates select="." mode="fieldName"/>
 </xsl:variable>
 <xsl:text>	/** defined as </xsl:text>
 <xsl:value-of select="concat(field[@name='Field'],' ',field[@name='Type'],' NULL=',field[@name='Null'])"/>
@@ -952,9 +1021,7 @@ public enum <xsl:value-of select="concat($tableName,$funName)"/>
 -->
 <xsl:template match="row" mode="sql">
 <xsl:variable name="javaType">
-<xsl:call-template name="guessType">
-  <xsl:with-param name="node" select="."/>
-</xsl:call-template>
+  <xsl:apply-templates select="." mode="javaType"/>
 </xsl:variable>
 <xsl:variable name="jdbcFun">
 <xsl:call-template name="guessJDBCFun">
@@ -967,9 +1034,7 @@ public enum <xsl:value-of select="concat($tableName,$funName)"/>
 </xsl:call-template>
 </xsl:variable>
 <xsl:variable name="funName">
-<xsl:call-template name="guessFunName">
-  <xsl:with-param name="name" select="$fieldName"/>
-</xsl:call-template>
+	<xsl:apply-templates select="." mode="funName"/>
 </xsl:variable>
 <xsl:choose>
 <xsl:when test="starts-with(field[@name='Type'],'enum(')">
@@ -997,21 +1062,16 @@ public enum <xsl:value-of select="concat($tableName,$funName)"/>
 -->
 <xsl:template match="row" mode="interface">
 <xsl:variable name="javaType">
-<xsl:call-template name="guessType">
-  <xsl:with-param name="node" select="."/>
-</xsl:call-template>
+	<xsl:apply-templates select="." mode="javaType"/>
 </xsl:variable>
-<xsl:variable name="fieldName">
-<xsl:call-template name="guessName">
-  <xsl:with-param name="node" select="."/>
-</xsl:call-template>
+<xsl:variable name="getter">
+	<xsl:apply-templates select="." mode="getter"/>
 </xsl:variable>
 <xsl:variable name="funName">
-<xsl:call-template name="guessFunName">
-  <xsl:with-param name="name" select="$fieldName"/>
-</xsl:call-template>
-</xsl:variable>	/** get the value for <xsl:value-of select="$fieldName"/> */
-	public <xsl:value-of select="$javaType"/><xsl:text> </xsl:text>get<xsl:value-of select="$funName"/>();</xsl:template>
+	<xsl:apply-templates select="." mode="funName"/>
+</xsl:variable>	/** get the value for <xsl:apply-templates select="." mode="fieldName"/> */
+	public <xsl:value-of select="$javaType"/><xsl:value-of select="concat(' ',$getter,'()')"/>;
+</xsl:template>
 
 
 <!--
@@ -1020,26 +1080,29 @@ public enum <xsl:value-of select="concat($tableName,$funName)"/>
 -->
 <xsl:template match="row" mode="setget">
 <xsl:variable name="javaType">
-<xsl:call-template name="guessType">
-  <xsl:with-param name="node" select="."/>
-</xsl:call-template>
+	<xsl:apply-templates select="." mode="javaType"/>
 </xsl:variable>
 <xsl:variable name="fieldName">
   <xsl:apply-templates select="." mode="fieldName"/>
 </xsl:variable>
 <xsl:variable name="funName">
-<xsl:call-template name="guessFunName">
-  <xsl:with-param name="name" select="$fieldName"/>
-</xsl:call-template>
+	<xsl:apply-templates select="." mode="funName"/>
 </xsl:variable>
+<xsl:variable name="getter">
+	<xsl:apply-templates select="." mode="getter"/>
+</xsl:variable>
+<xsl:variable name="setter">
+	<xsl:apply-templates select="." mode="setter"/>
+</xsl:variable>
+
 	/** set the value of <xsl:value-of select="$fieldName"/> */
-	public void set<xsl:value-of select="$funName"/>(<xsl:value-of select="$javaType"/><xsl:text> </xsl:text><xsl:value-of select="$fieldName"/>)
+	public void <xsl:value-of select="$setter"/>(<xsl:value-of select="$javaType"/><xsl:text> </xsl:text><xsl:value-of select="$fieldName"/>)
 		{
 		this.<xsl:value-of select="$fieldName"/>=<xsl:value-of select="$fieldName"/>;
 		}
 	
 	/** get the value of <xsl:value-of select="$fieldName"/> */
-	public <xsl:value-of select="$javaType"/><xsl:text> </xsl:text>get<xsl:value-of select="$funName"/>()
+	public <xsl:value-of select="$javaType"/><xsl:text> </xsl:text><xsl:value-of select="$getter"/>()
 		{
 		return this.<xsl:value-of select="$fieldName"/>;
 		}
@@ -1050,19 +1113,14 @@ public enum <xsl:value-of select="concat($tableName,$funName)"/>
 ==============================================================================
 -->
 <xsl:template match="row" mode="equals">
-<xsl:variable name="fieldName">
-	<xsl:apply-templates select="." mode="fieldName"/>
-</xsl:variable>
 <xsl:variable name="getter">
 	<xsl:apply-templates select="." mode="getter"/>
 </xsl:variable>
-<xsl:variable name="javaType">
-	<xsl:apply-templates select="." mode="getter"/>
+<xsl:variable name="is_pointer">
+	<xsl:apply-templates select="." mode="is_pointer"/>
 </xsl:variable>
-<xsl:variable name="sqlType" select="field[@name='Type']"/>
-<xsl:variable name="null" select="field[@name='Null']!='NO'"/>
 <xsl:choose>
-	<xsl:when test="$null and not(field[@name='Key']='PRI')">
+	<xsl:when test="$is_pointer='true'">
 		if(<xsl:value-of select="concat('this.',$getter,'()')"/>==null)
 			{
 			if(<xsl:value-of select="concat('this.',$getter,'()')"/>!=null)
@@ -1072,20 +1130,11 @@ public enum <xsl:value-of select="concat($tableName,$funName)"/>
 			}
 		else
 			{
-			return <xsl:value-of select="concat('this.',$getter,'().equals(other.',$getter,'();')"/>
+			return <xsl:value-of select="concat('this.',$getter,'().equals(other.',$getter,'());')"/>
 			}
 	</xsl:when>
-
-	<xsl:when test="not($null) and starts-with($sqlType,'varchar(')">
-		<xsl:value-of select="concat('if(!this.',$getter,'().equals(other.',$getter,'()) return false;')"/>
-	</xsl:when>
-	<xsl:when test="not($null) and (starts-with($sqlType,'int(') or starts-with($sqlType,'tinyint(') or starts-with($sqlType,'smallint('))">
-		<xsl:value-of select="concat('if(this.',$getter,'()!= other.',$getter,'()) return false;')"/>
-	</xsl:when>
 	<xsl:otherwise>
-		<xsl:message terminate="no">
-		'equals' unknown field type "<xsl:value-of select="concat($sqlType,' ',$null,' ',$fieldName)"/>"
-		</xsl:message>
+		<xsl:value-of select="concat('if(this.',$getter,'()!= other.',$getter,'()) return false;')"/>
 	</xsl:otherwise>
 </xsl:choose>
 <xsl:text>;
@@ -1103,14 +1152,20 @@ public enum <xsl:value-of select="concat($tableName,$funName)"/>
 <xsl:variable name="null" select="field[@name='Null']"/>
 <xsl:text>result = prime * result + </xsl:text>
 <xsl:choose>
-	<xsl:when test="$null='YES'">
+	<xsl:when test="$null='YES' or $sqlType='text' or $sqlType='mediumtext'  or starts-with($sqlType,'enum(')  or starts-with($sqlType,'varchar(') ">
 		(this.<xsl:value-of select="$fieldName"/>==null?0:this.<xsl:value-of select="$fieldName"/>.hashCode());
 	</xsl:when>
-	<xsl:when test="(starts-with($sqlType,'int(')) and $null='NO'">
+	<xsl:when test="(starts-with($sqlType,'int(') or starts-with($sqlType,'tinyint(') or starts-with($sqlType,'smallint(')) and $null='NO'">
 		<xsl:value-of select="concat('this.',$fieldName)"/>
 	</xsl:when>
+	<xsl:when test="$sqlType='double'">
+		<xsl:value-of select="concat('(int)(this.',$fieldName,')')"/>
+	</xsl:when>
+	<xsl:when test="$sqlType='float'">
+		<xsl:value-of select="concat('(int)(this.',$fieldName,')')"/>
+	</xsl:when>
 	<xsl:otherwise>
-		<xsl:message terminate="false">
+		<xsl:message terminate="no">
 		'hashCode' unknown field type "<xsl:value-of select="$sqlType"/>"
 		</xsl:message>
 	</xsl:otherwise>
@@ -1133,30 +1188,40 @@ public enum <xsl:value-of select="concat($tableName,$funName)"/>
 <xsl:variable name="null" select="field[@name='Null']"/>
 <xsl:choose>
 	<xsl:when test="$null='YES'">
-		if(<xsl:value-of select="concat($fieldName,'==null')"/>")
+		if(<xsl:value-of select="concat($fieldName,'==null')"/>)
 			{
 			out.writeEmptyElement("<xsl:value-of select="$fieldName"/>");
 			}
 		else
 			{
 			out.writeStartElement("<xsl:value-of select="$fieldName"/>");
-			out.writeCharacter(String.valueOf("<xsl:value-of select="concat($getter,'()')"/>"));
+			out.writeCharacter(String.valueOf(<xsl:value-of select="concat($getter,'()')"/>));
 			out.writeEndElement();
 			}
 	</xsl:when>
 	<xsl:otherwise>
 		out.writeStartElement("<xsl:value-of select="$fieldName"/>");
-		out.writeCharacter(String.valueOf("<xsl:value-of select="concat($getter,'()')"/>"));
+		out.writeCharacter(String.valueOf(<xsl:value-of select="concat($getter,'()')"/>));
 		out.writeEndElement();
 	</xsl:otherwise>
 </xsl:choose>
-<xsl:text>;
-</xsl:text>
+
 </xsl:template>
 <!--
 ==============================================================================
 ==============================================================================
 -->
+<xsl:template match="resultset" mode="toJSON">
+<xsl:for-each select="row">
+<xsl:variable name="is_blob">
+	<xsl:apply-templates select="." mode="is_blob"/>
+</xsl:variable>
+<xsl:if test="$is_blob='false'">
+	<xsl:apply-templates select="." mode="toJSON"/>
+</xsl:if>
+</xsl:for-each>
+</xsl:template>
+
 <xsl:template match="row" mode="toJSON">
 <xsl:variable name="fieldName">
 	<xsl:apply-templates select="." mode="fieldName"/>
@@ -1166,11 +1231,17 @@ public enum <xsl:value-of select="concat($tableName,$funName)"/>
 </xsl:variable>
 <xsl:variable name="sqlType" select="field[@name='Type']"/>
 <xsl:variable name="null" select="field[@name='Null']"/>
+<xsl:variable name="is_number">
+	<xsl:apply-templates select="." mode="is_number"/>
+</xsl:variable>
+<xsl:variable name="is_pointer">
+	<xsl:apply-templates select="." mode="is_pointer"/>
+</xsl:variable>
 out.print(",");
 out.print(quote("<xsl:value-of select="$fieldName"/>"));
 out.print(":");
-<xsl:if test="$null='YES'">
-if(<xsl:value-of select="concat($getter,'()==null')"/>")
+<xsl:if test="$is_pointer='true'">
+if(<xsl:value-of select="concat($getter,'()')"/>==null)
 	{
 	out.print("null");
 	}
@@ -1178,27 +1249,14 @@ else
 	{
 </xsl:if>
 <xsl:choose>
-	<xsl:when test="starts-with($sqlType,'int(') or starts-with($sqlType,'tinyint(') or starts-with($sqlType,'smallint(')">
+	<xsl:when test="$is_number='true'">
 		out.print(String.valueOf(<xsl:value-of select="concat($getter,'()')"/>));
 	</xsl:when>
-	<xsl:when test="starts-with($sqlType,'varchar(') or $sqlType='text' or starts-with($sqlType,'enum(')">
-		out.print(quote(String.valueOf(<xsl:value-of select="concat($getter,'()')"/>)));
-	</xsl:when>
-	<xsl:when test="starts-with($sqlType,'enum(')">
-		out.print("[");
-		<xsl:message>
-		'toJSON' missing for enum  <xsl:value-of select="concat($sqlType,' ',$null)"/>));
-		</xsl:message>
-		out.print(quote(String.valueOf(<xsl:value-of select="concat($getter,'()')"/>)));
-		out.print("]");
-	</xsl:when>
 	<xsl:otherwise>
-		<xsl:message>
-		'toJSON' missing for  <xsl:value-of select="concat($sqlType,' ',$null)"/>));
-		</xsl:message>
+		out.print(quote(String.valueOf(<xsl:value-of select="concat($getter,'()')"/>)));
 	</xsl:otherwise>
 </xsl:choose>
-<xsl:if test="$null='YES'">
+<xsl:if test="$is_pointer='true'">
 	}
 </xsl:if>
 </xsl:template>
@@ -1265,95 +1323,85 @@ else
 ==============================================================================
 ==============================================================================
 -->
-<xsl:template name="guessType">
-<xsl:param name="node"/>
-<xsl:variable name="sqlType" select="$node/field[@name='Type']"/>
-<xsl:variable name="null" select="$node/field[@name='Null']"/>
+<xsl:template match="row" mode="javaType">
+<xsl:variable name="null" select="field[@name='Null']"/>
+<xsl:variable name="primitive">
+	<xsl:apply-templates select="." mode="primitive"/>
+</xsl:variable>
 <xsl:choose>
-	<xsl:when test="starts-with($sqlType,'int(') and $null='NO'">
-		<xsl:text>int</xsl:text>
+	<xsl:when test="$null='NO' or contains($primitive,'.')">
+		<xsl:value-of select="$primitive"/>
 	</xsl:when>
-	<xsl:when test="starts-with($sqlType,'int(') and $null='YES'">
+	<xsl:when test="$primitive='int'">
 		<xsl:text>Integer</xsl:text>
 	</xsl:when>
-	<xsl:when test="starts-with($sqlType,'smallint(') and $null='NO'">
-		<xsl:text>short</xsl:text>
-	</xsl:when>
-	<xsl:when test="starts-with($sqlType,'smallint(') and $null='YES'">
-		<xsl:text>Short</xsl:text>
-	</xsl:when>
-	<xsl:when test="starts-with($sqlType,'tinyint(') and $null='NO'">
-		<xsl:text>byte</xsl:text>
-	</xsl:when>
-	<xsl:when test="starts-with($sqlType,'tinyint(') and $null='YES'">
-		<xsl:text>Byte</xsl:text>
-	</xsl:when>
-	<xsl:when test="starts-with($sqlType,'enum(') and $null='YES'">
-		<xsl:variable name="tableName">
-			<xsl:apply-templates select="$node/.." mode="className"/>
-		</xsl:variable>
-		<xsl:variable name="fieldName">
-			<xsl:apply-templates select="$node" mode="className"/>
-		</xsl:variable>
-		
-		<xsl:value-of select="concat($tableName,$fieldName)"/>
-	</xsl:when>
-	<xsl:when test="starts-with($sqlType,'varchar(') or $sqlType='text'">
-		<xsl:text>String</xsl:text>
-	</xsl:when>
-	<xsl:when test="$sqlType='datetime'">
-		<xsl:text>java.sql.Timestamp</xsl:text>
-	</xsl:when>
-	
 	<xsl:otherwise>
-		<xsl:message terminate="false">
-		'guessType' unknown field type "<xsl:value-of select="$sqlType"/>"
-		</xsl:message>
+		<xsl:call-template name="titleize">
+			<xsl:with-param name="name" select="$primitive"/>
+		</xsl:call-template>
 	</xsl:otherwise>
 </xsl:choose>
+
 </xsl:template>
 <!--
 ==============================================================================
 ==============================================================================
 -->
-<xsl:template name="guessPrimitive">
-<xsl:param name="node"/>
-<xsl:variable name="sqlType" select="$node/field[@name='Type']"/>
+<xsl:template match="row" mode="primitive">
+<xsl:variable name="type" select="field[@name='Type']"/>
+<xsl:variable name="is_string">
+	<xsl:apply-templates select="." mode="is_string"/>
+</xsl:variable>
+<xsl:variable name="is_blob">
+	<xsl:apply-templates select="." mode="is_blob"/>
+</xsl:variable>
+<xsl:variable name="is_unsigned" select="contains($type,' unsigned')"/>
+
 <xsl:choose>
-	<xsl:when test="starts-with($sqlType,'int(')">
-		<xsl:text>int</xsl:text>
-	</xsl:when>
-	<xsl:when test="starts-with($sqlType,'smallint(')">
-		<xsl:text>short</xsl:text>
-	</xsl:when>
-	<xsl:when test="starts-with($sqlType,'tinyint(')">
-		<xsl:text>byte</xsl:text>
-	</xsl:when>
-	<xsl:when test="$sqlType='float' or $sqlType='double'">
-		<xsl:text>double</xsl:text>
-	</xsl:when>
-	<xsl:when test="starts-with($sqlType,'enum(') or starts-with($sqlType,'set(')">
-		<xsl:variable name="tableName">
-			<xsl:apply-templates select="$node/.." mode="className"/>
-		</xsl:variable>
-		<xsl:variable name="fieldName">
-			<xsl:apply-templates select="$node" mode="className"/>
-		</xsl:variable>
-		
-		<xsl:value-of select="concat($tableName,$fieldName)"/>
-	</xsl:when>
-	<xsl:when test="starts-with($sqlType,'varchar(') or $sqlType='text' or $sqlType='tinytext' or $sqlType='longtext' or $sqlType='mediumtext'">
+	<xsl:when test="$is_string='true'">
 		<xsl:text>String</xsl:text>
 	</xsl:when>
-	<xsl:when test="$sqlType='datetime'">
+	<xsl:when test="$is_unsigned='true' and starts-with($type,'bigint(')">
+		<xsl:text>java.math.BigInteger</xsl:text>
+	</xsl:when>
+	<xsl:when test="$is_unsigned='true' and (starts-with($type,'int(') or starts-with($type,'integer(') or starts-with($type,'mediumint('))">
+		<xsl:text>long</xsl:text>
+	</xsl:when>
+	<xsl:when test="$type='bit(1)'">
+		<xsl:text>boolean</xsl:text>
+	</xsl:when>
+	<xsl:when test="starts-with($type,'bit(')">
+		<xsl:text>byte</xsl:text>
+	</xsl:when>
+	<xsl:when test="starts-with($type,'int(') or starts-with($type,'integer(') or starts-with($type,'tinyint(') or starts-with($type,'smallint(')">
+		<xsl:text>int</xsl:text>
+	</xsl:when>
+	<xsl:when test="starts-with($type,'mediumint(') or starts-with($type,'bigint(')">
+		<xsl:text>long</xsl:text>
+	</xsl:when>
+	
+	<xsl:when test="$type='float'">
+		<xsl:text>float</xsl:text>
+	</xsl:when>
+	<xsl:when test="$type='double'">
+		<xsl:text>double</xsl:text>
+	</xsl:when>
+	<xsl:when test="starts-with($type,'enum(') or starts-with($type,'set(')">
+		<xsl:apply-templates select="." mode="enumName"/>
+	</xsl:when>
+	
+	<xsl:when test="$type='datetime' or $type='timestamp'">
 		<xsl:text>java.sql.Timestamp</xsl:text>
 	</xsl:when>
-	<xsl:when test="$sqlType='blog' or $sqlType='mediumblob'">
+	<xsl:when test="$type='date'">
+		<xsl:text>java.sql.Date</xsl:text>
+	</xsl:when>
+	<xsl:when test="$is_blob='true'">
 		<xsl:text>byte[]</xsl:text>
 	</xsl:when>
 	<xsl:otherwise>
-		<xsl:message terminate="false">
-		guessPrimitive: unknown field type "<xsl:value-of select="$sqlType"/>"
+		<xsl:message terminate="yes">
+		primitive unknown field type "<xsl:value-of select="$sqlType"/>"
 		</xsl:message>
 	</xsl:otherwise>
 </xsl:choose>
@@ -1362,29 +1410,49 @@ else
 ==============================================================================
 ==============================================================================
 -->
-<xsl:template name="guessJDBCFun">
-<xsl:param name="node"/>
-<xsl:variable name="sqlType" select="$node/field[@name='Type']"/>
-<xsl:variable name="null" select="$node/field[@name='Null']"/>
+<xsl:template match="row" mode="jdbcgetter">
+<xsl:variable name="primitive">
+	<xsl:apply-templates select="." mode="primitive"/>
+</xsl:variable>
+<xsl:variable name="type" select="field[@name='Type']"/>
 <xsl:choose>
-	<xsl:when test="starts-with($sqlType,'int(')">
+	<xsl:when test="$primitive='long'">
+		<xsl:text>getLong</xsl:text>
+	</xsl:when>
+	<xsl:when test="$primitive='int'">
 		<xsl:text>getInt</xsl:text>
 	</xsl:when>
-	<xsl:when test="starts-with($sqlType,'smallint(')">
+	<xsl:when test="$primitive='short'">
 		<xsl:text>getShort</xsl:text>
 	</xsl:when>
-	<xsl:when test="starts-with($sqlType,'tinyint(')">
+	<xsl:when test="$primitive='byte'">
 		<xsl:text>getByte</xsl:text>
 	</xsl:when>
-	<xsl:when test="starts-with($sqlType,'enum(')">
+	<xsl:when test="$primitive='float'">
+		<xsl:text>getFloat</xsl:text>
+	</xsl:when>
+	<xsl:when test="$primitive='double'">
+		<xsl:text>getDouble</xsl:text>
+	</xsl:when>
+	<xsl:when test="$primitive='String'">
 		<xsl:text>getString</xsl:text>
 	</xsl:when>
-	<xsl:when test="starts-with($sqlType,'varchar(') or $sqlType='text'">
+	<xsl:when test="$primitive='java.sql.Timestamp'">
+		<xsl:text>getTimeStamp</xsl:text>
+	</xsl:when>
+	<xsl:when test="$primitive='java.sql.Date'">
+		<xsl:text>getDate</xsl:text>
+	</xsl:when>
+	<xsl:when test="$primitive='byte[]'">
+		<xsl:text>getBytes</xsl:text>
+	</xsl:when>
+	<xsl:when test="starts-with($type,'enum(') or starts-with($type,'set(')">
 		<xsl:text>getString</xsl:text>
 	</xsl:when>
+	
 	<xsl:otherwise>
-		<xsl:message terminate="false">
-		guessJDBCFun unknown field type "<xsl:value-of select="$sqlType"/>"
+		<xsl:message terminate="yes">
+		jdbcgetter unknown field type "<xsl:value-of select="$primitive"/>"
 		</xsl:message>
 	</xsl:otherwise>
 </xsl:choose>
@@ -1411,21 +1479,7 @@ else
 	<xsl:with-param name="name" select="$name"/>
 </xsl:call-template>
 </xsl:template>
-<!--
-==============================================================================
-==============================================================================
--->
-<xsl:template name="guessFunName">
-<xsl:param name="name"/>
 
-<xsl:call-template name="titleize">
-	<xsl:with-param name="name">
-		<xsl:call-template name="java-name">
-			<xsl:with-param name="name" select="$name"/>
-		</xsl:call-template>
-	</xsl:with-param>
-</xsl:call-template>
-</xsl:template>
 <!--
 ==============================================================================
 ==============================================================================
@@ -1450,12 +1504,86 @@ else
 ==============================================================================
 ==============================================================================
 -->
-<xsl:template match="field[@name='Field']" mode="funName">
+<xsl:template match="row" mode="funName">
+	<xsl:apply-templates select="field[@name='Field']" mode="fieldName"/>
+</xsl:template>
+
+<xsl:template match="field" mode="funName">
 <xsl:call-template name="titleize">
 <xsl:with-param name="name">
 	<xsl:apply-templates select="." mode="fieldName"/>
 </xsl:with-param>
 </xsl:call-template>
+</xsl:template>
+<!--
+==============================================================================
+==============================================================================
+-->
+<xsl:template match="row" mode="is_number">
+<xsl:variable name="type" select="field[@name='Type']"/>
+<xsl:choose>
+	<xsl:when test="$type='float' or $type='double' or starts-with($type,'int(') or starts-with($type,'smallint(')  or starts-with($type,'smallint(')  or starts-with($type,'mediumint(')">
+		<xsl:value-of select="true()"/>
+	</xsl:when>
+	<xsl:otherwise>
+		<xsl:value-of select="false()"/>
+	</xsl:otherwise>
+</xsl:choose>
+</xsl:template>
+<!--
+==============================================================================
+==============================================================================
+-->
+<xsl:template match="row" mode="is_string">
+<xsl:variable name="type" select="field[@name='Type']"/>
+<xsl:choose>
+	<xsl:when test="$type='text' or $type='mediumtext'  or $type='tinytext'  or $type='longtext'  or  starts-with($type,'varchar(')">
+		<xsl:value-of select="true()"/>
+	</xsl:when>
+	<xsl:otherwise>
+		<xsl:value-of select="false()"/>
+	</xsl:otherwise>
+</xsl:choose>
+</xsl:template>
+<!--
+==============================================================================
+==============================================================================
+-->
+<xsl:template match="row" mode="is_blob">
+<xsl:variable name="type" select="field[@name='Type']"/>
+<xsl:choose>
+	<xsl:when test="$type='blob' or $type='mediumblob'  or $type='tinyblob'  or $type='longblob'">
+		<xsl:value-of select="true()"/>
+	</xsl:when>
+	<xsl:otherwise>
+		<xsl:value-of select="false()"/>
+	</xsl:otherwise>
+</xsl:choose>
+</xsl:template>
+<!--
+==============================================================================
+==============================================================================
+-->
+<xsl:template match="row" mode="is_pointer">
+<xsl:variable name="null" select="field[@name='Null']"/>
+<xsl:variable name="type" select="field[@name='Type']"/>
+<xsl:variable name="is_string">
+	<xsl:apply-templates select="." mode="is_string"/>
+</xsl:variable>
+<xsl:variable name="is_number">
+	<xsl:apply-templates select="." mode="is_number"/>
+</xsl:variable>
+<xsl:choose>
+	<xsl:when test="$null='YES' or $is_string='true' or $type='datetime' or starts-with($type,'enum(') or starts-with($type,'set(') ">
+		<xsl:value-of select="true()"/>
+	</xsl:when>
+	<xsl:when test="$is_number">
+		<xsl:value-of select="false()"/>
+	</xsl:when>
+	<xsl:otherwise>
+		<xsl:message terminate='yes'>is_pointer : <xsl:value-of select="$type"/>?</xsl:message>
+	</xsl:otherwise>
+</xsl:choose>
 </xsl:template>
 <!--
 ==============================================================================
@@ -1474,7 +1602,19 @@ else
 </xsl:call-template>
 </xsl:template>
 
-
+<!--
+==============================================================================
+==============================================================================
+-->
+<xsl:template match="row" mode="enumName">
+<xsl:variable name="tableName">
+  <xsl:apply-templates select=".." mode="className"/>
+</xsl:variable>
+<xsl:variable name="name">
+  <xsl:apply-templates select="." mode="funName"/>
+</xsl:variable>
+<xsl:value-of select="concat($tableName,$name)"/>
+</xsl:template>
 <!--
 ==============================================================================
 ==============================================================================
@@ -1497,6 +1637,7 @@ else
 	</xsl:otherwise>
 </xsl:choose>
 </xsl:template>
+
 <!--
 ==============================================================================
 ==============================================================================
