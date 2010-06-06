@@ -193,7 +193,7 @@ public void characters(char[] ch, int start, int length)
 	{
 	if(this.depth<1 && !StringUtils.isBlank(ch, start, length))
 		{
-		throw new SAXException("Illegal non-white characters before <file>.");
+		throw new SAXException("Illegal non-white characters before <file>.:\""+new String(ch,start,length)+"\"");
 		}
 	
 	if(this.echoHandler!=null)
