@@ -667,7 +667,7 @@ public class <xsl:value-of select="$tableName"/>InstanceFactory
 	<xsl:apply-templates select="." mode="className"/>
 </xsl:variable>
 <xsl:variable name="impl">
-	<xsl:value-of select="concat(className,'Impl')"/>
+	<xsl:value-of select="concat($tableName,'Impl')"/>
 </xsl:variable>
 <xsl:variable name="generic">
 	<xsl:value-of select="concat('&LT;',$impl,'&GT;')"/>
@@ -716,6 +716,7 @@ public class <xsl:value-of select="$tableName"/>InstanceFactory
 					public <xsl:value-of select="$impl"/> newInstance(java.sql.ResultSet row)
 						{
 						<xsl:value-of select="$impl"/> object= <xsl:value-of select="concat('get',$impl,'ObjectFactory()')"/>;
+						//TODODODO
 						<xsl:apply-templates select="row" mode="objectsqlfactory"/>
 						return object;
 						}
@@ -724,6 +725,21 @@ public class <xsl:value-of select="$tableName"/>InstanceFactory
 			return <xsl:value-of select="$objectSQLFactory"/>;
 			}
 		
+		
+</xsl:template>
+<!--
+==============================================================================
+==============================================================================
+-->
+<xsl:template match="row" mode="objectsqlfactory">
+<xsl:variable name="tableName">
+	<xsl:apply-templates select="." mode="className"/>
+</xsl:variable>
+<xsl:variable name="setter">
+	<xsl:apply-templates select="." mode="setter"/>
+</xsl:variable>
+<xsl:variable name="sqlName" select="field[@name='Field']"/>
+object.<xsl:value-of select="$setter"/>(row.TODO("<xsl:value-of select="$sqlName"/>"));
 		
 </xsl:template>
 <!--
@@ -858,10 +874,10 @@ public enum <xsl:value-of select="concat($tableName,$funName)"/>
 		<xsl:choose>
 			<xsl:when test="row/field[@name='Key']='PRI'">
 				/* just use the hash for primary key */
-				<xsl:apply-templates select="row[field[@name='Key']='PRI']" mode="hasCode"/>
+				<xsl:apply-templates select="row[field[@name='Key']='PRI']" mode="hashCode"/>
 			</xsl:when>
 			<xsl:otherwise>
-				<xsl:apply-templates select="row" mode="hasCode"/>
+				<xsl:apply-templates select="row" mode="hashCode"/>
 			</xsl:otherwise>
 		</xsl:choose>
 		return result;
@@ -870,14 +886,18 @@ public enum <xsl:value-of select="concat($tableName,$funName)"/>
 	public void writeXML(XMLStreamWriter out) throws XMLStreamException
 		{
 		out.writeStartElement("<xsl:value-of select="$tableName"/>");
-		<xsl:apply-templates name="row" mode="xml"/>
+		<xsl:apply-templates select="row" mode="xml"/>
 		out.writeEndElement();
 		}
 
+	/** print this <xsl:value-of select="$tableName"/> to JSON */
 	public void toJSON(PrintWriter out)
 		{
-		out.print("{\"_class\":\"<xsl:value-of select="$tableName"/>\"");
-		<xsl:apply-templates name="row" mode="toJSON"/>
+		out.print("{\"_class\":");
+		out.print(quote("<xsl:value-of select="$tableName"/>"));
+		<xsl:for-each select="row">
+		  <xsl:apply-templates select="." mode="toJSON"/>
+		</xsl:for-each>
 		out.print("}");
 		}
 
@@ -1084,10 +1104,10 @@ public enum <xsl:value-of select="concat($tableName,$funName)"/>
 <xsl:text>result = prime * result + </xsl:text>
 <xsl:choose>
 	<xsl:when test="$null='YES'">
-		<xsl:value-of select="concat($fieldName,'.hashCode()')"/>
+		(this.<xsl:value-of select="$fieldName"/>==null?0:this.<xsl:value-of select="$fieldName"/>.hashCode());
 	</xsl:when>
-	<xsl:when test="TODO">
-		<xsl:value-of select="$fieldName"/>
+	<xsl:when test="(starts-with($sqlType,'int(')) and $null='NO'">
+		<xsl:value-of select="concat('this.',$fieldName)"/>
 	</xsl:when>
 	<xsl:otherwise>
 		<xsl:message terminate="false">
@@ -1137,34 +1157,50 @@ public enum <xsl:value-of select="concat($tableName,$funName)"/>
 ==============================================================================
 ==============================================================================
 -->
-<xsl:template match="row" mode="json">
+<xsl:template match="row" mode="toJSON">
 <xsl:variable name="fieldName">
 	<xsl:apply-templates select="." mode="fieldName"/>
 </xsl:variable>
-out.print(",\"");
-out.print(escape("<xsl:value-of select="$fieldName"/>"));
-out.print("\":");
+<xsl:variable name="getter">
+	<xsl:apply-templates select="." mode="getter"/>
+</xsl:variable>
+<xsl:variable name="sqlType" select="field[@name='Type']"/>
+<xsl:variable name="null" select="field[@name='Null']"/>
+out.print(",");
+out.print(quote("<xsl:value-of select="$fieldName"/>"));
+out.print(":");
+<xsl:if test="$null='YES'">
+if(<xsl:value-of select="concat($getter,'()==null')"/>")
+	{
+	out.print("null");
+	}
+else
+	{
+</xsl:if>
 <xsl:choose>
-	<xsl:when test="$null='YES'">
-		if(<xsl:value-of select="concat($fieldName,'==null')"/>")
-			{
-			out.print("null");
-			}
-		else
-			{
-			out.writeStartElement("<xsl:value-of select="$fieldName"/>");
-			out.writeCharacter(String.valueOf("<xsl:value-of select="concat($getter,'()')"/>"));
-			out.writeEndElement();
-			}
+	<xsl:when test="starts-with($sqlType,'int(') or starts-with($sqlType,'tinyint(') or starts-with($sqlType,'smallint(')">
+		out.print(String.valueOf(<xsl:value-of select="concat($getter,'()')"/>));
+	</xsl:when>
+	<xsl:when test="starts-with($sqlType,'varchar(') or $sqlType='text' or starts-with($sqlType,'enum(')">
+		out.print(quote(String.valueOf(<xsl:value-of select="concat($getter,'()')"/>)));
+	</xsl:when>
+	<xsl:when test="starts-with($sqlType,'enum(')">
+		out.print("[");
+		<xsl:message>
+		'toJSON' missing for enum  <xsl:value-of select="concat($sqlType,' ',$null)"/>));
+		</xsl:message>
+		out.print(quote(String.valueOf(<xsl:value-of select="concat($getter,'()')"/>)));
+		out.print("]");
 	</xsl:when>
 	<xsl:otherwise>
-		
-		out.writeCharacter(String.valueOf("<xsl:value-of select="concat($getter,'()')"/>"));
-		out.writeEndElement();
+		<xsl:message>
+		'toJSON' missing for  <xsl:value-of select="concat($sqlType,' ',$null)"/>));
+		</xsl:message>
 	</xsl:otherwise>
 </xsl:choose>
-<xsl:text>;
-</xsl:text>
+<xsl:if test="$null='YES'">
+	}
+</xsl:if>
 </xsl:template>
 <!--
 ==============================================================================
