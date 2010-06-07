@@ -37,18 +37,49 @@ build.xml
 ==============================================================================
 -->
 &lt;file path="<xsl:value-of select="concat($base,'/','build.xml')"/>"&gt;&LT;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&GT;
-&LT;project name="database" default="db"&GT;
+&LT;project name="database" default="jar"&GT;
 &LT;property name=&quot;src.dir&quot; value=&quot;src&quot;/&GT;
 &LT;property name=&quot;build.dir&quot; value=&quot;build&quot;/&GT;
+&LT;property name=&quot;dist.dir&quot; value=&quot;dist&quot;/&GT;
+
+
  &LT;target name="db"&GT;
 	&LT;mkdir dir=&quot;${build.dir}&quot;/&GT;
-        &LT;javac srcdir=&quot;${src.dir}&quot;
+	
+	&LT;copy todir="${build.dir}"&GT;
+            &LT;fileset dir="${src.dir}"&GT;
+            
+            &LT;/fileset&GT;
+        &LT;/copy>
+
+	
+        &LT;javac srcdir=&quot;${build.dir}&quot;
                 destdir=&quot;${build.dir}&quot;
+                 debug=&quot;true&quot;
                 source=&quot;1.6&quot;
                 target=&quot;1.6&quot;&GT;
-                 &LT;include name=&quot;**/DatabaseImpl.java&quot;/&GT;
+               
+                 &LT;compilerarg value="-Xlint"/&GT;
+
+                 &LT;include name=&quot;**/TestDatabase.java&quot;/&GT;
         &LT;/javac&GT;
  &LT;/target&GT;
+ 
+ &LT;target name="jar" depends="db"&GT;
+	&LT;mkdir dir=&quot;${dist.dir}&quot;/&GT;
+        &LT;jar destfile=&quot;${dist.dir}/database.jar&quot;
+                basedir=&quot;${build.dir}&quot;
+                &GT;
+        &LT;/jar&GT;
+ &LT;/target&GT;
+ 
+  &LT;target name="test" depends="jar"&GT;
+	&LT;mkdir dir=&quot;${build.dir}&quot;/&GT;
+        &LT;java  classname="TestDatabase" &GT;
+        	&LT;classpath path="${dist.dir}/database.jar"/&GT;
+        &LT;/java&GT;
+ &LT;/target&GT;
+ 
  
 &LT;/project&GT;
 &lt;/file&gt;
@@ -58,7 +89,7 @@ build.xml
 ==============================================================================
 -->
 &lt;file path="<xsl:value-of select="concat($base,'/src/',$package-path,'CloseableIterator.java')"/>"&gt;
-<xsl:value-of select="package-decl"/>
+<xsl:value-of select="$package-decl"/>
 /**
  * A CloseableIterator.
  */
@@ -78,10 +109,72 @@ public interface CloseableIterator&LT;T&GT;
 ==============================================================================
 -->
 &lt;file path="<xsl:value-of select="$base"/>/src/<xsl:value-of select="$package-path"/>ObjectFactory.java"&gt;
-<xsl:value-of select="package-decl"/>
+<xsl:value-of select="$package-decl"/>
 public interface ObjectFactory&LT;T&GT;
 	{
 	public T newInstance();
+	}
+&lt;/file&gt;
+<!--
+==============================================================================
+DatabaseRecordImpl
+==============================================================================
+-->
+&lt;file path="<xsl:value-of select="concat($base,'/src/',$package-path,'DatabaseRecordImpl.java')"/>"&gt;
+/**  DatabaseRecordImpl */
+public abstract class DatabaseRecordImpl
+	implements DatabaseRecord
+	{
+	/** linked database */
+	private transient Database database=null;
+	
+	protected DatabaseRecordImpl()
+		{
+			
+		}
+	
+	public void setDatabase(Database database)
+		{
+		this.database=database;
+		}
+	
+	@Override
+	public Database getDatabase()
+		{
+		return this.database;
+		}
+		
+	protected String escape(String s)
+		{
+		if(s==null) return null;
+		return s;
+		}
+		
+	protected String quote(String s)
+		{
+		if(s==null) return null;
+		return "\""+ escape(s)+"\"";
+		}
+
+	public abstract void toJSON(java.io.PrintWriter out);
+
+	@Override
+	public String toString()
+		{
+		try
+			{
+			java.io.StringWriter s= new java.io.StringWriter();
+			java.io.PrintWriter w= new java.io.PrintWriter(s);
+			toJSON(w);
+			w.flush();
+			return s.toString();
+			}
+		catch(Throwable err)
+			{
+			return String.valueOf(err.getMessage());
+			}
+		
+		}
 	}
 &lt;/file&gt;
 <!--
@@ -90,7 +183,7 @@ DefaultObjectFactory
 ==============================================================================
 -->
 &lt;file path="<xsl:value-of select="$base"/>/src/<xsl:value-of select="$package-path"/>DefaultObjectFactory.java"&gt;
-<xsl:value-of select="package-decl"/>
+<xsl:value-of select="$package-decl"/>
 /**
  * DefaultObjectFactory
  */
@@ -128,7 +221,7 @@ public class DefaultObjectFactory&LT;T&GT;
 ==============================================================================
 -->
 &lt;file path="<xsl:value-of select="$base"/>/src/<xsl:value-of select="$package-path"/>ObjectSQLFactory.java"&gt;
-<xsl:value-of select="package-decl"/>
+<xsl:value-of select="$package-decl"/>
 /**
  * ObjectSQLFactory
  */
@@ -144,7 +237,7 @@ public interface ObjectSQLFactory&LT;T&GT;
 ==============================================================================
 -->
 &lt;file path="<xsl:value-of select="$base"/>/src/<xsl:value-of select="$package-path"/>DefaultObjectSQLFactory.java"&gt;
-<xsl:value-of select="package-decl"/>
+<xsl:value-of select="$package-decl"/>
 /**
  * AbstractObjectSQLFactory
  */
@@ -170,14 +263,110 @@ public abstract class AbstractObjectSQLFactory&LT;T&GT;
 ==============================================================================
 -->
 &lt;file path="<xsl:value-of select="concat($base,'/src/',$package-path,'Database.java')"/>"&gt;
-<xsl:value-of select="package-decl"/>
+<xsl:value-of select="$package-decl"/>
 /**
  * Database
  */
 public interface Database
 	{
-	<xsl:apply-templates select="resultset" mode="database-decl"/>
+	/** open the Database */
+	public void open();
+	/** close the database , cleanup the resources */
 	public void close();
+	<xsl:apply-templates select="resultset" mode="database-decl"/>
+	
+	}
+&lt;/file&gt;
+<!--
+==============================================================================
+==============================================================================
+==============================================================================
+-->
+&lt;file path="<xsl:value-of select="concat($base,'/src/',$package-path,'DefaultDatabase.java')"/>"&gt;
+<xsl:value-of select="$package-decl"/>
+/**
+ * DefaultDatabase
+ */
+public class DefaultDatabase
+	extends DatabaseImpl
+	{
+	private java.util.Properties prop=new java.util.Properties();
+	@Override
+	public void open()
+		{
+		try
+			{
+			this.prop=new java.util.Properties();
+			java.io.InputStream in=openConfig();
+			if(in==null) throw new java.io.IOException("Cannot read "+getResourceConfigName());
+			this.prop.loadFromXML(in);
+   			in.close();
+   			Class.forName(prop.getProperty("jdbc.driver"));
+			}
+		catch(Throwable err)
+			{
+			throw new RuntimeException(err);
+			}
+		}
+	
+	protected java.io.InputStream openConfig() throws java.io.IOException
+		{
+		return getClass().getResourceAsStream(getResourceConfigName());
+		}
+	
+	protected String getResourceConfigName()
+		{
+		return "/META-INF/connection.properties";
+		}
+	
+	@Override
+	protected java.sql.Connection createConnection() throws java.sql.SQLException
+		{
+		return java.sql.DriverManager.getConnection(
+			prop.getProperty("jdbc.url"),
+			prop.getProperty("jdbc.login"),
+			prop.getProperty("jdbc.password")
+			);
+		}
+	}
+&lt;/file&gt;
+<!--
+==============================================================================
+==============================================================================
+==============================================================================
+-->
+&lt;file path="<xsl:value-of select="concat($base,'/src/',$package-path,'TestDatabase.java')"/>"&gt;
+<xsl:value-of select="$package-decl"/>
+/**
+ * DefaultDatabase
+ */
+public class TestDatabase
+	extends DefaultDatabase
+	{
+	public void testAll() throws Exception
+		{
+		<xsl:apply-templates select="resultset" mode="test"/>
+		}
+	
+	public static void main(String args[])
+		{
+		TestDatabase db=null;
+		try
+			{
+			db=new TestDatabase();
+			db.open();
+			db.testAll();
+			System.out.println("OK");
+			}
+		catch(Throwable err)
+			{
+			err.printStackTrace();
+			}
+		finally
+			{
+			if(db!=null) db.close();
+			}
+		}
 	}
 &lt;/file&gt;
 <!--
@@ -186,7 +375,7 @@ public interface Database
 ==============================================================================
 -->
 &lt;file path="<xsl:value-of select="concat($base,'/src/',$package-path,'DatabaseRecord.java')"/>"&gt;
-<xsl:value-of select="package-decl"/>
+<xsl:value-of select="$package-decl"/>
 /**
  * DatabaseRecord
  */
@@ -202,7 +391,7 @@ public interface DatabaseRecord
 ==============================================================================
 -->
 &lt;file path="<xsl:value-of select="concat($base,'/src/',$package-path,'DatabaseImpl.java')"/>"&gt;
-<xsl:value-of select="package-decl"/>
+<xsl:value-of select="$package-decl"/>
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.ResultSet;
@@ -226,14 +415,16 @@ public abstract class DatabaseImpl
 		implements CloseableIterator&LT;T&GT;
 		{
 		private Connection con;
+		private Statement stmt;
 		private ResultSet row;
 		private ObjectSQLFactory&LT;T&GT; factory=null;
 		private boolean _nextTested=false;
 		private boolean _hasNext=false;
 		private T _object=null;
-		IterImpl(Connection con,ResultSet row, ObjectSQLFactory&LT;T&GT; factory)
+		IterImpl(Connection con,Statement stmt,ResultSet row, ObjectSQLFactory&LT;T&GT; factory)
 			{
 			this.con=con;
+			this.stmt=stmt;
 			this.row=row;
 			this.factory=factory;
 			}
@@ -243,7 +434,15 @@ public abstract class DatabaseImpl
 			if(_nextTested) return _hasNext;
 			if(this.con==null) throw new IllegalStateException();
 			_nextTested=true;
-			_hasNext = this.row.next();
+			try
+				{
+				_hasNext = this.row.next();
+				}
+			catch(java.sql.SQLException err)
+				{
+				close();
+				throw new RuntimeException(err);
+				}
 			_object=null;
 			if(_hasNext)
 				{
@@ -289,35 +488,16 @@ public abstract class DatabaseImpl
 		@Override
 		public void close()
 			{
+			try { if(this.row!=null) this.row.close(); } catch(java.sql.SQLException err) {}
+			try { if(this.stmt!=null) this.stmt.close(); } catch(java.sql.SQLException err) {}
 			DatabaseImpl.this.recycle(this.con);
+			this.stmt=null;
+			this.row=null;
 			this.con=null;
 			}
 		}
 	
-	/**  DatabaseRecordImpl */
-	protected class DatabaseRecordImpl
-		implements DatabaseRecord
-		{
-		protected DatabaseRecordImpl()
-			{
-				
-			}
-		
-		public DatabaseImpl database()
-			{
-			return DatabaseImpl.this;
-			}
-		@Override
-		public Database getDatabase()
-			{
-			return database();
-			}
-			
-		protected String escape(String s)
-			{
-			return s;
-			}
-		}
+	
 
 	/** recycle the connection 'con' */
 	synchronized protected void recycle(Connection con)
@@ -386,7 +566,7 @@ public abstract class DatabaseImpl
 	protected &LT;T&GT; T one(
 		ResultSet row,
 		ObjectSQLFactory&LT;T&GT; factory
-		) throws SQLException
+		) throws java.sql.SQLException
 		{
 		T object=null;
 		while(row.next())
@@ -397,27 +577,41 @@ public abstract class DatabaseImpl
 		return object;
 		}
 		
-	/** retrieve an iterator */
-	protected &LT;T&GT; CloseableIterator&LT;T&GT; many(
-		Connection con,
-		ResultSet row,
-		ObjectSQLFactory&LT;T&GT; factory
-		) throws SQLException
-		{
-		return new IterImpl&LT;T&GT;(con,row,factory);
-		}
+	
 	
 	<xsl:apply-templates select="resultset" mode="objectsqlfactory"/>
 	<xsl:apply-templates select="resultset" mode="database-impl"/>
-	<xsl:apply-templates select="resultset" mode="class"/>
+	
 	}
+
 &lt;/file&gt;
 
 
-
+<xsl:apply-templates select="resultset" mode="class"/>
 <xsl:apply-templates select="resultset" mode="interface"/>
 <xsl:apply-templates select="resultset" mode="enum"/>
 <xsl:apply-templates select="resultset" mode="set"/>
+</xsl:template>
+
+<xsl:template match="resultset" mode="test">
+<xsl:variable name="tableName">
+	<xsl:apply-templates select="." mode="className"/>
+</xsl:variable>
+<xsl:variable name="iter">
+	<xsl:value-of select="concat(' _iter_',generate-id(.))"/>
+</xsl:variable>
+<xsl:variable name="count">
+	<xsl:value-of select="concat(' _count_',generate-id(.))"/>
+</xsl:variable>
+	// retrieves all the <xsl:value-of select="$tableName"/>.
+	int <xsl:value-of select="$count"/>=0;
+	<xsl:value-of select="concat('CloseableIterator&LT;',$tableName,'&GT;')"/> <xsl:value-of select="$iter"/>=<xsl:value-of select="concat('listAll',$tableName,'();')"/>
+	while(<xsl:value-of select="$iter"/>.hasNext())
+		{
+		System.out.println(<xsl:value-of select="$iter"/>.next());
+		if(++<xsl:value-of select="$count"/>&GT;10) break;
+		}
+	<xsl:value-of select="$iter"/>.close();
 </xsl:template>
 <!--
 ==============================================================================
@@ -472,9 +666,7 @@ public abstract class DatabaseImpl
 	<xsl:apply-templates select=".." mode="className"/>
 </xsl:variable>
 <xsl:variable name="fieldName">
-<xsl:call-template name="guessName">
-  <xsl:with-param name="node" select="."/>
-</xsl:call-template>
+	<xsl:apply-templates select="." mode="fieldName"/>
 </xsl:variable>
 <xsl:variable name="argType">
   <xsl:apply-templates select="." mode="primitive"/>
@@ -514,11 +706,11 @@ public abstract class DatabaseImpl
   		try
   			{
   			con = getConnection();
-  			PreparedStatement pstmt=con.prepareStatement("select * from <xsl:value-of select="$tableName"/>");
+  			PreparedStatement pstmt=con.prepareStatement("select * from <xsl:value-of select="normalize-space(substring(./@statement,5))"/>");
   			ResultSet row=pstmt.executeQuery();
-  			return new IterImpl(con,pstmt,row,factory);
+  			return new IterImpl&LT;<xsl:value-of select="$tableName"/>&GT;(con,pstmt,row,factory);
   			}
-  		catch(SQLException err)
+  		catch(java.sql.SQLException err)
   			{
   			recycle(con);
   			throw new RuntimeException(err);
@@ -535,9 +727,7 @@ public abstract class DatabaseImpl
 	<xsl:apply-templates select=".." mode="className"/>
 </xsl:variable>
 <xsl:variable name="fieldName">
-<xsl:call-template name="guessName">
-  <xsl:with-param name="node" select="."/>
-</xsl:call-template>
+	<xsl:apply-templates select="." mode="fieldName"/>
 </xsl:variable>
 <xsl:variable name="javaType">
 	<xsl:apply-templates select="." mode="primitive"/>
@@ -548,14 +738,11 @@ public abstract class DatabaseImpl
 <xsl:variable name="jdbcSetter">
 	<xsl:apply-templates select="." mode="jdbcSet"/>
 </xsl:variable>
-<!--
-	private ObjectSQLFactory<xsl:value-of select="concat('&LT;',$tableName,'&GT;')"/> <xsl:value-of select="concat('_',$tableName,SQLFactory(),'= null')"/>;
-	protected ObjectSQLFactory<xsl:value-of select="concat('&LT;',$tableName,'&GT;')"/> get<xsl:value-of select="concat($tableName,SQLFactory())"/>
-		{
-		return _;
-		} -->
+<xsl:variable name="type" select="field[@name='Type']"/>
+
 <xsl:choose>
   <xsl:when test="field[@name='Key']='PRI' or field[@name='Key']='UNI'">
+  	<xsl:variable name="key" select="field[@name='Key']"/>
   	/**
   	 * 
   	 *
@@ -569,9 +756,19 @@ public abstract class DatabaseImpl
   			{
   			con = getConnection();
   			PreparedStatement pstmt=con.prepareStatement(
-  				"select * from <xsl:value-of select="$tableName"/> where <xsl:value-of select="field[@name='Field']"/> =?"
+  				"select * from <xsl:value-of select="normalize-space(substring(../@statement,5))"/> where <xsl:value-of select="field[@name='Field']"/> =?"
   				);
-  			pstmt.<xsl:value-of select="$jdbcSetter"/>(1,<xsl:value-of select="$fieldName"/>);
+  			pstmt.<xsl:value-of select="$jdbcSetter"/>(1,<xsl:choose>
+  				<xsl:when test="starts-with($type,'set(')">
+  					<xsl:apply-templates select="." mode="enumName"/>.unparseValues(<xsl:value-of select="$fieldName"/>)
+  				</xsl:when>
+  				<xsl:when test="starts-with($type,'enum(')">
+  					String.valueOf(<xsl:value-of select="$fieldName"/>)
+  				</xsl:when>
+  				<xsl:otherwise>
+  					<xsl:value-of select="$fieldName"/>
+  				</xsl:otherwise>
+  				</xsl:choose>);
   			ResultSet row=pstmt.executeQuery();
   			
   			<xsl:value-of select="$tableName"/> object=null;
@@ -582,8 +779,9 @@ public abstract class DatabaseImpl
   				}
   			row.close();
   			pstmt.close();
+  			return object;
   			}
-  		catch(SQLException err)
+  		catch(java.sql.SQLException err)
   			{
   			throw new RuntimeException(err);
   			}
@@ -607,11 +805,21 @@ public abstract class DatabaseImpl
   			{
   			con = getConnection();
   			PreparedStatement pstmt=con.prepareStatement(
-  				"select * from <xsl:value-of select="$tableName"/> where <xsl:value-of select="field[@name='Field']"/> =?"
+  				"select * from <xsl:value-of select="normalize-space(substring(../@statement,5))"/> where <xsl:value-of select="field[@name='Field']"/> =?"
   				);
-  			pstmt.<xsl:value-of select="$jdbcSetter"/>(1,<xsl:value-of select="$fieldName"/>);
+  			pstmt.<xsl:value-of select="$jdbcSetter"/>(1,<xsl:choose>
+  				<xsl:when test="starts-with($type,'set(')">
+  					<xsl:apply-templates select="." mode="enumName"/>.unparseValues(<xsl:value-of select="$fieldName"/>)
+  				</xsl:when>
+  				<xsl:when test="starts-with($type,'enum(')">
+  					String.valueOf(<xsl:value-of select="$fieldName"/>)
+  				</xsl:when>
+  				<xsl:otherwise>
+  					<xsl:value-of select="$fieldName"/>
+  				</xsl:otherwise>
+  				</xsl:choose>);
   			ResultSet row=pstmt.executeQuery();
-  			return new IterImpl(con,pstmt,row,factory);
+  			return new IterImpl&LT;<xsl:value-of select="$tableName"/>&GT;(con,pstmt,row,factory);
   			}
   		catch(SQLException err)
   			{
@@ -633,7 +841,7 @@ public abstract class DatabaseImpl
 	<xsl:apply-templates select="." mode="className"/>
 </xsl:variable>
 &lt;file path="<xsl:value-of select="concat($base,'/src/',$package-path,$tableName,'.java')"/>"&gt;
-<xsl:value-of select="package-decl"/>
+<xsl:value-of select="$package-decl"/>
 /**
  * Interface <xsl:value-of select="$tableName"/>
  */
@@ -690,27 +898,29 @@ public class <xsl:value-of select="$tableName"/>InstanceFactory
 	<xsl:value-of select="concat('&LT;',$impl,'&GT;')"/>
 </xsl:variable>
 <xsl:variable name="objectFactory">
-	<xsl:value-of select="concat('_',$impl,'Factory')"/>
+	<xsl:value-of select="concat('_',$tableName,'Factory')"/>
 </xsl:variable>
 <xsl:variable name="objectSQLFactory">
-	<xsl:value-of select="concat('_',$impl,'SQLFactory')"/>
+	<xsl:value-of select="concat('_',$tableName,'SQLFactory')"/>
 </xsl:variable>
 		/** Default InstanceFactory for <xsl:value-of select="$tableName" /> */
-		private <xsl:value-of select="concat('ObjectFactory',$generic,' ',$objectFactory,'=null;')"/>
+		private <xsl:value-of select="concat('ObjectFactory&LT;',$tableName,'&GT; ',$objectFactory,'=null;')"/>
 		
 		
 		
 		/** get InstanceFactory for <xsl:value-of select="$tableName" /> */
-		protected  <xsl:value-of select="concat('ObjectFactory',$generic)"/> 	<xsl:value-of select="concat('get',$impl,'ObjectFactory()')"/>
+		protected  <xsl:value-of select="concat('ObjectFactory&LT;',$tableName,'&GT; ')"/> <xsl:value-of select="concat('get',$tableName,'ObjectFactory()')"/>
 			{
 			if(<xsl:value-of select="$objectFactory"/>==null)
 				{
-				<xsl:value-of select="$objectFactory"/>=new <xsl:value-of select="concat('ObjectFactory',$generic)"/>()
+				<xsl:value-of select="$objectFactory"/>=new <xsl:value-of select="concat('ObjectFactory&LT;',$tableName,'&GT;')"/>()
 					{
 					@Override
-					public <xsl:value-of select="$impl"/> newInstance()
+					public <xsl:value-of select="$tableName"/> newInstance()
 						{
-						return new <xsl:value-of select="$impl"/>();
+						<xsl:value-of select="$impl"/> object= new <xsl:value-of select="$impl"/>();
+						object.setDatabase(DatabaseImpl.this);
+						return object;
 						}
 					};
 				}
@@ -720,20 +930,19 @@ public class <xsl:value-of select="$tableName"/>InstanceFactory
 
 		
 		/** Default InstanceSQLFactory for <xsl:value-of select="$tableName" /> */
-		private <xsl:value-of select="concat('ObjectSQLFactory',$generic,' ',$objectSQLFactory,'=null;')"/>
+		private <xsl:value-of select="concat('ObjectSQLFactory&LT;',$tableName,'&GT; ',$objectSQLFactory,'=null;')"/>
 
 		/** SQLFactory for <xsl:value-of select="$tableName" /> */
-		protected  <xsl:value-of select="concat('ObjectSQLFactory',$generic)"/> 	<xsl:value-of select="concat('get',$impl,'ObjectSQLFactory()')"/>
+		protected  <xsl:value-of select="concat('ObjectSQLFactory&LT;',$tableName,'&GT; ')"/> 	<xsl:value-of select="concat('get',$tableName,'ObjectSQLFactory()')"/>
 			{
 			if(<xsl:value-of select="$objectSQLFactory"/>==null)
 				{
-				<xsl:value-of select="$objectSQLFactory"/>=new <xsl:value-of select="concat('ObjectSQLFactory',$generic)"/>()
+				<xsl:value-of select="$objectSQLFactory"/>=new <xsl:value-of select="concat('ObjectSQLFactory&LT;',$tableName,'&GT;')"/>()
 					{
 					@Override
-					public <xsl:value-of select="$impl"/> newInstance(java.sql.ResultSet row)
+					public <xsl:value-of select="$impl"/> newInstance(java.sql.ResultSet row) throws java.sql.SQLException
 						{
-						<xsl:value-of select="$impl"/> object= <xsl:value-of select="concat('get',$impl,'ObjectFactory()')"/>;
-						//TODODODO
+						<xsl:value-of select="$impl"/> object= <xsl:value-of select="$impl"/>.class.cast(<xsl:value-of select="concat('get',$tableName,'ObjectFactory().newInstance()')"/>);
 						<xsl:apply-templates select="row" mode="objectsqlfactory"/>
 						return object;
 						}
@@ -777,10 +986,17 @@ public class <xsl:value-of select="$tableName"/>InstanceFactory
 		<xsl:apply-templates select="." mode="enumName"/>
 	</xsl:variable>
 	String <xsl:value-of select="concat('_',$fieldName)"/>= row.getString("<xsl:value-of select="$sqlName"/>");
-	object.<xsl:value-of select="$setter"/>(<xsl:value-of select="concat('_',$fieldName)"/>==null?null:<xsl:value-of select="$enumName"/>.parse(<xsl:value-of select="concat('_',$fieldName)"/>));
+	object.<xsl:value-of select="$setter"/>(<xsl:value-of select="concat('_',$fieldName)"/>==null?null:<xsl:value-of select="$enumName"/>.valueOf(<xsl:value-of select="concat('_',$fieldName)"/>));
+</xsl:when>
+<xsl:when test="starts-with($type,'set(')">
+	<xsl:variable name="enumName">
+		<xsl:apply-templates select="." mode="enumName"/>
+	</xsl:variable>
+	String <xsl:value-of select="concat('_',$fieldName)"/>= row.getString("<xsl:value-of select="$sqlName"/>");
+	object.<xsl:value-of select="$setter"/>(<xsl:value-of select="concat('_',$fieldName)"/>==null?null:<xsl:value-of select="$enumName"/>.parseValues(<xsl:value-of select="concat('_',$fieldName)"/>));
 </xsl:when>
 <xsl:when test="$is_pointer='true' and not(contains($javaType,'.') or $javaType='String')">
-<xsl:value-of select="$javaType"/>  <xsl:value-of select="concat('_',$fieldName)"/>=row.<xsl:value-of select="$jdbcgetter"/>("<xsl:value-of select="$sqlName"/>");
+<xsl:value-of select="$javaType"/>  <xsl:value-of select="concat(' _',$fieldName)"/>=row.<xsl:value-of select="$jdbcgetter"/>("<xsl:value-of select="$sqlName"/>");
 if(row.wasNull()) <xsl:value-of select="concat('_',$fieldName)"/>=null;
 object.<xsl:value-of select="$setter"/>(<xsl:value-of select="concat('_',$fieldName)"/>);
 </xsl:when>
@@ -794,47 +1010,48 @@ object.<xsl:value-of select="$setter"/>(row.<xsl:value-of select="$jdbcgetter"/>
 ==============================================================================
 -->
 <xsl:template match="row" mode="jdbcSet">
-<xsl:variable name="type">
-	<xsl:value-of select="field[@name='Type']"/>
+<xsl:variable name="primitive">
+	<xsl:apply-templates select="." mode="primitive"/>
 </xsl:variable>
-<xsl:variable name="null">
-	<xsl:value-of select="field[@name='Null']"/>
-</xsl:variable>
-<xsl:variable name="sqlName">
-	<xsl:value-of select="field[@name='Field']"/>
-</xsl:variable>
-<xsl:variable name="setter">
-	<xsl:value-of select="." mode="setter"/>
-</xsl:variable>
-
+<xsl:variable name="type" select="field[@name='Type']"/>
 <xsl:choose>
-	<xsl:when test="starts-with($type,'int(')">
+	<xsl:when test="$primitive='long'">
+		<xsl:text>setLong</xsl:text>
+	</xsl:when>
+	<xsl:when test="$primitive='int'">
 		<xsl:text>setInt</xsl:text>
 	</xsl:when>
-	<xsl:when test="starts-with($type,'smallint(')">
+	<xsl:when test="$primitive='short'">
 		<xsl:text>setShort</xsl:text>
 	</xsl:when>
-	<xsl:when test="starts-with($type,'tinyint(')">
+	<xsl:when test="$primitive='byte'">
 		<xsl:text>setByte</xsl:text>
+	</xsl:when>
+	<xsl:when test="$primitive='float'">
+		<xsl:text>setFloat</xsl:text>
+	</xsl:when>
+	<xsl:when test="$primitive='double'">
+		<xsl:text>setDouble</xsl:text>
+	</xsl:when>
+	<xsl:when test="$primitive='String'">
+		<xsl:text>setString</xsl:text>
+	</xsl:when>
+	<xsl:when test="$primitive='java.sql.Timestamp'">
+		<xsl:text>setTimestamp</xsl:text>
+	</xsl:when>
+	<xsl:when test="$primitive='java.sql.Date'">
+		<xsl:text>setDate</xsl:text>
+	</xsl:when>
+	<xsl:when test="$primitive='byte[]'">
+		<xsl:text>setBytes</xsl:text>
 	</xsl:when>
 	<xsl:when test="starts-with($type,'enum(') or starts-with($type,'set(')">
 		<xsl:text>setString</xsl:text>
 	</xsl:when>
-	<xsl:when test="starts-with($type,'varchar(') or $type='text' or $type='tinytext' or $type='longtext' or $type='mediumtext'">
-		<xsl:text>setString</xsl:text>
-	</xsl:when>
-	<xsl:when test="$type='datetime'">
-		<xsl:text>setTimestamp</xsl:text>
-	</xsl:when>
-	<xsl:when test="$type='float' or $type='double'">
-		<xsl:text>setDouble</xsl:text>
-	</xsl:when>
-	<xsl:when test="$type='mediumblob'">
-		<xsl:text>setBlob</xsl:text>
-	</xsl:when>
+	
 	<xsl:otherwise>
-		<xsl:message terminate="no">
-		guessJDBCSetter unknown field type "<xsl:value-of select="$sqlType"/>"
+		<xsl:message terminate="yes">
+		jdbcgetter unknown field type "<xsl:value-of select="$primitive"/>"
 		</xsl:message>
 	</xsl:otherwise>
 </xsl:choose>
@@ -898,16 +1115,40 @@ public enum <xsl:value-of select="$enumName"/>
 public enum <xsl:value-of select="$enumName"/>
 	{
 	<xsl:value-of select='translate(substring(field[@name="Type"],5,string-length(field[@name="Type"])-6),"&apos;"," ")'/>;
-	java.util.Set&LT;<xsl:value-of select="$enumName"/>&GT; parseValues(String s)
+	public static java.util.Set&LT;<xsl:value-of select="$enumName"/>&GT; parseValues(String s)
 		{
 		java.util.Set&LT;<xsl:value-of select="$enumName"/>&GT; set=new java.util.HashSet&LT;<xsl:value-of select="$enumName"/>&GT;();
-		//TODO
+		for(String sub:s.split("[,]"))
+			{
+			sub=sub.trim();
+			if(sub.startsWith("'") &AMP;&AMP; sub.endsWith("'"))
+				{
+				sub=sub.substring(1,sub.length()-1);
+				}
+			if(sub.isEmpty()) continue;
+			set.add(<xsl:value-of select="$enumName"/>.valueOf(sub));
+			}
 		return set;
+		}
+	public static String unparseValues(java.util.Set&LT;<xsl:value-of select="$enumName"/>&GT; set)
+		{
+		StringBuilder b=new StringBuilder();
+		for(<xsl:value-of select="$enumName"/> o:set)
+			{
+			if(b.length()!=0) b.append(",");
+			b.append("'");
+			b.append(o.toString());
+			b.append("'");
+			}
+		return b.toString();
 		}
 	}
 &lt;/file&gt;
 </xsl:if>
 </xsl:template>
+
+
+
 <!--
 ==============================================================================
 ==============================================================================
@@ -916,9 +1157,17 @@ public enum <xsl:value-of select="$enumName"/>
 <xsl:variable name="tableName">
 	<xsl:apply-templates select="." mode="className"/>
 </xsl:variable>
+<xsl:variable name="impl">
+	<xsl:value-of select="concat($tableName,'Impl')"/>
+</xsl:variable>
+&lt;file path="<xsl:value-of select="concat($base,'/src/',$package-path,$impl,'.java')"/>"&gt;
+<xsl:value-of select="$package-decl"/>;
 
-<xsl:text>protected class </xsl:text>
-<xsl:value-of select="concat($tableName,'Impl')"/>
+/**
+ * <xsl:value-of select="concat($tableName,'Impl')"/>
+ *
+ */
+class <xsl:value-of select="concat($tableName,'Impl')"/>
 	extends DatabaseRecordImpl
 	implements <xsl:value-of select="$tableName"/>
 	{
@@ -926,6 +1175,7 @@ public enum <xsl:value-of select="$enumName"/>
 	public <xsl:value-of select="concat($tableName,'Impl')"/>()
 		{
 		}
+	
 	<xsl:apply-templates name="row" mode="setget"/>
 
 	@Override
@@ -972,6 +1222,7 @@ public enum <xsl:value-of select="$enumName"/>
 		}
 
 	/** prints this <xsl:value-of select="$tableName"/> to JSON */
+	@Override
 	public void toJSON(java.io.PrintWriter out)
 		{
 		out.print("{\"_class\":");
@@ -979,27 +1230,8 @@ public enum <xsl:value-of select="$enumName"/>
 		<xsl:apply-templates select="row" mode="toJSON"/>
 		out.print("}");
 		}
-
-	@Override
-	public String toString()
-		{
-		try
-			{
-			java.io.StringWriter s= new java.io.StringWriter();
-			java.io.PrintWriter w= new java.io.PrintWrite(s);
-			toJSON(w);
-			w.flush();
-			return s.toString();
-			}
-		catch(Throwable err)
-			{
-			return String.valueOf(err.getMessage());
-			}
-		
-		}
 	}
-
-
+&lt;/file&gt;
 </xsl:template>
 <!--
 ==============================================================================
@@ -1156,25 +1388,36 @@ public enum <xsl:value-of select="$enumName"/>
 <xsl:variable name="fieldName">
 	<xsl:apply-templates select="." mode="fieldName"/>
 </xsl:variable>
+<xsl:variable name="is_pointer">
+	<xsl:apply-templates select="." mode="is_pointer"/>
+</xsl:variable>
+<xsl:variable name="is_number">
+	<xsl:apply-templates select="." mode="is_number"/>
+</xsl:variable>
+<xsl:variable name="primitive">
+	<xsl:apply-templates select="." mode="primitive"/>
+</xsl:variable>
 <xsl:variable name="sqlType" select="field[@name='Type']"/>
 <xsl:variable name="null" select="field[@name='Null']"/>
 <xsl:text>result = prime * result + </xsl:text>
 <xsl:choose>
-	<xsl:when test="$null='YES' or $sqlType='text' or $sqlType='mediumtext'  or starts-with($sqlType,'enum(')  or starts-with($sqlType,'varchar(') ">
+	<xsl:when test="$is_pointer='true'">
 		(this.<xsl:value-of select="$fieldName"/>==null?0:this.<xsl:value-of select="$fieldName"/>.hashCode());
 	</xsl:when>
-	<xsl:when test="(starts-with($sqlType,'int(') or starts-with($sqlType,'tinyint(') or starts-with($sqlType,'smallint(')) and $null='NO'">
+	<xsl:when test="$primitive='int'">
 		<xsl:value-of select="concat('this.',$fieldName)"/>
 	</xsl:when>
-	<xsl:when test="$sqlType='double'">
-		<xsl:value-of select="concat('(int)(this.',$fieldName,')')"/>
+	<xsl:when test="$primitive='long'">
+		(int)(<xsl:value-of select="concat('this.',$fieldName)"/>^(<xsl:value-of select="concat('this.',$fieldName)"/>&GT;&GT;&GT;32))
 	</xsl:when>
-	<xsl:when test="$sqlType='float'">
-		<xsl:value-of select="concat('(int)(this.',$fieldName,')')"/>
+	
+	<xsl:when test="$is_number='true'">
+		(int)<xsl:value-of select="concat('this.',$fieldName)"/>
 	</xsl:when>
+	
 	<xsl:otherwise>
 		<xsl:message terminate="no">
-		'hashCode' unknown field type "<xsl:value-of select="$sqlType"/>"
+		'hashCode' unknown field type "<xsl:value-of select="$sqlType"/>" <xsl:value-of select="$is_number"/>
 		</xsl:message>
 	</xsl:otherwise>
 </xsl:choose>
@@ -1203,13 +1446,13 @@ public enum <xsl:value-of select="$enumName"/>
 		else
 			{
 			out.writeStartElement("<xsl:value-of select="$fieldName"/>");
-			out.writeCharacter(String.valueOf(<xsl:value-of select="concat($getter,'()')"/>));
+			out.writeCharacters(String.valueOf(<xsl:value-of select="concat($getter,'()')"/>));
 			out.writeEndElement();
 			}
 	</xsl:when>
 	<xsl:otherwise>
 		out.writeStartElement("<xsl:value-of select="$fieldName"/>");
-		out.writeCharacter(String.valueOf(<xsl:value-of select="concat($getter,'()')"/>));
+		out.writeCharacters(String.valueOf(<xsl:value-of select="concat($getter,'()')"/>));
 		out.writeEndElement();
 	</xsl:otherwise>
 </xsl:choose>
@@ -1394,10 +1637,14 @@ else
 	<xsl:when test="$type='double'">
 		<xsl:text>double</xsl:text>
 	</xsl:when>
-	<xsl:when test="starts-with($type,'enum(') or starts-with($type,'set(')">
+	<xsl:when test="starts-with($type,'enum(')">
 		<xsl:apply-templates select="." mode="enumName"/>
 	</xsl:when>
-	
+	<xsl:when test="starts-with($type,'set(')">
+		<xsl:text>java.util.Set&LT;</xsl:text>
+		<xsl:apply-templates select="." mode="enumName"/>
+		<xsl:text>&GT;</xsl:text>
+	</xsl:when>
 	<xsl:when test="$type='datetime' or $type='timestamp'">
 		<xsl:text>java.sql.Timestamp</xsl:text>
 	</xsl:when>
@@ -1446,7 +1693,7 @@ else
 		<xsl:text>getString</xsl:text>
 	</xsl:when>
 	<xsl:when test="$primitive='java.sql.Timestamp'">
-		<xsl:text>getTimeStamp</xsl:text>
+		<xsl:text>getTimestamp</xsl:text>
 	</xsl:when>
 	<xsl:when test="$primitive='java.sql.Date'">
 		<xsl:text>getDate</xsl:text>
@@ -1530,7 +1777,7 @@ else
 <xsl:template match="row" mode="is_number">
 <xsl:variable name="type" select="field[@name='Type']"/>
 <xsl:choose>
-	<xsl:when test="$type='float' or $type='double' or starts-with($type,'int(') or starts-with($type,'smallint(')  or starts-with($type,'smallint(')  or starts-with($type,'mediumint(')">
+	<xsl:when test="$type='float' or $type='double' or starts-with($type,'int(') or starts-with($type,'smallint(')  or starts-with($type,'tinyint(')  or starts-with($type,'mediumint(')">
 		<xsl:value-of select="true()"/>
 	</xsl:when>
 	<xsl:otherwise>
