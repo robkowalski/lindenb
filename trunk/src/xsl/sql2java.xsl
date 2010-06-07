@@ -218,7 +218,8 @@ import java.util.ArrayList;
 public abstract class DatabaseImpl
 	implements Database
 	{
-	private List&LT;Connection&GT; list = new ArrayList&LT;Connection&GT;();
+	/** pool of SQL connections */
+	private List&LT;Connection&GT; queue = new ArrayList&LT;Connection&GT;();
 	
 	/** Iterator impl */
 	protected class IterImpl&LT;T&GT;
@@ -278,7 +279,14 @@ public abstract class DatabaseImpl
 			_object=null;
 			return x;
 			}
-		
+		@Override
+		public void remove()
+			{
+			throw new UnsupportedOperationException("Cannot remove");
+			}
+			
+			
+		@Override
 		public void close()
 			{
 			DatabaseImpl.this.recycle(this.con);
@@ -324,17 +332,17 @@ public abstract class DatabaseImpl
 			{
 			return;
 			}
-		this.list.add(con);
+		this.queue.add(con);
 		}
 		
 	protected abstract Connection createConnection() throws SQLException;
 	
 	protected synchronized  Connection getConnection() throws SQLException
 		{
-		for(int i=0;i&LT; this.list.size() ; i++)
+		for(int i=0;i&LT; this.queue.size() ; i++)
 			{
-			Connection con= list.get(0);
-			list.remove(0);
+			Connection con= queue.get(0);
+			queue.remove(0);
 			if(con==null)
 				{
 				continue;
@@ -343,7 +351,7 @@ public abstract class DatabaseImpl
 				{
 				if(con.isClosed())
 					{
-					list.remove(0);
+					queue.remove(0);
 					continue;
 					}
 				}
