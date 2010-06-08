@@ -20,9 +20,11 @@ into an POJO Java File
 -->
 <xsl:output method="text"/>
 <xsl:param name="base">generated</xsl:param>
-<xsl:param name="package"></xsl:param>
-<xsl:param name="package-path"></xsl:param>
-<xsl:param name="package-decl"></xsl:param>
+<xsl:param name="package">org.myapi</xsl:param>
+<xsl:param name="package-path">org/myapi/</xsl:param>
+<xsl:variable name="package-impl/path" select="concat($package,'impl/')"/>
+<xsl:variable name="package-decl">package <xsl:value-of select="$package"/>;</xsl:variable>
+<xsl:variable name="package-impl-decl">package <xsl:value-of select="$package"/>.impl;</xsl:variable>
 
 <xsl:template match="/">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
 &lt;archive&gt;
@@ -33,6 +35,21 @@ into an POJO Java File
 <xsl:template match="database">
 <!--
 ==============================================================================
+README
+==============================================================================
+-->
+&lt;file path="<xsl:value-of select="concat($base,'/','README')"/>"&gt;
+=Compile=
+
+=Install=
+
+Edit ./build.properties and add the path of the mysql jdbc driver library (jar).
+
+Edit ./src/META-INF/connection.properties and edit the parameters for the mysql connection.
+
+&gt;/file&gt;
+<!--
+==============================================================================
 build.xml
 ==============================================================================
 -->
@@ -41,6 +58,7 @@ build.xml
 &LT;property name=&quot;src.dir&quot; value=&quot;src&quot;/&GT;
 &LT;property name=&quot;build.dir&quot; value=&quot;build&quot;/&GT;
 &LT;property name=&quot;dist.dir&quot; value=&quot;dist&quot;/&GT;
+&LT;property file="build.properties"/&GT;
 
 
  &LT;target name="db"&GT;
@@ -55,7 +73,8 @@ build.xml
 	
         &LT;javac srcdir=&quot;${build.dir}&quot;
                 destdir=&quot;${build.dir}&quot;
-                 debug=&quot;true&quot;
+                debug=&quot;${compile.debug}&quot;
+		optimize==&quot;${compile.optimize}&quot;
                 source=&quot;1.6&quot;
                 target=&quot;1.6&quot;&GT;
                
@@ -77,11 +96,21 @@ build.xml
 	&LT;mkdir dir=&quot;${build.dir}&quot;/&GT;
         &LT;java  classname="TestDatabase" &GT;
         	&LT;classpath path="${dist.dir}/database.jar"/&GT;
+		&LT;classpath path="${jdbc.library}"/&GT;
         &LT;/java&GT;
  &LT;/target&GT;
  
  
 &LT;/project&GT;
+&lt;/file&gt;
+<!--
+==============================================================================
+==============================================================================
+==============================================================================
+-->
+&lt;file path="<xsl:value-of select="concat($base,'/','build.properties')" overwrite="false"/>"&gt;&LT;jdbc.library=
+compile.debug=true
+compile.optimize=false
 &lt;/file&gt;
 <!--
 ==============================================================================
@@ -108,8 +137,41 @@ public interface CloseableIterator&LT;T&GT;
 ==============================================================================
 ==============================================================================
 -->
-&lt;file path="<xsl:value-of select="$base"/>/src/<xsl:value-of select="$package-path"/>ObjectFactory.java"&gt;
+&lt;file path="<xsl:value-of select="concat($base,'/src/',$package-path,'SQLMetaColumn.java')"/>"&gt;
 <xsl:value-of select="$package-decl"/>
+/**
+ * SQLMetaColumn
+ */
+public @interface SQLMetaColumn
+	{
+	String name();
+	String type();
+	String key();
+	String extra();
+	String nil();
+	}
+&lt;/file&gt;
+<!--
+==============================================================================
+==============================================================================
+==============================================================================
+-->
+&lt;file path="<xsl:value-of select="concat($base,'/src/',$package-path,'package-info.java')"/>"&gt;
+/**
+ * Provides the classes necessary to query the database
+ *
+ */
+&lt;/file&gt;
+<!--
+==============================================================================
+==============================================================================
+==============================================================================
+-->
+&lt;file path="<xsl:value-of select="$base"/>/src/<xsl:value-of select="$package-path"/>ObjectFactory.java"&gt;
+
+/**
+ * A Factory creating an object of type &LT;T&GT;
+ */
 public interface ObjectFactory&LT;T&GT;
 	{
 	public T newInstance();
@@ -120,7 +182,11 @@ public interface ObjectFactory&LT;T&GT;
 DatabaseRecordImpl
 ==============================================================================
 -->
-&lt;file path="<xsl:value-of select="concat($base,'/src/',$package-path,'DatabaseRecordImpl.java')"/>"&gt;
+&lt;file path="<xsl:value-of select="concat($base,'/src/',$package-impl-path,'DatabaseRecordImpl.java')"/>"&gt;
+<xsl:value-of select="$package-impl-decl"/>
+import <xsl:value-of select="$package"/>.DatabaseRecord;
+import <xsl:value-of select="$package"/>.Database;
+
 /**  DatabaseRecordImpl */
 public abstract class DatabaseRecordImpl
 	implements DatabaseRecord
@@ -143,19 +209,36 @@ public abstract class DatabaseRecordImpl
 		{
 		return this.database;
 		}
-		
+
+	/** escapes a C string */
 	protected String escape(String s)
 		{
 		if(s==null) return null;
-		return s;
+		StringBuilder b=new StringBuilder(s.length());
+		for(int i=0;i&Lt;s.length();++i)
+			{
+			switch(s.charAt(i))
+				{
+				case '\'': b.append("\\\'"); break;
+				case '\"': b.append("\\\""); break;
+				case '\n': b.append("\\n"); break;
+				case '\r': b.append("\\r"); break;
+				case '\\': b.append("\\\\"); break;
+				case '\t': b.append("\\t"); break;
+				default: b.append(s.charAt(i)); break;
+				}
+			}
+		return s.toString();
 		}
-		
+	
+	/** quote a string */
 	protected String quote(String s)
 		{
 		if(s==null) return null;
 		return "\""+ escape(s)+"\"";
 		}
 
+	/** export the result to JSON */
 	public abstract void toJSON(java.io.PrintWriter out);
 
 	@Override
@@ -182,8 +265,8 @@ public abstract class DatabaseRecordImpl
 DefaultObjectFactory
 ==============================================================================
 -->
-&lt;file path="<xsl:value-of select="$base"/>/src/<xsl:value-of select="$package-path"/>DefaultObjectFactory.java"&gt;
-<xsl:value-of select="$package-decl"/>
+&lt;file path="<xsl:value-of select="$base"/>/src/<xsl:value-of select="$package-impl-path"/>DefaultObjectFactory.java"&gt;
+<xsl:value-of select="$package-impl-decl"/>
 /**
  * DefaultObjectFactory
  */
@@ -236,8 +319,9 @@ public interface ObjectSQLFactory&LT;T&GT;
 ==============================================================================
 ==============================================================================
 -->
-&lt;file path="<xsl:value-of select="$base"/>/src/<xsl:value-of select="$package-path"/>DefaultObjectSQLFactory.java"&gt;
-<xsl:value-of select="$package-decl"/>
+&lt;file path="<xsl:value-of select="$base"/>/src/<xsl:value-of select="$package-impl-path"/>DefaultObjectSQLFactory.java"&gt;
+<xsl:value-of select="$package-impl-decl"/>
+import <xsl:value-of select="$package"/>.ObjectSQLFactory;
 /**
  * AbstractObjectSQLFactory
  */
@@ -282,8 +366,9 @@ public interface Database
 ==============================================================================
 ==============================================================================
 -->
-&lt;file path="<xsl:value-of select="concat($base,'/src/',$package-path,'DefaultDatabase.java')"/>"&gt;
-<xsl:value-of select="$package-decl"/>
+&lt;file path="<xsl:value-of select="concat($base,'/src/',$package-impl-path,'DefaultDatabase.java')"/>"&gt;
+<xsl:value-of select="$package-impl-decl"/>
+
 /**
  * DefaultDatabase
  */
@@ -335,8 +420,21 @@ public class DefaultDatabase
 ==============================================================================
 ==============================================================================
 -->
-&lt;file path="<xsl:value-of select="concat($base,'/src/',$package-path,'TestDatabase.java')"/>"&gt;
-<xsl:value-of select="$package-decl"/>
+&lt;file path="<xsl:value-of select="concat($base,'/src/META-INF/connection.properties')" overwrite="false"/>"&gt;&LT;?xml version="1.0" encoding="UTF-8"?&GT;
+&LT;properties&GT;
+ &LT;entry key="jdbc.driver"&GT;com.mysql.jdbc.Driver&LT;/entry&GT;
+ &LT;entry key="jdbc.url"&GT;jdbc:mysql://localhost/test&LT;/entry&GT;
+ &LT;entry key="jdbc.login"&GT;login&LT;/entry&GT;
+ &LT;entry key="jdbc.password"&GT;password&LT;/entry&GT;
+&LT;/properties&GT;
+&lt;/file&gt;
+<!--
+==============================================================================
+==============================================================================
+==============================================================================
+-->
+&lt;file path="<xsl:value-of select="concat($base,'/src/',$package-impl-path,'TestDatabase.java')"/>"&gt;
+<xsl:value-of select="$package-impl-decl"/>
 /**
  * DefaultDatabase
  */
@@ -383,6 +481,10 @@ public interface DatabaseRecord
 	{
 	/** retrieves the Database associated to this record */
 	public Database getDatabase();
+	/** writes to JSON */
+	public void toJSON(java.io.PrintWriter out);
+	/** writes to XML */
+	public void writeXML(javax.xml.stream.XMLStreamWriter out) throws javax.xml.stream.XMLStreamException;
 	}
 &lt;/file&gt;
 <!--
@@ -390,8 +492,8 @@ public interface DatabaseRecord
 ==============================================================================
 ==============================================================================
 -->
-&lt;file path="<xsl:value-of select="concat($base,'/src/',$package-path,'DatabaseImpl.java')"/>"&gt;
-<xsl:value-of select="$package-decl"/>
+&lt;file path="<xsl:value-of select="concat($base,'/src/',$package-impl-path,'DatabaseImpl.java')"/>"&gt;
+<xsl:value-of select="$package-impl-decl"/>
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.ResultSet;
@@ -399,9 +501,10 @@ import java.sql.Statement;
 import java.sql.PreparedStatement;
 import java.util.List;
 import java.util.ArrayList;
+import <xsl:value-of select="$package"/>.*;
 
 /**
- * DatabaseImpl
+ *  An abstact implementation of Database
  *
  */
 public abstract class DatabaseImpl
@@ -421,6 +524,7 @@ public abstract class DatabaseImpl
 		private boolean _nextTested=false;
 		private boolean _hasNext=false;
 		private T _object=null;
+		private boolean _closed=false;
 		IterImpl(Connection con,Statement stmt,ResultSet row, ObjectSQLFactory&LT;T&GT; factory)
 			{
 			this.con=con;
@@ -431,6 +535,7 @@ public abstract class DatabaseImpl
 		@Override
 		public boolean hasNext()
 			{
+			if(_closed) return false;
 			if(_nextTested) return _hasNext;
 			if(this.con==null) throw new IllegalStateException();
 			_nextTested=true;
@@ -467,9 +572,10 @@ public abstract class DatabaseImpl
 		@Override
 		public T next()
 			{
+			if(_closed) throw new IllegalStateException("Iterator closed");
 			if(!_nextTested)
 				{
-				if(!hasNext()) throw new IllegalStateException();
+				if(!hasNext()) throw new IllegalStateException("hasNext==false");
 				}
 			_nextTested=false;
 			_hasNext=false;
@@ -488,6 +594,8 @@ public abstract class DatabaseImpl
 		@Override
 		public void close()
 			{
+			if(_closed) return;
+			_closed=true;
 			try { if(this.row!=null) this.row.close(); } catch(java.sql.SQLException err) {}
 			try { if(this.stmt!=null) this.stmt.close(); } catch(java.sql.SQLException err) {}
 			DatabaseImpl.this.recycle(this.con);
@@ -514,7 +622,8 @@ public abstract class DatabaseImpl
 			}
 		this.queue.add(con);
 		}
-		
+	
+	/** creates a new java.sql.Connection */
 	protected abstract Connection createConnection() throws SQLException;
 	
 	protected synchronized  Connection getConnection() throws SQLException
@@ -544,7 +653,8 @@ public abstract class DatabaseImpl
 			}
 		return createConnection();
 		}
-	
+
+	/** close this database */
 	public synchronized  void close()
 		{
 		while(!this.queue.isEmpty())
@@ -562,23 +672,6 @@ public abstract class DatabaseImpl
 			}
 		}
 	
-	/** retrieves one */
-	protected &LT;T&GT; T one(
-		ResultSet row,
-		ObjectSQLFactory&LT;T&GT; factory
-		) throws java.sql.SQLException
-		{
-		T object=null;
-		while(row.next())
-			{
-			if(object!=null) throw new RuntimeException("expected only one value");
-			object = factory.newInstance(row);
-			}
-		return object;
-		}
-		
-	
-	
 	<xsl:apply-templates select="resultset" mode="objectsqlfactory"/>
 	<xsl:apply-templates select="resultset" mode="database-impl"/>
 	
@@ -592,7 +685,10 @@ public abstract class DatabaseImpl
 <xsl:apply-templates select="resultset" mode="enum"/>
 <xsl:apply-templates select="resultset" mode="set"/>
 </xsl:template>
-
+<!--
+==============================================================================
+==============================================================================
+-->
 <xsl:template match="resultset" mode="test">
 <xsl:variable name="tableName">
 	<xsl:apply-templates select="." mode="className"/>
@@ -846,6 +942,7 @@ public abstract class DatabaseImpl
  * Interface <xsl:value-of select="$tableName"/>
  */
 public interface <xsl:value-of select="$tableName"/>
+	extends DatabaseRecord
 	{
 	<xsl:apply-templates name="row" mode="interface"/>
 	}
@@ -1072,11 +1169,7 @@ object.<xsl:value-of select="$setter"/>(row.<xsl:value-of select="$jdbcgetter"/>
 <xsl:template match="row" mode="enum">
 <xsl:if test="starts-with(field[@name='Type'],'enum(')">
 
-<xsl:variable name="fieldName">
-<xsl:call-template name="guessName">
-  <xsl:with-param name="node" select="."/>
-</xsl:call-template>
-</xsl:variable>
+
 <xsl:variable name="funName">
 	<xsl:apply-templates select="." mode="funName"/>
 </xsl:variable>
@@ -1085,6 +1178,11 @@ object.<xsl:value-of select="$setter"/>(row.<xsl:value-of select="$jdbcgetter"/>
 </xsl:variable>
 
 &lt;file path="<xsl:value-of select="$base"/>/src/<xsl:value-of select="concat($package-path,$enumName,'.java')"/>"&gt;
+<xsl:value-of select="$package-decl"/>
+/**
+ * Enum for <xsl:value-of select="$enumName"/>
+ *
+ */
 public enum <xsl:value-of select="$enumName"/>
 	{
 	<xsl:value-of select='translate(substring(field[@name="Type"],6,string-length(field[@name="Type"])-7),"&apos;"," ")'/>
@@ -1099,11 +1197,7 @@ public enum <xsl:value-of select="$enumName"/>
 <xsl:template match="row" mode="set">
 <xsl:if test="starts-with(field[@name='Type'],'set(')">
 
-<xsl:variable name="fieldName">
-<xsl:call-template name="guessName">
-  <xsl:with-param name="node" select="."/>
-</xsl:call-template>
-</xsl:variable>
+
 <xsl:variable name="funName">
 	<xsl:apply-templates select="." mode="funName"/>
 </xsl:variable>
@@ -1112,6 +1206,11 @@ public enum <xsl:value-of select="$enumName"/>
 </xsl:variable>
 
 &lt;file path="<xsl:value-of select="$base"/>/src/<xsl:value-of select="concat($package-path,$enumName,'.java')"/>"&gt;
+<xsl:value-of select="$package-decl"/>
+/**
+ * enum for <xsl:value-of select="$enumName"/>
+ *
+ */
 public enum <xsl:value-of select="$enumName"/>
 	{
 	<xsl:value-of select='translate(substring(field[@name="Type"],5,string-length(field[@name="Type"])-6),"&apos;"," ")'/>;
@@ -1160,9 +1259,9 @@ public enum <xsl:value-of select="$enumName"/>
 <xsl:variable name="impl">
 	<xsl:value-of select="concat($tableName,'Impl')"/>
 </xsl:variable>
-&lt;file path="<xsl:value-of select="concat($base,'/src/',$package-path,$impl,'.java')"/>"&gt;
-<xsl:value-of select="$package-decl"/>;
-
+&lt;file path="<xsl:value-of select="concat($base,'/src/',$package-impl-path,$impl,'.java')"/>"&gt;
+<xsl:value-of select="$package-impl-decl"/>;
+import <xsl:value-of select="concat($package,'.',$className)"/>;
 /**
  * <xsl:value-of select="concat($tableName,'Impl')"/>
  *
@@ -1310,9 +1409,16 @@ class <xsl:value-of select="concat($tableName,'Impl')"/>
 <xsl:variable name="funName">
 	<xsl:apply-templates select="." mode="funName"/>
 </xsl:variable>	/** get the value for <xsl:apply-templates select="." mode="fieldName"/> */
+	<xsl:apply-templates select="row" mode="meta"/>
 	public <xsl:value-of select="$javaType"/><xsl:value-of select="concat(' ',$getter,'()')"/>;
 </xsl:template>
-
+<!--
+==============================================================================
+==============================================================================
+-->
+<xsl:template match="row" mode="meta">
+	@SQLMetaColumn(name="<xsl:value-of select="field[@name='Field']"/>",type="<xsl:value-of select="field[@name='Type']"/>",key="<xsl:value-of select="field[@name='Key']"/>",extra="<xsl:value-of select="field[@name='Extra']"/>",nil="<xsl:value-of select="field[@name='Null']"/>")
+</xsl:template>
 
 <!--
 ==============================================================================
