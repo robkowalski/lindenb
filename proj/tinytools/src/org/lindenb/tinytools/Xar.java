@@ -97,7 +97,14 @@ public void startElement(String uri, String localName, String name,
 			File f= new File(currentDir,path);
 			if(exclusiveCreate && f.exists()) throw new SAXException("Exclusive Writing enabled and file exists: "+f);
 			System.out.print(f);
-			if(!allowOverwrite && f.exists())
+			
+			String overwrite=attributes.getValue("overwrite");
+			if(f.exists() && overwrite!=null && overwrite.equals("false"))
+				{
+				System.out.print(" ... @overwrite=false. ignoring ");
+				this.out=null;
+				}
+			else if(!allowOverwrite && f.exists())
 				{
 				System.out.print(" ... ignoring ");
 				this.out=null;
@@ -256,6 +263,9 @@ public static void main(String[] args) {
 				"  Hello World !\n" +
 				" </file>\n" +
 				" <file path=\"mydir/file.02.text\" content-type=\"text/plain\">\n" +
+				"  Hello World &lt;!\n" +
+				" </file>\n" +
+				" <file path=\"mydir/file.03.text\" overwrite='false'> <!-- won't write if file exists -->\n" +
 				"  Hello World &lt;!\n" +
 				" </file>\n" +
 				" <file path=\"mydir/file.02.xml\" content-type=\"text/xml\">\n" +
