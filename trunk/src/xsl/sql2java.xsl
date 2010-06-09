@@ -23,11 +23,8 @@ Motivation:
 	This stylesheet transforms the output of 'desc table *' in mysql+XML
 	into a set of Java Files. 
 
-Usage:
-	 #download xar
-	 http://code.google.com/p/lindenb/wiki/Xar
-
-	
+Documentation:
+	 http://plindenbaum.blogspot.com/2010/06/so-you-want-to-generate-java-api-for.html
 
 -->
 <xsl:output method="text"/>
