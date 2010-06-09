@@ -13,9 +13,21 @@
 	>
 
 <!--
+Author:
+	Pierre Lindenbaum PHD
+WWW:
+	http://plindenbaum.blogspot.com
+mail:
+	plindenbaum@yahoo.fr
+Motivation:
+	This stylesheet transforms the output of 'desc table *' in mysql+XML
+	into a set of Java Files. 
 
-This stylesheet transforms the output of 'desc table *' in mysql+XML
-into an POJO Java File
+Usage:
+	 #download xar
+	 http://code.google.com/p/lindenb/wiki/Xar
+
+	
 
 -->
 <xsl:output method="text"/>
