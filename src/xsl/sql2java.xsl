@@ -767,7 +767,9 @@ public abstract class DatabaseImpl
 <xsl:variable name="tableName">
 	<xsl:apply-templates select="." mode="className"/>
 </xsl:variable>
+        /** list all the <xsl:value-of select="$tableName"/> */
 	public <xsl:value-of select="concat('CloseableIterator&LT;',$tableName,'&GT;')"/><xsl:text> </xsl:text> <xsl:value-of select="concat('listAll',$tableName,'()')"/>;
+	 /** list all the <xsl:value-of select="$tableName"/> from 'start' for 'count' */
 	public <xsl:value-of select="concat('CloseableIterator&LT;',$tableName,'&GT;')"/><xsl:text> </xsl:text> <xsl:value-of select="concat('listAll',$tableName,'(long start,long count)')"/>;
   	<xsl:apply-templates select="row" mode="database-decl"/>
 </xsl:template>
@@ -795,7 +797,7 @@ public abstract class DatabaseImpl
   	public <xsl:value-of select="$tableName"/><xsl:text> </xsl:text> <xsl:value-of select="concat('get',$tableName,'By',$funName)"/>(<xsl:value-of select="concat($argType,' ',$fieldName)"/>);
   </xsl:when>
   <xsl:when test="field[@name='Key']='MUL'">
-  	/** returns all the <xsl:value-of select="$tableName"/> for a given . */
+  	/** returns all the <xsl:value-of select="$tableName"/> for a given <xsl:value-of select="$fieldName"/>. */
   	public <xsl:value-of select="concat('CloseableIterator&LT;',$tableName,'&GT;')"/><xsl:text> </xsl:text> <xsl:value-of select="concat('get',$tableName,'sBy',$funName)"/>(<xsl:value-of select="concat($argType,' ',$fieldName)"/>);
   </xsl:when>
   <xsl:otherwise></xsl:otherwise>
@@ -872,7 +874,7 @@ public abstract class DatabaseImpl
   	<xsl:variable name="key" select="field[@name='Key']"/>
   	/**
   	 * 
-  	 *
+  	 * returns a  <xsl:value-of select="$tableName"/> from <xsl:value-of select="$fieldName"/>
   	 */
   	@Override
   	public <xsl:value-of select="$tableName"/><xsl:text> </xsl:text> <xsl:value-of select="concat('get',$tableName,'By',$funName)"/>(<xsl:value-of select="concat($javaType,' ',$fieldName)"/>)
@@ -920,8 +922,7 @@ public abstract class DatabaseImpl
   </xsl:when>
   <xsl:when test="field[@name='Key']='MUL'">
   	/**
-  	 * 
-  	 *
+  	 *  returns a  <xsl:value-of select="$tableName"/> from <xsl:value-of select="$fieldName"/>
   	 */
   	@Override
   	public <xsl:value-of select="concat('CloseableIterator&LT;',$tableName,'&GT;')"/><xsl:text> </xsl:text> <xsl:value-of select="concat('get',$tableName,'sBy',$funName)"/>(<xsl:value-of select="concat($javaType,' ',$fieldName)"/>)
@@ -1462,10 +1463,7 @@ import <xsl:value-of select="concat($package,'.',$name)"/>;
 </xsl:variable>
 <xsl:variable name="getter">
 	<xsl:apply-templates select="." mode="getter"/>
-</xsl:variable>
-<xsl:variable name="funName">
-	<xsl:apply-templates select="." mode="funName"/>
-</xsl:variable>	/** get the value for <xsl:apply-templates select="." mode="fieldName"/> */
+</xsl:variable>		/** get the value for <xsl:apply-templates select="." mode="fieldName"/> */
 	<xsl:apply-templates select="row" mode="meta"/>
 	public <xsl:value-of select="$javaType"/><xsl:value-of select="concat(' ',$getter,'()')"/>;
 </xsl:template>
@@ -1935,7 +1933,7 @@ else
 -->
 <xsl:template match="row" mode="setter">
 <xsl:variable name="name">
-<xsl:apply-templates select="field[@name='Field']" mode="funName"/>
+	<xsl:apply-templates select="." mode="funName"/>
 </xsl:variable>
 <xsl:value-of select="concat('set',$name)"/>
 </xsl:template>
@@ -1945,7 +1943,7 @@ else
 -->
 <xsl:template match="row" mode="getter">
 <xsl:variable name="name">
-<xsl:apply-templates select="field[@name='Field']" mode="funName"/>
+	<xsl:apply-templates select="." mode="funName"/>
 </xsl:variable>
 <xsl:value-of select="concat('get',$name)"/>
 </xsl:template>
@@ -1954,7 +1952,7 @@ else
 ==============================================================================
 -->
 <xsl:template match="row" mode="funName">
-	<xsl:apply-templates select="field[@name='Field']" mode="fieldName"/>
+	<xsl:apply-templates select="field[@name='Field']" mode="funName"/>
 </xsl:template>
 
 <xsl:template match="field" mode="funName">

@@ -21,14 +21,29 @@ See also:
 	https://svn.r-project.org/R/trunk/src/include/Rinternals.h
 -->
 <xsl:output method="text" />
+<xsl:param name="R_DefaultSerializeVersion" select="number(2)"/>
+<xsl:param name="R_VERSION">133633</xsl:param>
+<xsl:param name="R_Version">131840</xsl:param>
 
-<!-- WriteItem -->
+<!--  R_Serialize -->
 <xsl:template match="/">
+  <!-- InitConnOutPStream -->
+  
+  <!--  OutFormat -->
+  <xsl:value-of select="concat('RDA',$R_DefaultSerializeVersion,'&CRLF;')"/>
+  <xsl:text>A&CRLF;</xsl:text>
+  <xsl:value-of select="concat($R_DefaultSerializeVersion,'&CRLF;')"/>
+  <xsl:value-of select="concat($R_VERSION,'&CRLF;')"/>
+  <xsl:value-of select="concat($R_Version,'&CRLF;')"/>
+  
 <xsl:apply-templates/>
 </xsl:template>
 
 
 <xsl:template match="array|vector">
+<xsl:variable name="count" select="count(*)"/>
+<xsl:variable name="count_integers" select="count(int|integer|long)"/>
+<xsl:variable name="count_strings" select="count(int|integer|long)"/>
 </xsl:template>
 
 <xsl:template match="string|characters|char|text">
@@ -39,7 +54,7 @@ See also:
 </xsl:template>
 
 <!-- OutInteger -->
-<xsl:template match="int|integer|long|short">
+<xsl:template match="int|integer|long">
 <xsl:choose>
   <xsl:when test="$content='NA' or $content='N/A'">
 	<xsl:text>NA&CRLF;</xsl:text>
