@@ -16,7 +16,8 @@ mail:
         plindenbaum@yahoo.fr
 Motivation:
         This stylesheet transforms the NCBI taxonomy as XML to a graphiz dot file
-
+Reference:
+	http://plindenbaum.blogspot.com/2010/06/xsltncbi-taxonomygraphviz-dot.html
 Example:
          xsltproc  \-\-novalid taxonomy2dot.xsl \
            "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?id=7070,32351,9605,9606&db=taxonomy&retmode=xml" |\
