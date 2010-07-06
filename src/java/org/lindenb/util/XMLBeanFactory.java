@@ -83,8 +83,10 @@ public class XMLBeanFactory
 		{
 		if(StringUtils.isBlank(name)) throw new IllegalArgumentException("bad name ");
 		
-		for(Element e:XMLUtilities.forEach(this.dom.getDocumentElement(), NS,"bean"))
+		for(Element e:XMLUtilities.forEach(this.dom.getDocumentElement(), NS,null))
 			{
+			String localName=e.getLocalName();
+			if(!StringUtils.isIn(localName, "bean","props","map","list")) continue;
 			Attr att= e.getAttributeNode("id");
 			if(att==null) att= e.getAttributeNode("name");
 			if(att==null) continue;
@@ -92,6 +94,14 @@ public class XMLBeanFactory
 			}
 		return null;
 		}
+	
+	public boolean containsBean(String name)
+		{
+		if(this.persistence.containsKey(name)) return true;
+		return findBeanElement(name)!=null;
+		}
+
+	
 	
 	public <T> T getBean(String name,Class<T> clazz)
 		{
@@ -107,8 +117,7 @@ public class XMLBeanFactory
 		Element e= findBeanElement(name);
 		if(e==null) throw new NotFoundException("Cannot find bean named '"+name+"'");
 		
-		Object object=_bean(e);
-		
+		Object object=_eval(e);
 		
 		if(!e.getAttribute("singleton").equals("false"))
 			{
@@ -169,9 +178,34 @@ public class XMLBeanFactory
 			{
 			return _idref(any);
 			}
+		//custom not part of spring
+		else if(local.equals("string")) { return _cast(any, String.class); }
+		else if(local.equals("int")) { return _cast(any, Integer.class); }
+		else if(local.equals("integer")) { return _cast(any, Integer.class); }
+		else if(local.equals("byte")) { return _cast(any, Byte.class); }
+		else if(local.equals("short")) { return _cast(any, Short.class); }
+		else if(local.equals("long")) { return _cast(any, Long.class); }
+		else if(local.equals("float")) { return _cast(any, Float.class); }
+		else if(local.equals("double")) { return _cast(any, Double.class); }
+		else if(local.equals("bool") || local.equals("boolean")) { return _cast(any, Boolean.class); }
+		else if(local.equals("char") || local.equals("character")) { return _cast(any, Character.class); }
 		throw new IllegalArgumentException("bad node:"+any.getNodeName());
 		}
 	
+	private Object _cast(Element root,Class<?> c)
+		{
+		if(!root.hasChildNodes()) throw new IllegalArgumentException("not node under "+root.getNodeName());
+		if(!XMLUtilities.elements(root).isEmpty())throw new IllegalArgumentException("found some elements under "+root.getNodeName());
+		String content= root.getTextContent();
+		try
+			{
+			return c.getConstructor(String.class).newInstance(content);
+			}
+		catch (Exception e)
+			{
+			throw new IllegalArgumentException("Cannot cast '"+content+"' to "+c.getCanonicalName());
+			}
+		}
 	
 	private Object _ref(Element ref)
 		{
@@ -213,10 +247,14 @@ public class XMLBeanFactory
 	
 	private Object _value(Element ref)
 		{
-		String content=ref.getTextContent();
-		return _castValue(ref.getParentNode(), content);
-		
-		//throw new IllegalArgumentException("bad <value>");
+		if(XMLUtilities.count(ref)==0 && ref.hasChildNodes())
+			{
+			String content=ref.getTextContent();
+			return _castValue(ref.getParentNode(), content);
+			}
+		Element c= XMLUtilities.one(ref, NS, null);
+		return _eval(c);
+
 		}
 	
 	private Object _null(Element none)
