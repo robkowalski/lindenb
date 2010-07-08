@@ -42,6 +42,7 @@ public class Couple<T> extends Pair<T, T> {
 		return 31+(first().hashCode()+second().hashCode());
 		}
 	
+	@SuppressWarnings("unchecked")
 	@Override
 	public boolean equals(Object obj) {
 		if(obj==this) return true;
