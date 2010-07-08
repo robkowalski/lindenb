@@ -1,7 +1,17 @@
 package org.lindenb.bio;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public class NucleotideUtils extends BioUtils
 	{
+	public static final char  ALL_NUCLEOTIDES[]={
+		'A','T','G','C',
+		'W','S','R','Y','M','K',
+		'B','D','H','V',
+		'N'
+		};
+	
 	public static final char  DEGENERATE_BASES[]={
 		'W','S','R','Y','M','K',
 		'B','D','H','V',
@@ -69,6 +79,36 @@ public class NucleotideUtils extends BioUtils
 	        }	
 		}
 	
+	public static Character bases2degenerate(Set<Character> set)
+		{
+		Set<Character> copy=new HashSet<Character>(4);
+		for(Character c: set)
+			{
+			char c2=Character.toUpperCase(c);
+			if(!(c2=='A' || c2=='T' || c2=='G' || c2=='C'))
+				{
+				throw new IllegalArgumentException("bad base \""+c2+"\"");
+				}
+			copy.add(c2);
+			}
+		if(copy.isEmpty()) return null;
+		for(char c: ALL_NUCLEOTIDES)
+			{
+			char tokens[]= degenerate2bases(c);
+			if(tokens.length!=copy.size()) continue;
+			boolean ok=true;
+			for(Character base: tokens)
+				{
+				if(!copy.contains(base))
+					{
+					ok=false;
+					break;
+					}
+				}
+			if(ok) return c;
+			}
+		return null;
+		}
 	
 	public static char[] degenerate2bases(char b)
 		{
