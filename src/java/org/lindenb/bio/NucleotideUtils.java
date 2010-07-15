@@ -19,6 +19,19 @@ public class NucleotideUtils extends BioUtils
 		};
 	
 	
+	public static boolean isATGC(char c)
+		{
+		switch(c)
+			{
+			case 'A':case 'a':
+			case 'T':case 't':
+			case 'G':case 'g':
+			case 'C':case 'c':
+				return true;
+			default: return false;
+			}
+		}
+	
 	public static String reverseComplement(CharSequence s)
 		{
 		StringBuilder b= new StringBuilder(s.length());
@@ -78,6 +91,22 @@ public class NucleotideUtils extends BioUtils
 	        default: throw new IllegalArgumentException("bad base "+b);
 	        }	
 		}
+	
+	public static char bases2degenerate(char c1,char c2)
+		{
+		c1= Character.toUpperCase(c1);
+		c2= Character.toUpperCase(c2);
+		if(c1==c2) return c1;
+		if(c1>c2) return bases2degenerate(c2,c1);
+		if(c1=='A' && c2=='T') return 'W';
+		if(c1=='C' && c2=='G') return 'S';
+		if(c1=='A' && c2=='G') return 'R';
+		if(c1=='C' && c2=='T') return 'Y';
+		if(c1=='A' && c2=='C') return 'M';
+		if(c1=='G' && c2=='T') return 'K';
+		throw new IllegalArgumentException("bad pair of bases "+c1+"/"+c2);
+		}
+	
 	
 	public static Character bases2degenerate(Set<Character> set)
 		{

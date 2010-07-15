@@ -1845,7 +1845,7 @@ else
 	</xsl:when>
 	<xsl:otherwise>
 		<xsl:message terminate="yes">
-		primitive unknown field type "<xsl:value-of select="$sqlType"/>"
+		primitive unknown field type "<xsl:value-of select="$type"/>"
 		</xsl:message>
 	</xsl:otherwise>
 </xsl:choose>
