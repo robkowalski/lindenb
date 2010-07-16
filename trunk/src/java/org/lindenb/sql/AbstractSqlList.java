@@ -10,7 +10,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.RandomAccess;
-import java.util.TreeMap;
+
 
 /**
  * Abstract lightweight List for SQL
@@ -29,6 +29,9 @@ public abstract class AbstractSqlList<T>
 	protected abstract Connection getConnection()  throws SQLException;
 	protected abstract void releaseConnection(Connection con) throws SQLException;
 	protected abstract ObjectSQLFactory<T> getObjectSQLFactory();
+	
+
+	
 	
 	protected AbstractSqlList()
 		{
@@ -216,6 +219,5 @@ public abstract class AbstractSqlList<T>
 		{	
 		return this.size();
 		}
-	
 	
 	}
