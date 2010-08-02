@@ -135,14 +135,19 @@ shortLabel,fullName,pmid,ncbiTaxId,interactionMethod,interactorMethod
 )
 values
 (
-"<xsl:value-of select="psi:names[1]/psi:shortLabel"/>",
-"<xsl:value-of select="translate(psi:names[1]/psi:fullName,&apos;&quot;&apos;,&quot;&apos;&quot;)"/>",
-<xsl:value-of select="psi:bibref/psi:xref[1]/psi:primaryRef[@db='pubmed']/@id"/>,
-<xsl:value-of select="psi:hostOrganismList/psi:hostOrganism/@ncbiTaxId"/>,
-"<xsl:value-of select="psi:interactionDetectionMethod/psi:names[1]/psi:shortLabel"/>",
-"<xsl:value-of select="psi:participantIdentificationMethod/psi:names[1]/psi:shortLabel"/>"
+<xsl:apply-templates select="psi:names[1]/psi:shortLabel"/>
+<xsl:text>,</xsl:text>
+<xsl:value-of select="translate(psi:names[1]/psi:fullName,&apos;&quot;&apos;,&quot;&apos;&quot;)"/>
+<xsl:text>,</xsl:text>
+<xsl:apply-templates select="psi:bibref/psi:xref[1]/psi:primaryRef[@db='pubmed']/@id"/>
+<xsl:text>,</xsl:text>
+<xsl:apply-templates select="psi:hostOrganismList/psi:hostOrganism/@ncbiTaxId"/>
+<xsl:text>,</xsl:text>
+<xsl:apply-templates select="psi:interactionDetectionMethod/psi:names[1]/psi:shortLabel"/>
+<xsl:text>,</xsl:text>
+<xsl:apply-templates select="psi:participantIdentificationMethod/psi:names[1]/psi:shortLabel"/>
 );
-update experiment set local_id=<xsl:value-of select="@id"/> where pmid="<xsl:value-of select="psi:bibref/psi:xref[1]/psi:primaryRef[@db='pubmed']/@id"/>";
+update experiment set local_id=<xsl:apply-templates select="@id"/> where pmid="<xsl:apply-templates select="psi:bibref/psi:xref[1]/psi:primaryRef[@db='pubmed']/@id"/>";
 
 
 </xsl:template>
@@ -175,20 +180,48 @@ This stylesheet expect only binary interaction but found <xsl:value-of select="c
 in interaction od=<xsl:value-of select="@id"/>;
 </xsl:if>
 
-select @AID:=id from interactor where local_id=<xsl:value-of select="psi:participantList/psi:participant[1]/psi:interactorRef"/>;
-select @BID:=id from interactor where local_id=<xsl:value-of select="psi:participantList/psi:participant[2]/psi:interactorRef"/>;
-select @EID:=id from experiment where local_id=<xsl:value-of select="psi:experimentList/psi:experimentRef"/>;
+select @AID:=id from interactor where local_id=<xsl:apply-templates select="psi:participantList/psi:participant[1]/psi:interactorRef"/>;
+select @BID:=id from interactor where local_id=<xsl:apply-templates select="psi:participantList/psi:participant[2]/psi:interactorRef"/>;
+select @EID:=id from experiment where local_id=<xsl:apply-templates select="psi:experimentList/psi:experimentRef"/>;
 
 insert ignore into interaction(interactor1_id, interactor2_id,unitLabel,unitFullName,confidence,experiment_id)
 select
 	IF(@AID&lt;@BID,@AID,@BID),
 	IF(@AID&lt;@BID,@BID,@AID),
-	"<xsl:value-of select="psi:confidenceList/psi:confidence[1]/psi:unit/psi:names[1]/psi:shortLabel"/>",
-	"<xsl:value-of select="psi:confidenceList/psi:confidence[1]/psi:unit/psi:names[1]/psi:fullName"/>",
-	<xsl:value-of select="psi:confidenceList/psi:confidence[1]/psi:value"/>,
+	<xsl:apply-templates select="psi:confidenceList/psi:confidence[1]/psi:unit/psi:names[1]/psi:shortLabel"/>,
+	<xsl:apply-templates select="psi:confidenceList/psi:confidence[1]/psi:unit/psi:names[1]/psi:fullName"/>,
+	<xsl:apply-templates select="psi:confidenceList/psi:confidence[1]/psi:value"/>,
 	@EID
 	;
+</xsl:template>
 
+
+<xsl:template match="*">
+<xsl:apply-templates/>
+</xsl:template>
+
+<xsl:template match="text()">
+<xsl:text>&quot;</xsl:text>
+<xsl:call-template name="escape">
+	<xsl:with-param name="s" select="."/>
+</xsl:call-template>
+<xsl:text>&quot;</xsl:text>
+</xsl:template>
+
+<xsl:template name="escape">
+ <xsl:param name="s"/>
+        <xsl:choose>
+        <xsl:when test="contains($s,'&quot;')">
+                <xsl:value-of select="substring-before($s,'&quot;')"/>
+                <xsl:text>\"</xsl:text>
+                <xsl:call-template name="escape">
+                        <xsl:with-param name="s" select="substring-after($s,'&quot;')"/>
+                </xsl:call-template>
+        </xsl:when>
+        <xsl:otherwise>
+                <xsl:value-of select='$s'/>
+        </xsl:otherwise>
+        </xsl:choose>
 </xsl:template>
 
 
