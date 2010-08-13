@@ -42,6 +42,7 @@ public class SmartComparator implements Comparator<CharSequence>
      * overrides parent's method
      * @see java.util.Comparator#compare(java.lang.Object, java.lang.Object)
      */
+	@Override
     public int compare(CharSequence a, CharSequence b)
         {
         if(a==null && b==null) return 0;
