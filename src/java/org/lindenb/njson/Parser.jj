@@ -18,33 +18,46 @@ package org.lindenb.njson;
 @SuppressWarnings("unchecked")
 public class JSONParser
 {
+protected ArrayNode createArrayNode()
+	{
+	return new ArrayNode();
+	}
+
+protected ObjectNode createObjectNode()
+	{
+	return new ObjectNode();
+	}
+
+protected StringNode createStringNode()
+	{
+	return new StringNode();
+	}
+
+protected IntNode createIntNode(String s)
+	{
+	return new IntNode(s);
+	}
+
+protected DecimalNode createDecimalNode(String s)
+	{
+	return new DecimalNode(s);
+	}
+
+protected BoolNode createBoolNode(boolean b)
+	{
+	return new BoolNode(b);
+	}
+
+protected NilNode createNilNode()
+	{
+	return new NilNode();
+	}
+
+
 
 private String unescape(String s)
 	{
-	StringBuilder b=new StringBuilder(s.length());
-	for(int i=0;i< s.length();++i)
-		{
-		if(s.charAt(i)=='\\' && i+1 < s.length())
-			{
-			switch(s.charAt(i+1))
-				{
-				case 'n': b.append('\n');break; 
-				case 't': b.append('\t');break; 
-				case '\\': b.append('\\');break; 
-				case 'r': b.append('\r');break;
-				case 'f': b.append('\f');break;
-				case '\'': b.append('\'');break; 
-				case '\"': b.append('\"');break;
-				default: b.append(s.charAt(i+1)); break;
-				}
-			i++;
-			}
-		else
-			{
-			b.append(s.charAt(i));
-			}
-		}
-	return s;
+	return org.lindenb.util.StringUtils.unescape(s);
 	}
 
 /** just a test */
@@ -172,25 +185,48 @@ public ComplexNode complexNode():
 
 public TerminalNode terminalNode():
 	{
-	Token t;
+
 	String s;
+	TerminalNode n;
 	}
 	{
 	(
-	t=<FLOATING_NUMBER>
-		{
-		return new DecimalNode(t.image);
-		}
-	| t=<INT_NUMBER>
-		{
-		return new IntNode(t.image);
-		}
-	| <TRUE> { return BoolNode.TRUE;}
-	| <FALSE> { return BoolNode.FALSE;}
-	| <NULL> { return NilNode.INSTANCE; }
-	| s=characters() { return new StringNode(s);}
+	| n=decimalNode() { return n;}
+	| n=intNode() { return n;}
+	| n=boolNode() { return n;}
+	| n=nilNode() { return n;}
+	| n=characters() { return n;}
 	)
 	}
+
+public NilNode nilNode():{}
+	{
+	<NULL> { return createNilNode(); }
+	}
+
+public BoolNode boolNode():{}
+	{
+	(
+	  <TRUE>  { return createBoolNode(true); }
+	| <FALSE> { return createBoolNode(false);}
+	)
+	}
+
+public IntNode intNode():{	Token t;}
+	{
+	t=<INT_NUMBER> { return createIntNode(t.image); }
+	}
+
+public DecimalNode decimalNode():{	Token t;}
+	{
+	t=<FLOATING_NUMBER> { return createDecimalNode(t.image); }
+	}
+
+public StringNode stringNode():{	String s;}
+	{
+	s=characters() { return createStringNode(t.image); }
+	}
+
 
 private String characters():
 	{
@@ -210,7 +246,7 @@ private String characters():
 	}
 
 public ArrayNode arrayNode():
-	{ArrayNode vector= new ArrayNode(); Node o;}
+	{ArrayNode vector= createArrayNode(); Node o;}
 	{
 	openArray() ( o=any() {vector.add(o);} (comma() o=any() {vector.add(o);} ) * )? closeArray()
 		{
@@ -219,7 +255,7 @@ public ArrayNode arrayNode():
 	}
 
 public ObjectNode objectNode():
-	{ObjectNode map= new ObjectNode(); }
+	{ObjectNode map= createObjectNode(); }
 	{
 	openObject() ( keyValue(map) (comma() keyValue(map))*)? closeObject()
 		{

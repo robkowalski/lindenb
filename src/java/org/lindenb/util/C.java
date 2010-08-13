@@ -20,6 +20,9 @@ public class C extends StringUtils
 	            case('\''): 
 	            case('\n'): 
 	            case('\t'):
+	            case('\r'):
+	            case('\b'):
+	            case('\f'):
 	            case('\\'): needed=i; break;
 	            default: break;
 	            }
@@ -37,6 +40,9 @@ public class C extends StringUtils
                 case('\''): buffer.append("\\\'");break;
                 case('\n'): buffer.append("\\n");break;
                 case('\t'): buffer.append("\\t");break;
+                case('\r'): buffer.append("\\r");break;
+                case('\b'): buffer.append("\\b");break;
+                case('\f'): buffer.append("\\f");break;
                 case('\\'): buffer.append("\\\\");break;
                 default: buffer.append(s.charAt(i)); break;
                 }

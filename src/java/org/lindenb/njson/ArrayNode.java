@@ -20,7 +20,7 @@ public class  ArrayNode
 		{
 		this.array=new java.util.ArrayList<Node>(capacity);
 		}
-	
+	@Override
 	public Type getType()
 		{
 		return Type.ARRAY;
@@ -31,7 +31,7 @@ public class  ArrayNode
 		{
 		return this.array.size();
 		}
-	
+	@Override
 	public Node get(int index)
 		{
 		return this.array.get(index);
@@ -44,7 +44,7 @@ public class  ArrayNode
 		{
 		return this.array.isEmpty();
 		}
-	
+	@Override
 	public void print(java.io.Writer out) throws java.io.IOException
 		{
 		out.write('[');
@@ -55,19 +55,19 @@ public class  ArrayNode
 			}
 		out.write(']');
 		}
-	
+	@Override
 	public int hashCode()
 		{
 		return array.hashCode();
 		}
-	
+	@Override
 	public boolean equals(Object o)
 		{
 		if(o==this) return true;
 		if(o==null || !(o instanceof ArrayNode)) return false;
 		return ArrayNode.class.cast(o).array.equals(array);
 		}
-	
+	@Override
 	public Object clone()
 		{
 		ArrayNode a= new ArrayNode(size());

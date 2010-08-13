@@ -18,7 +18,7 @@ public class  ObjectNode extends ComplexNode
 		{
 		this.map=new java.util.HashMap<String,Node>(capacity);
 		}
-	
+	@Override
 	public Type getType()
 		{
 		return Type.OBJECT;
@@ -35,7 +35,7 @@ public class  ObjectNode extends ComplexNode
 		{
 		return this.map.isEmpty();
 		}
-	
+	@Override
 	public void print(java.io.Writer out) throws java.io.IOException
 		{
 		out.write('{');
@@ -50,19 +50,19 @@ public class  ObjectNode extends ComplexNode
 			}
 		out.write('}');
 		}
-	
+	@Override
 	public int hashCode()
 		{
 		return map.hashCode();
 		}
-	
+	@Override
 	public boolean equals(Object o)
 		{
 		if(o==this) return true;
 		if(o==null || !(o instanceof ObjectNode)) return false;
 		return ObjectNode.class.cast(o).map.equals(map);
 		}
-	
+	@Override
 	public Object clone()
 		{
 		ObjectNode a= new ObjectNode(size());

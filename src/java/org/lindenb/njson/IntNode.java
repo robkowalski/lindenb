@@ -13,7 +13,7 @@ public class  IntNode extends TerminalNode
 		{
 		this.value=new java.math.BigInteger(value);
 		}
-	
+	@Override
 	public Type getType()
 		{
 		return Type.INT;
@@ -23,17 +23,17 @@ public class  IntNode extends TerminalNode
 		{
 		return value;
 		}
-	
+	@Override
 	public void print(java.io.Writer out) throws java.io.IOException
 		{
 		out.write(String.valueOf(getValue()));
 		}
-	
+	@Override
 	public int hashCode()
 		{
 		return getValue().hashCode();
 		}
-	
+	@Override
 	public boolean equals(Object o)
 		{
 		if(o==this) return true;
@@ -46,7 +46,7 @@ public class  IntNode extends TerminalNode
 		{
 		return getValue().compareTo(o.getValue());
 		}
-	
+	@Override
 	public Object clone()
 		{
 		return new IntNode(getValue());
