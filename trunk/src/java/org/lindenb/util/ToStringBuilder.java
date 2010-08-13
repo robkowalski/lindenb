@@ -17,7 +17,6 @@ public ToStringBuilder(String name)
 	this.builder.append("{");
 	}
 
-@SuppressWarnings("unchecked")
 private void appendValue(Object value)
 	{
 	if(value==null)

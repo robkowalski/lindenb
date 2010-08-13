@@ -3,7 +3,7 @@ package org.lindenb.njson;
 import org.lindenb.util.C;
 
 public class  StringNode extends TerminalNode
-	implements Comparable<StringNode>
+	implements Comparable<StringNode>,CharSequence
 	{
 	private String value;
 	public StringNode(String value)
@@ -67,5 +67,21 @@ public class  StringNode extends TerminalNode
 	public String toString()	
 		{
 		return String.valueOf(getValue());
+		}
+	
+	@Override
+	public char charAt(int i)
+		{
+		return this.charAt(i);
+		}	
+
+	@Override
+	public int length() {
+		return this.value.length();
+	}
+	@Override
+	public CharSequence subSequence(int arg0, int arg1)
+		{
+		return this.value.subSequence(arg0, arg1);
 		}
 	}
