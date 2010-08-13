@@ -38,56 +38,56 @@ Pierre
 
 
 create <xsl:value-of select="$temporary"/> table if not exists interactor
-(
-id integer not null primary key auto_increment,
-pk varchar(50) not null unique,
-local_id integer unique,
-shortLabel varchar(255),
-fullName text
-);
+	(
+	id integer not null primary key auto_increment,
+	pk varchar(50) not null unique,
+	local_id integer unique,
+	shortLabel varchar(255),
+	fullName text
+	);
 
 create <xsl:value-of select="$temporary"/> table if not exists experiment
-(
-id integer not null primary key auto_increment,
-local_id integer unique,
-shortLabel varchar(255) not null,
-fullName text,
-pmid integer unique,
-ncbiTaxId integer,
-interactionMethod varchar(255),
-interactorMethod varchar(255)
-);
+	(
+	id integer not null primary key auto_increment,
+	local_id integer unique,
+	shortLabel varchar(255) not null,
+	fullName text,
+	pmid integer unique,
+	ncbiTaxId integer,
+	interactionMethod varchar(255),
+	interactorMethod varchar(255)
+	);
 
 create <xsl:value-of select="$temporary"/> table if not exists xref
-(
-id integer not null primary key auto_increment,
-interactor_id int not null,
-CONSTRAINT foreign key (interactor_id) references interactor(id),
-xrefType enum('primaryRef','secondaryRef') not null,
-db varchar(50),
-dbAc varchar(150), 
-pk varchar(50),
-refType varchar(50),
-refTypeAc varchar(50),
+	(
+	id integer not null primary key auto_increment,
+	interactor_id int not null,
+	CONSTRAINT foreign key (interactor_id) references interactor(id),
+	xrefType enum('primaryRef','secondaryRef') not null,
+	db varchar(50),
+	dbAc varchar(150), 
+	pk varchar(50),
+	refType varchar(50),
+	refTypeAc varchar(50),
 
-constraint xrefUnique unique (db,dbAc,pk)
-);
+	constraint xrefUnique unique (db,dbAc,pk)
+	);
 
 
 
 create <xsl:value-of select="$temporary"/> table  if not exists interaction
-(
-id integer not null primary key auto_increment,
-interactor1_id int not null,
-CONSTRAINT foreign key (interactor1_id) references interactor(id),
-interactor2_id int not null,
-CONSTRAINT foreign key (interactor2_id) references interactor(id),
-unitLabel varchar(50),
-unitFullName varchar(100),
-confidence float,
-experiment_id int not null,
-CONSTRAINT foreign key (experiment_id) references experiment(id)
-);
+	(
+	id integer not null primary key auto_increment,
+	interactor1_id int not null,
+	CONSTRAINT foreign key (interactor1_id) references interactor(id),
+	interactor2_id int not null,
+	CONSTRAINT foreign key (interactor2_id) references interactor(id),
+	unitLabel varchar(50),
+	unitFullName varchar(100),
+	confidence float,
+	experiment_id int not null,
+	CONSTRAINT foreign key (experiment_id) references experiment(id)
+	);
 
 
 update interactor set local_id=NULL;

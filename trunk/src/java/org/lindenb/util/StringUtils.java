@@ -19,6 +19,39 @@ public class StringUtils
 		throw new CloneNotSupportedException();
 		}
 	
+	/** returns the substring of the first argument string that precedes the first occurrence of the second argument string in the first argument string
+	 * or the empty string if the first argument string does not contain the second argument string.  */
+	public static String substringBefore(String s,String delim)
+		{
+		int i=s.indexOf(delim);
+		return(i==-1?null:s.substring(0,i));
+		}
+	
+	/** returns the substring of the first argument string that precedes the first occurrence of the second argument char in the first argument string
+	 * or null if the first argument string does not contain the second argument string.  */
+	public static String substringBefore(String s,char delim)
+		{
+		int i=s.indexOf(delim);
+		return(i==-1?null:s.substring(0,i));
+		}
+	
+	
+	/** returns the substring of the first argument string that precedes the first occurrence of the second argument char in the first argument string
+	 * or the empty string if the first argument string does not contain the second argument string.  */
+	public static String substringAfter(String s,String delim)
+		{
+		int i=s.indexOf(delim);
+		return(i==-1?null:s.substring(i+delim.length()));
+		}
+	
+	/** returns the substring of the first argument string that precedes the first occurrence of the second argument char in the first argument string
+	 * or the empty string if the first argument string does not contain the second argument string.  */
+	public static String substringAfter(String s,char delim)
+		{
+		int i=s.indexOf(delim);
+		return(i==-1?null:s.substring(i+1));
+		}
+	
 	/** returns wether the sequence is empty of null */
 	public static boolean isEmpty(CharSequence s)
 		{
