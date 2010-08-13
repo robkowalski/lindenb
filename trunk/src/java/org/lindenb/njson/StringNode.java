@@ -10,7 +10,7 @@ public class  StringNode extends TerminalNode
 		{
 		this.value=value;
 		}
-	
+	@Override
 	public Type getType()
 		{
 		return Type.STRING;
@@ -21,18 +21,19 @@ public class  StringNode extends TerminalNode
 		return value;
 		}
 	
+	@Override
 	public void print(java.io.Writer out) throws java.io.IOException
 		{
 		out.write('\'');
 		out.write(C.escape(this.getValue()));
 		out.write('\'');
 		}
-	
+	@Override
 	public int hashCode()
 		{
 		return getValue().hashCode();
 		}
-	
+	@Override
 	public boolean equals(Object o)
 		{
 		if(o==this) return true;
@@ -46,7 +47,7 @@ public class  StringNode extends TerminalNode
 		if(o==null ) return false;
 		return getValue().equalsIgnoreCase(o.getValue());
 		}
-	
+	@Override
 	public Object clone()
 		{
 		return new StringNode(getValue());

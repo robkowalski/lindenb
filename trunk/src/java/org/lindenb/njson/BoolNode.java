@@ -9,7 +9,7 @@ public class  BoolNode extends TerminalNode
 		{
 		this.value=value;
 		}
-	
+	@Override
 	public Type getType()
 		{
 		return Type.BOOL;
@@ -19,24 +19,24 @@ public class  BoolNode extends TerminalNode
 		{
 		return value;
 		}
-	
+	@Override
 	public void print(java.io.Writer out) throws java.io.IOException
 		{
 		out.write(String.valueOf(getValue()));
 		}
-	
+	@Override
 	public int hashCode()
 		{
 		return getValue()?31:32;
 		}
-	
+	@Override
 	public boolean equals(Object o)
 		{
 		if(o==this) return true;
 		if(o==null || !(o instanceof BoolNode)) return false;
 		return BoolNode.class.cast(o).getValue()== getValue();
 		}
-	
+	@Override
 	public Object clone()
 		{
 		return new BoolNode(getValue());

@@ -8,6 +8,7 @@ public abstract class  ComplexNode extends Node
 	protected ComplexNode()
 		{
 		}
+	@Override
 	public boolean isComplex()
 		{
 		return true;

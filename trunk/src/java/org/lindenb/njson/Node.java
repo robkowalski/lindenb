@@ -13,6 +13,7 @@ public abstract class Node
 		}
 	public abstract void print(java.io.Writer out) throws java.io.IOException;
 	public abstract Type getType();
+	@Override
 	public abstract Object clone();
 	
 	public boolean isNil() { return getType()==Type.NIL;}
