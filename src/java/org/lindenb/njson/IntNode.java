@@ -8,7 +8,12 @@ public class  IntNode extends TerminalNode
 		{
 		this.value=value;
 		}
-		
+	
+	public IntNode(long value)
+		{
+		this(String.valueOf(value));
+		}
+	
 	public IntNode(String value)
 		{
 		this.value=new java.math.BigInteger(value);
