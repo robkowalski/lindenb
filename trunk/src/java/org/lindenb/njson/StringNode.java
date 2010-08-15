@@ -21,6 +21,11 @@ public class  StringNode extends TerminalNode
 		return value;
 		}
 	
+	public boolean matches(String regex)
+		{
+		return value.matches(regex);
+		}
+	
 	@Override
 	public void print(java.io.Writer out) throws java.io.IOException
 		{
@@ -78,7 +83,7 @@ public class  StringNode extends TerminalNode
 	@Override
 	public int length() {
 		return this.value.length();
-	}
+		}
 	@Override
 	public CharSequence subSequence(int arg0, int arg1)
 		{

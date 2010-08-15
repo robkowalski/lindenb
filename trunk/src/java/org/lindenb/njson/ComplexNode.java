@@ -3,6 +3,11 @@ package org.lindenb.njson;
 import java.io.IOException;
 import java.io.StringWriter;
 
+/**
+ * ComplexNode
+ * @author pierre
+ *
+ */
 public abstract class  ComplexNode extends Node
 	{
 	protected ComplexNode()

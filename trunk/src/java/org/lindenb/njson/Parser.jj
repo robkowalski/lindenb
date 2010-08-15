@@ -28,9 +28,9 @@ protected ObjectNode createObjectNode()
 	return new ObjectNode();
 	}
 
-protected StringNode createStringNode()
+protected StringNode createStringNode(String s)
 	{
-	return new StringNode();
+	return new StringNode(s);
 	}
 
 protected IntNode createIntNode(String s)
@@ -57,7 +57,7 @@ protected NilNode createNilNode()
 
 private String unescape(String s)
 	{
-	return org.lindenb.util.StringUtils.unescape(s);
+	return org.lindenb.util.C.unescape(s);
 	}
 
 /** just a test */
@@ -191,11 +191,11 @@ public TerminalNode terminalNode():
 	}
 	{
 	(
-	| n=decimalNode() { return n;}
+	  n=decimalNode() { return n;}
 	| n=intNode() { return n;}
 	| n=boolNode() { return n;}
 	| n=nilNode() { return n;}
-	| n=characters() { return n;}
+	| n=stringNode() { return n;}
 	)
 	}
 
@@ -224,7 +224,7 @@ public DecimalNode decimalNode():{	Token t;}
 
 public StringNode stringNode():{	String s;}
 	{
-	s=characters() { return createStringNode(t.image); }
+	s=characters() { return createStringNode(s); }
 	}
 
 

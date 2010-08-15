@@ -5,6 +5,9 @@ import java.util.Iterator;
 import java.util.ListIterator;
 import java.util.RandomAccess;
 
+import org.xml.sax.ContentHandler;
+import org.xml.sax.ext.Attributes2Impl;
+
 public class  ArrayNode
 	extends ComplexNode
 	implements java.util.List<Node>,RandomAccess
@@ -199,6 +202,4 @@ public class  ArrayNode
 		{
 		return this.array.toArray(a);
 		}
-	
-	
 	}

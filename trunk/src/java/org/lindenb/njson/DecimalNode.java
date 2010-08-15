@@ -8,7 +8,10 @@ public class  DecimalNode extends TerminalNode
 		{
 		this.value=value;
 		}
-		
+	public DecimalNode(double value)
+		{
+		this.value=new java.math.BigDecimal(value);
+		}
 	public DecimalNode(String value)
 		{
 		this.value=new java.math.BigDecimal(value);
@@ -16,7 +19,7 @@ public class  DecimalNode extends TerminalNode
 	@Override
 	public Type getType()
 		{
-		return Type.FLOAT;
+		return Type.DECIMAL;
 		}
 
 	public java.math.BigDecimal getValue()
