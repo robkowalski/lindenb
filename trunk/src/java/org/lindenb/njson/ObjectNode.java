@@ -154,6 +154,7 @@ public class  ObjectNode extends ComplexNode
 	public boolean isObject(String key) { return _is(key,Node.Type.OBJECT);}
 	
 	
+	
 	@Override
 	public Set<String> keySet()
 		{
@@ -184,7 +185,7 @@ public class  ObjectNode extends ComplexNode
 	@Override
 	public Node put(String key, Node value)
 		{
-		return  put(key,value);
+		return  this.map.put(key,value);
 		}
 	
 	/** put a boolean value */
