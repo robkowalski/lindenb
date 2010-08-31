@@ -6,6 +6,8 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 
+import org.lindenb.util.C;
+
 
 /**
  * ObjectNode
@@ -26,6 +28,8 @@ public class  ObjectNode extends ComplexNode
 		{
 		this.map=new java.util.HashMap<String,Node>(capacity);
 		}
+	
+	
 	
 	@Override
 	public Type getType()
@@ -53,8 +57,9 @@ public class  ObjectNode extends ComplexNode
 			{
 			if(!first) out.write(',');
 			first=false;
-			out.write(s);
-			out.write(':');
+			out.write('\'');
+			out.write(C.escape(s));
+			out.write("\':");
 			get(s).print(out);
 			}
 		out.write('}');
