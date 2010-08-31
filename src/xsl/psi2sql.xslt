@@ -8,8 +8,10 @@
 <!--
 
 psi2sql.xslt
-Pierre Lindenbaum PhD
-plindenbaum@yahoo.fr
+Author:
+	Pierre Lindenbaum PhD
+Mail:
+	plindenbaum@yahoo.fr
 
 transform a psi/xml description of protein/protein interactions to
 mysql statements to load it into a mysql database.
@@ -100,13 +102,13 @@ update experiment set local_id=NULL;
 
 
 <xsl:template match="psi:entrySet">
-<xsl:apply-templates/>
+<xsl:apply-templates select="psi:entry"/>
 </xsl:template>
 
 <xsl:template match="psi:entry">
 <xsl:apply-templates select="psi:experimentList"/>
-<xsl:apply-templates select="psi:interactorList"/>
-<xsl:apply-templates select="psi:interactionList"/>
+<xsl:apply-templates select="psi:_______________interactorList"/>
+<xsl:apply-templates select="psi:_______________interactionList"/>
 </xsl:template>
 
 
@@ -125,31 +127,11 @@ update experiment set local_id=NULL;
 
 
 <xsl:template match="psi:experimentDescription">
-<xsl:if test="count(psi:bibref/psi:xref[1]/psi:primaryRef[@db='pubmed'])!=1">
-This stylesheet expect one pubmed ref for experiment id <xsl:value-of select="@id"/>
+
+insert ignore into experiment(id) values(<xsl:apply-templates select="@id"/>);
+select @expid=_id from experiment where id=<xsl:apply-templates select="@id"/>;
+<xsl:if test="">
 </xsl:if>
-
-insert ignore into experiment
-(
-shortLabel,fullName,pmid,ncbiTaxId,interactionMethod,interactorMethod
-)
-values
-(
-<xsl:apply-templates select="psi:names[1]/psi:shortLabel"/>
-<xsl:text>,</xsl:text>
-<xsl:value-of select="translate(psi:names[1]/psi:fullName,&apos;&quot;&apos;,&quot;&apos;&quot;)"/>
-<xsl:text>,</xsl:text>
-<xsl:apply-templates select="psi:bibref/psi:xref[1]/psi:primaryRef[@db='pubmed']/@id"/>
-<xsl:text>,</xsl:text>
-<xsl:apply-templates select="psi:hostOrganismList/psi:hostOrganism/@ncbiTaxId"/>
-<xsl:text>,</xsl:text>
-<xsl:apply-templates select="psi:interactionDetectionMethod/psi:names[1]/psi:shortLabel"/>
-<xsl:text>,</xsl:text>
-<xsl:apply-templates select="psi:participantIdentificationMethod/psi:names[1]/psi:shortLabel"/>
-);
-update experiment set local_id=<xsl:apply-templates select="@id"/> where pmid="<xsl:apply-templates select="psi:bibref/psi:xref[1]/psi:primaryRef[@db='pubmed']/@id"/>";
-
-
 </xsl:template>
 
 
@@ -200,6 +182,14 @@ select
 <xsl:apply-templates/>
 </xsl:template>
 
+<xsl:template match="@*">
+<xsl:text>&quot;</xsl:text>
+<xsl:call-template name="escape">
+	<xsl:with-param name="s" select="."/>
+</xsl:call-template>
+<xsl:text>&quot;</xsl:text>
+</xsl:template>
+
 <xsl:template match="text()">
 <xsl:text>&quot;</xsl:text>
 <xsl:call-template name="escape">
@@ -213,7 +203,7 @@ select
         <xsl:choose>
         <xsl:when test="contains($s,'&quot;')">
                 <xsl:value-of select="substring-before($s,'&quot;')"/>
-                <xsl:text>\"</xsl:text>
+                <xsl:text>\&quot;</xsl:text>
                 <xsl:call-template name="escape">
                         <xsl:with-param name="s" select="substring-after($s,'&quot;')"/>
                 </xsl:call-template>

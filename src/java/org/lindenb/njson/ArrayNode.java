@@ -1,12 +1,12 @@
 package org.lindenb.njson;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.ListIterator;
 import java.util.RandomAccess;
 
-import org.xml.sax.ContentHandler;
-import org.xml.sax.ext.Attributes2Impl;
 
 public class  ArrayNode
 	extends ComplexNode
@@ -39,7 +39,13 @@ public class  ArrayNode
 		{
 		return this.array.get(index);
 		}
-	
+	public NilNode getNil(int index) { return get(index).asNil();}
+	public ArrayNode getArray(int index) { return get(index).asArray(); }
+	public ObjectNode getObject(int index) { return get(index).asObject();}
+	public StringNode getString(int index) { return get(index).asString();}
+	public BoolNode getBool(int index) { return get(index).asBool();}
+	public IntNode getInt(int index) { return get(index).asInt();}
+	public DecimalNode getDecimal(int index) { return get(index).asDecimal();}
 	
 	
 	@Override
@@ -94,6 +100,36 @@ public class  ArrayNode
 		return this.array.add(e);
 		}
 
+	public boolean add(String s)
+		{
+		return this.add(s==null?new NilNode():new StringNode(s));
+		}
+	
+	public boolean add(boolean value)
+		{
+		return this.add(new BoolNode(value));
+		}
+	
+	public boolean add(long value)
+		{
+		return this.add(new IntNode(value));
+		}
+	
+	public boolean add(double value)
+		{
+		return this.add(new DecimalNode(value));
+		}
+	
+	public boolean add(BigInteger value)
+		{
+		return this.add(new IntNode(value));
+		}
+	
+	public boolean add(BigDecimal value)
+		{
+		return this.add(new DecimalNode(value));
+		}
+	
 	@Override
 	public boolean addAll(Collection<? extends Node> c)
 		{
