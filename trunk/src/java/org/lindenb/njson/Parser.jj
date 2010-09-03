@@ -236,11 +236,11 @@ private String characters():
 	(
 	t=<SIMPLE_QUOTE_LITERAL>
 		{
-		return  unescape(t.image);
+		return  unescape(t.image.substring(1,t.image.length()-1));
 		}
 	| t=<DOUBLE_QUOTE_LITERAL>
 		{
-		return unescape(t.image);
+		return unescape(t.image.substring(1,t.image.length()-1));
 		}
 	)
 	}
