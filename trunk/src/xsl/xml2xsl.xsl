@@ -19,6 +19,7 @@ Motivation:
 
 <xsl:template match="/">
 <xsl:element name="xs:stylesheet">
+
 <xsl:attribute name="version">1.0</xsl:attribute>
 <xsl:element name="xs:template">
 	<xsl:attribute name="match">
