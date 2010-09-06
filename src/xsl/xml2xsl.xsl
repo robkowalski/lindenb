@@ -11,7 +11,8 @@ Author:
 	plindenbaum@yahoo.fr
 
 Motivation:
-	This stylesheet transform a xml to a draft XSL stylesheet
+	This stylesheet transforms a xml to a draft XSL stylesheet transforming this XML document.
+	Many element will be duplicated but the result can be a good start.
 
 -->
 <xsl:output method="xml" indent="yes" />
