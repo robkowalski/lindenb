@@ -15,6 +15,12 @@ Motivation:
 	Many element will be duplicated but the result can be a good start.
 
 -->
+<!-- thank to @greystate http://twitter.com/greystate/status/23179814534 but doesn't work with xsltproc :-( (known bug)
+
+<xsl:namespace-alias stylesheet-prefix="xs" result-prefix="xsl" />
+
+ -->
+
 <xsl:output method="xml" indent="yes" />
 
 <xsl:template match="/">
