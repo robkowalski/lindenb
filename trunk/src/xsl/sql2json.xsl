@@ -17,30 +17,56 @@ Author:
 Params:
 	* "var" var @name={content}; will be added OPTIONAL
 	* "ucsc"=true extension for ucsc tables OPTIONAL
+	* "mongo"=name for mondodb collection OPTIONAL
 -->
 <xsl:output method="text" version="1.0" encoding="UTF-8"/>
 
 <xsl:param name="var"></xsl:param>
 <xsl:param name="ucsc">false</xsl:param>
+<xsl:param name="mongo"></xsl:param>
 <!-- ================ DOCUMENT ROOT ========================================================== -->
 <xsl:template match="/">
-<xsl:if test="string-length($var)&gt;0"><xsl:value-of select="concat('var ',$var,'=')"/></xsl:if>
+<xsl:if test="string-length($var)&gt;0 and string-length($mongo)=0"><xsl:value-of select="concat('var ',$var,'=')"/></xsl:if>
+
 <xsl:apply-templates/>
-<xsl:if test="string-length($var)&gt;0"><xsl:text>;</xsl:text></xsl:if>
+<xsl:if test="string-length($var)&gt;0 and string-length($mongo)=0"><xsl:text>;</xsl:text></xsl:if>
+<xsl:text>
+</xsl:text>
 </xsl:template>
 <!-- ================ RESULT SET ========================================================== -->
 <xsl:template match="resultset">
-<xsl:text>[</xsl:text>
+
+<xsl:if test="string-length($mongo)=0">
+	<xsl:text>[</xsl:text>
+</xsl:if>
+
+
 <xsl:for-each select="row">
-<xsl:if test="position()!=1"><xsl:text>,</xsl:text></xsl:if>
+<xsl:if test="string-length($mongo)&gt;0">
+	<xsl:text>record=</xsl:text>
+</xsl:if>
+
+<xsl:if test="position()!=1 and string-length($mongo)=0"><xsl:text>,</xsl:text></xsl:if>
 <xsl:text>{</xsl:text>
 <xsl:for-each select="field">
 <xsl:if test="position()!=1"><xsl:text>,</xsl:text></xsl:if>
 <xsl:apply-templates select="."/>
 </xsl:for-each>
 <xsl:text>}</xsl:text>
+
+<xsl:if test="string-length($mongo)&gt;0">
+	<xsl:text>; db.</xsl:text>
+	<xsl:value-of select="$mongo"/>
+	<xsl:text>.save(record);
+</xsl:text>
+</xsl:if>
 </xsl:for-each>
-<xsl:text>]</xsl:text>
+
+<xsl:if test="string-length($mongo)=0">
+	<xsl:text>]</xsl:text>
+</xsl:if>
+
+
 </xsl:template>
 
 
@@ -48,9 +74,18 @@ Params:
 
 <xsl:template match="field">
 <xsl:variable name="s" select="."/>
-<xsl:call-template name="quote">
-	<xsl:with-param name="s" select="@name"/>
-</xsl:call-template>
+
+<xsl:choose>
+	<xsl:when test="@name='id' and string-length($mongo)&gt;0">
+		<xsl:text>_id</xsl:text>
+	</xsl:when>
+	<xsl:otherwise>
+		<xsl:call-template name="quote">
+			<xsl:with-param name="s" select="@name"/>
+		</xsl:call-template>
+	</xsl:otherwise>
+</xsl:choose>
+
 
  <xsl:text>:</xsl:text>
 
