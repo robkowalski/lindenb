@@ -3,6 +3,7 @@ package org.lindenb.io;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -55,6 +56,17 @@ public class IOUtils
 		return s;
 		}
 	
+	public static void copyToDir(File file, File dir) throws IOException
+		{
+		File dest=new File(dir,file.getName());
+		if(file.equals(dest)) throw new IOException("copyToDir src==dest file");
+		FileOutputStream fout=new FileOutputStream(dest);
+		InputStream in=new FileInputStream(file);
+		IOUtils.copyTo(in, fout);
+		fout.flush();
+		fout.close();
+		in.close();
+		}
 	
 	public static void copyTo(InputStream in, OutputStream out) throws IOException
 		{

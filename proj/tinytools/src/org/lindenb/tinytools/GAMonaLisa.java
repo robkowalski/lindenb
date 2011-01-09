@@ -803,7 +803,6 @@ public class GAMonaLisa
 		in.close();
 		
 		if(this.imageSrc==null) throw new IOException("Cannot read "+uri);
-		
 		}
 	
 	public static void main(String[] args)
