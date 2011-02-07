@@ -60,13 +60,20 @@ public class IOUtils
 		{
 		File dest=new File(dir,file.getName());
 		if(file.equals(dest)) throw new IOException("copyToDir src==dest file");
+		copyTo(file,dest);
+		}
+	
+	public static void copyTo(File src, File dest) throws IOException
+		{
+		if(src.equals(dest)) throw new IOException("copyTo src==dest file");
 		FileOutputStream fout=new FileOutputStream(dest);
-		InputStream in=new FileInputStream(file);
+		InputStream in=new FileInputStream(src);
 		IOUtils.copyTo(in, fout);
 		fout.flush();
 		fout.close();
 		in.close();
 		}
+	
 	
 	public static void copyTo(InputStream in, OutputStream out) throws IOException
 		{
